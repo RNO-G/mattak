@@ -37,20 +37,7 @@ endif()
 
 option (LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF) 
 
-set (LIBNUPHASE_PATH  "../librno-g" CACHE STRING "Additional path  to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" ) 
-
-if (LIBNUPHASE_SUPPORT) 
-  add_definitions( -DLIBRNO_G_SUPPORT )
-  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH} ${UTIL_LIB_DIR})
-  find_package(ZLIB REQUIRED)
-  if (LIBNUPHASE_PATH STREQUAL "") 
-    message ("Assuming libnuphase is in NUPHASE_INSTALL_DIR") 
-    include_directories($ENV{NUPHASE_INSTALL_DIR}/include) 
-  else()
-    include_directories(${LIBNUPHASE_PATH}) 
-  endif()
-  target_link_libraries(${libname} ${NUPHASE_LIB} ${ZLIB_LIBRARIES}) 
-endif(LIBNUPHASE_SUPPORT) 
+set (LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path  to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" ) 
 
 
 set(H_FILES 
@@ -87,5 +74,15 @@ install (TARGETS ${libname}
 	ARCHIVE DESTINATION ${UTIL_LIB_DIR}
 	LIBRARY DESTINATION ${UTIL_LIB_DIR}
 	RUNTIME DESTINATION ${UTIL_BIN_DIR})
+
+
+if (LIBRNO_G_SUPPORT) 
+  add_definitions( -DLIBRNO_G_SUPPORT )
+  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH} ${UTIL_LIB_DIR})
+  find_package(ZLIB REQUIRED)
+  include_directories(${UTIL_INC_DIR}) 
+  include_directories(${LIBNUPHASE_PATH}) 
+  target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES}) 
+endif() 
 
 
