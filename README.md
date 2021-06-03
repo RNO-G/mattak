@@ -38,7 +38,7 @@ Run-associated. This is all metadata associated with a single event, not includi
 
 ## Waveforms
 
-These are all waveforms associated with each event. There is a one
+These are all waveforms associated with each event.
 
 ## DAQStatus
 
