@@ -33,11 +33,10 @@ namespace mattak
       uint32_t event_number = 0; 
       uint16_t station_number = 0; 
       uint16_t buffer_length = 0; 
-      uint8_t start_window = 0;
 
       //These are pedestal subtracted, so signed
       int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {0}; 
-    ClassDef(Waveforms,1); 
+    ClassDef(Waveforms,2); 
 
   }; 
 

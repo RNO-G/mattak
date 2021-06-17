@@ -151,8 +151,6 @@ void makeFakeData(int station = 12345, int run = 1, int nsecs = 3600, double eve
       }
     }
 
-    wf->start_window = gRandom->Integer(16) + (wf->event_number & 1 ? 0 : 16) ; 
-
     hd_tree->Fill(); 
     wf_tree->Fill(); 
     double dt = gRandom->Exp(event_rate); 
