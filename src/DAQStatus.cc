@@ -5,7 +5,7 @@
 ClassImp(mattak::DAQStatus); 
 
 
-mattak::DAQStatus::DAQStatus(const rno_g_status_t * status) 
+mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status) 
   : DAQStatus() 
 {
 

@@ -8,7 +8,7 @@
 #ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h" 
 #else
-typedef int rno_g_status_t; 
+typedef int rno_g_daqstatus_t; 
 #endif
 
 #include "mattak/Constants.h"
@@ -19,7 +19,7 @@ namespace mattak
   {
     public: 
       DAQStatus() { ; } 
-      DAQStatus(const rno_g_status_t * stat); 
+      DAQStatus(const rno_g_daqstatus_t * stat); 
 
       double readout_time = 0; 
       float deadtime =0; 

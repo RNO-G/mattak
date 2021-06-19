@@ -4,10 +4,11 @@
 #include "TObject.h"
 #include <stdint.h> 
 
+//not defined yet
+typedef int rno_g_sensors_t; 
 #ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h" 
 #else
-typedef int rno_g_sensors_t; 
 #endif
 
 
