@@ -9,6 +9,7 @@
 
 #pragma link C++ class mattak::Header+;
 #pragma link C++ class mattak::Waveforms+;
+#pragma link C++ class mattak::Pedestals+;
 #pragma link C++ class mattak::TriggerInfo+;
 #pragma link C++ class mattak::RadiantTriggerInfo+;
 #pragma link C++ class mattak::LTTriggerInfo+;

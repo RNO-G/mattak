@@ -49,6 +49,7 @@ set(H_FILES
   mattak/GNSS.h
   mattak/Sensors.h
   mattak/Waveforms.h
+  mattak/Pedestals.h
   ) 
 
 
@@ -60,6 +61,7 @@ set(CC_FILES
   src/GNSS.cc
   src/Sensors.cc
   src/Waveforms.cc 
+  src/Pedestals.cc 
   )
 
 
