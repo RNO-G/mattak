@@ -82,7 +82,9 @@ if (LIBRNO_G_SUPPORT)
   find_package(ZLIB REQUIRED)
   include_directories(${UTIL_INC_DIR}) 
   include_directories(${LIBNUPHASE_PATH}) 
-  target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES}) 
+  target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES}) 
+else()
+  target_link_libraries(${libname} ${ROOT_LIBRARIES}) 
 endif() 
 
 
