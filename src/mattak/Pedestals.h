@@ -31,11 +31,12 @@ namespace mattak
       uint32_t nevents; 
       uint32_t mask; 
       uint8_t flags; 
+      uint8_t station; 
       float vbias[2];  //V, -1 means unknown
       uint16_t pedestals[mattak::k::num_radiant_channels][mattak::k::num_lab4_samples] = {0}; 
       //Makes a pedestal histogram of the channel, user must delete 
       TH1 * pedestalHist(int chan, const char * name = NULL) const; 
-    ClassDef(Pedestals,1); 
+    ClassDef(Pedestals,2); 
     private: 
       void doInit(const rno_g_pedestal_t *peds); 
 
