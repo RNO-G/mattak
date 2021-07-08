@@ -50,6 +50,7 @@ set(H_FILES
   mattak/Sensors.h
   mattak/Waveforms.h
   mattak/Pedestals.h
+  mattak/Converter.h
   ) 
 
 
@@ -62,6 +63,7 @@ set(CC_FILES
   src/Sensors.cc
   src/Waveforms.cc 
   src/Pedestals.cc 
+  src/Converter.cc 
   )
 
 
