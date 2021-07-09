@@ -91,4 +91,16 @@ else()
   target_link_libraries(${libname} ${ROOT_LIBRARIES}) 
 endif() 
 
+set (BINSRCDIR prog) 
+macro(add_program binary_name ) 
+  add_executable(${binary_name} ${BINSRCDIR}/${binary_name}.cc) 
+  target_link_libraries(${binary_name}  ${ROOT_LIBRARIES} ${libname})
+  if (LIBNUPHASE_SUPPORT)
+    target_link_libraries(${binary_name}  ${ZLIB_LIBRARIES} rno-g)
+  endif()
+  INSTALL (PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${binary_name} DESTINATION ${UTIL_BIN_DIR})
+endmacro() 
 
+
+
+add_program(rno-g-convert) 
