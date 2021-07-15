@@ -10,6 +10,7 @@
 #include "mattak/Converter.h"
 #include "mattak/Header.h"
 #include "mattak/DAQStatus.h"
+#include "mattak/Pedestals.h"
 #include "rno-g.h" 
 
 template <typename T> const char * getName() { return ""; } 
@@ -103,6 +104,51 @@ int mattak::convert::convertWaveformFile(const char * infile, const char * outfi
 int mattak::convert::convertWaveformDir(const char * dir, const char * outfile, const char * treename,int station) 
 {
   return convert_dir<rno_g_waveform_t, rno_g_waveform_read, mattak::Waveforms>(dir, outfile, treename,station); 
+}
+
+int mattak::convert::convertHeaderFiles(int nfiles, const char ** infiles, const char * outfile, const char * treename,int station) 
+{
+  return convert_impl<rno_g_header_t, rno_g_header_read, mattak::Header>(nfiles, infiles, outfile, treename,station); 
+}
+
+int mattak::convert::convertHeaderFile(const char * infile, const char * outfile, const char * treename,int station)
+{
+  return convert_impl<rno_g_header_t, rno_g_header_read, mattak::Header>(1, &infile, outfile, treename,station); 
+}
+
+int mattak::convert::convertHeaderDir(const char * dir, const char * outfile, const char * treename,int station) 
+{
+  return convert_dir<rno_g_header_t, rno_g_header_read, mattak::Header>(dir, outfile, treename,station); 
+}
+
+int mattak::convert::convertDAQStatusFiles(int nfiles, const char ** infiles, const char * outfile, const char * treename,int station) 
+{
+  return convert_impl<rno_g_daqstatus_t, rno_g_daqstatus_read, mattak::DAQStatus>(nfiles, infiles, outfile, treename,station); 
+}
+
+int mattak::convert::convertDAQStatusFile(const char * infile, const char * outfile, const char * treename,int station)
+{
+  return convert_impl<rno_g_daqstatus_t, rno_g_daqstatus_read, mattak::DAQStatus>(1, &infile, outfile, treename,station); 
+}
+
+int mattak::convert::convertDAQStatusDir(const char * dir, const char * outfile, const char * treename,int station) 
+{
+  return convert_dir<rno_g_daqstatus_t, rno_g_daqstatus_read, mattak::DAQStatus>(dir, outfile, treename,station); 
+}
+
+int mattak::convert::convertPedestalFiles(int nfiles, const char ** infiles, const char * outfile, const char * treename,int station) 
+{
+  return convert_impl<rno_g_pedestal_t, rno_g_pedestal_read, mattak::Pedestals>(nfiles, infiles, outfile, treename,station); 
+}
+
+int mattak::convert::convertPedestalFile(const char * infile, const char * outfile, const char * treename,int station)
+{
+  return convert_impl<rno_g_pedestal_t, rno_g_pedestal_read, mattak::Pedestals>(1, &infile, outfile, treename,station); 
+}
+
+int mattak::convert::convertPedestalDir(const char * dir, const char * outfile, const char * treename,int station) 
+{
+  return convert_dir<rno_g_pedestal_t, rno_g_pedestal_read, mattak::Pedestals>(dir, outfile, treename,station); 
 }
 
 

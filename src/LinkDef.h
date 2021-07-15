@@ -18,6 +18,7 @@
 #pragma link C++ class mattak::GNSS+;
 #pragma link C++ class mattak::GNSS::Sat+;
 #pragma link C++ class mattak::DAQStatus+;
+#pragma link C++ class mattak::LTScalerGroup+;
 
 
 

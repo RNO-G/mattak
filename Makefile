@@ -1,8 +1,8 @@
 
 .PHONY: all configure clean cleaner install cmake-build cmake-clean cmake-install
 
-CMAKE?=cmake3
-CCMAKE?=ccmake3 
+CMAKE?=cmake
+CCMAKE?=ccmake 
 
 
 all: cmake-build 

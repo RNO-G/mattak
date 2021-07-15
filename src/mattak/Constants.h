@@ -12,8 +12,7 @@ namespace mattak
     constexpr uint8_t num_radiant_channels = 24; 
     constexpr uint16_t num_radiant_samples = 2048; 
     constexpr uint16_t num_lab4_samples = 4096; 
-    constexpr uint16_t num_radiant_thresholds = 24; ///  completely made up 
-    constexpr uint16_t num_lt_thresholds = 8; ///  completely made up 
+    constexpr uint16_t num_lt_channels = 4; 
   }
 }
 

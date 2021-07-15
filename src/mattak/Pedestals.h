@@ -27,16 +27,16 @@ namespace mattak
       Pedestals() { ; }
       Pedestals(const rno_g_pedestal_t * peds); 
       Pedestals(const char * pedfile); 
-      uint32_t when; 
-      uint32_t nevents; 
-      uint32_t mask; 
-      uint8_t flags; 
-      uint8_t station; 
+      uint32_t when=0; 
+      uint32_t nevents=0; 
+      uint32_t mask=0; 
+      uint8_t flags=0; 
+      uint8_t station_number=0; 
       float vbias[2];  //V, -1 means unknown
       uint16_t pedestals[mattak::k::num_radiant_channels][mattak::k::num_lab4_samples] = {0}; 
       //Makes a pedestal histogram of the channel, user must delete 
       TH1 * pedestalHist(int chan, const char * name = NULL) const; 
-    ClassDef(Pedestals,2); 
+    ClassDef(Pedestals,3); 
     private: 
       void doInit(const rno_g_pedestal_t *peds); 
 

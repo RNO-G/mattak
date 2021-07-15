@@ -54,6 +54,40 @@ int main (int nargs, char ** args)
       N = mattak::convert::convertWaveformFiles(nargs-3, (const char**) (args+3), outfile); 
     }
   }
+  else if (!strcmp(type,"hd") || !strcmp(type,"header"))
+  {
+    if (first_input_dir) 
+    {
+      N = mattak::convert::convertHeaderDir(firstinput, outfile,0,0); 
+    }
+    else 
+    {
+      N = mattak::convert::convertHeaderFiles(nargs-3, (const char**) (args+3), outfile); 
+    }
+  }
+  else if (!strcmp(type,"ds") || !strcmp(type,"daqstatus"))
+  {
+    if (first_input_dir) 
+    {
+      N = mattak::convert::convertDAQStatusDir(firstinput, outfile,0,0); 
+    }
+    else 
+    {
+      N = mattak::convert::convertDAQStatusFiles(nargs-3, (const char**) (args+3), outfile); 
+    }
+  }
+   else if (!strcmp(type,"ped") || !strcmp(type,"pedestal"))
+  {
+    if (first_input_dir) 
+    {
+      N = mattak::convert::convertPedestalDir(firstinput, outfile,0,0); 
+    }
+    else 
+    {
+      N = mattak::convert::convertPedestalFiles(nargs-3, (const char**) (args+3), outfile); 
+    }
+  }
+ 
   else
   {
     std::cerr << "Unkown type: " << type << std::endl; 

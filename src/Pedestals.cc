@@ -24,7 +24,7 @@ void mattak::Pedestals::doInit(const rno_g_pedestal_t * peds)
   this->when = peds->when; 
   this->nevents = peds->nevents; 
   this->mask = peds->mask; 
-  this->station = peds->station; 
+  this->station_number = peds->station; 
   this->flags = peds->flags; 
   this->vbias[0] = peds->vbias[0] < 0 ? -1 : 2.5*peds->vbias[0]/4096; 
   this->vbias[1] = peds->vbias[1] < 0 ? -1 : 2.5*peds->vbias[1]/4096; 
