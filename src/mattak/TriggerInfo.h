@@ -3,6 +3,7 @@
 
 #include <stdint.h> 
 #include "TObject.h" 
+#include "mattak/Constants.h" 
 
 namespace mattak 
 {
@@ -10,13 +11,19 @@ namespace mattak
   struct RadiantTriggerInfo 
   {
     uint32_t channel_mask = 0; 
-    ClassDef(RadiantTriggerInfo,1); 
+    uint8_t start_windows[mattak::k::num_radiant_channels][2] = {0}; 
+    uint32_t RF_masks[2] = {0}; 
+    uint8_t RF_ncoinc[2] = {0}; 
+    uint8_t RF_window[2] = {0}; 
+
+    ClassDef(RadiantTriggerInfo,2); 
   }; 
 
   struct LTTriggerInfo
   {
-    uint32_t beam_mask = 0; 
-    uint32_t sum = 0; 
+    uint8_t window = 0; 
+    uint8_t num_coinc = 0; 
+    bool vppmode = 0; 
     ClassDef(LTTriggerInfo,1); 
   }; 
 

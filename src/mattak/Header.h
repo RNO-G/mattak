@@ -33,6 +33,7 @@ namespace mattak
       uint32_t sysclk= 0;
       uint32_t sysclk_last_pps= 0;
       uint32_t sysclk_last_last_pps= 0;
+      double trigger_time; 
 
       TriggerInfo trigger_info; 
 
