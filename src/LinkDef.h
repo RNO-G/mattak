@@ -6,6 +6,7 @@
 
 #pragma link C++ namespace mattak+; 
 #pragma link C++ namespace mattak::k+; 
+#pragma link C++ namespace mattak::convert+; 
 
 #pragma link C++ class mattak::Header+;
 #pragma link C++ class mattak::Waveforms+;
