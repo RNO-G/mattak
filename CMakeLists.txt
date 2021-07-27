@@ -7,13 +7,10 @@ list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
 find_package(ROOT REQUIRED)
 
-include(${ROOT_USE_FILE} )
 
-include_directories( ${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
 
 set(libname mattak)
 set(DICTNAME G__${libname})
-
 
 
 if(DEFINED ENV{RNO_G_INSTALL_DIR})
@@ -35,6 +32,9 @@ else()
 endif()
 
 
+include(${ROOT_USE_FILE} )
+include_directories( ${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
+
 option (LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF) 
 
 set (LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path  to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" ) 
@@ -51,7 +51,8 @@ set(H_FILES
   mattak/Waveforms.h
   mattak/Pedestals.h
   mattak/Converter.h
-  ) 
+ ) 
+
 
 
 set(CC_FILES 
@@ -66,18 +67,23 @@ set(CC_FILES
   src/Converter.cc 
   )
 
+set (INSTALL_SCRIPTS
+  scripts/rno-g-convert-run
+)
 
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
 
 add_library(${libname} SHARED ${CC_FILES} ${DICTNAME}.cxx)
 
-install (FILES ${H_FILES} DESTINATION ${UTIL_INC_DIR})
+install (DIRECTORY src/mattak DESTINATION ${UTIL_INC_DIR})
+install (PROGRAMS ${INSTALL_SCRIPTS} DESTINATION ${UTIL_BIN_DIR})
 
 install (TARGETS ${libname}
 	ARCHIVE DESTINATION ${UTIL_LIB_DIR}
 	LIBRARY DESTINATION ${UTIL_LIB_DIR}
-	RUNTIME DESTINATION ${UTIL_BIN_DIR})
+	RUNTIME DESTINATION ${UTIL_BIN_DIR}
+  )
 
 
 if (LIBRNO_G_SUPPORT) 
@@ -98,9 +104,11 @@ macro(add_program binary_name )
   if (LIBNUPHASE_SUPPORT)
     target_link_libraries(${binary_name}  ${ZLIB_LIBRARIES} rno-g)
   endif()
-  INSTALL (PROGRAMS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${binary_name} DESTINATION ${UTIL_BIN_DIR})
+  INSTALL (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${binary_name} DESTINATION ${UTIL_BIN_DIR})
 endmacro() 
 
 
 
+
 add_program(rno-g-convert) 
+add_program(rno-g-combine) 
