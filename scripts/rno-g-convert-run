@@ -1,0 +1,57 @@
+#! /bin/bash 
+
+INDIR=${1-.} 
+OUTDIR=${2-$INDIR/root}
+FORCE=${3-0}
+
+if [ "${INDIR}" = "${OUTDIR}" ]; 
+then 
+  echo "Cannot put ROOT files into input directory" 
+  return -1 
+fi
+
+echo "input dir is ${INDIR}"
+echo "output dir is ${OUTDIR}"
+
+NEED_TO_UPDATE=1
+
+if [ ${FORCE} -eq 0 ]
+then 
+  if  [ -f ${OUTDIR}/rootified-list.txt ]  ;
+  then
+    diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort ) 
+    NEED_TO_UPDATE=$?
+    echo "output dir found, need to update = $NEED_TO_UPDATE" 
+  fi; 
+fi
+
+
+
+
+
+mkdir -p ${OUTDIR} 
+
+if [ ${NEED_TO_UPDATE} -eq 1 ] ; then 
+
+
+  echo "Converting waveforms"  
+  && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* 
+  && echo "Converting headers"  
+  && rno-g-convert hd ${OUTDIR}/headers.root ${INDIR}/header/* 
+  && echo "Converting daqstatus" 
+  && rno-g-convert ds ${OUTDIR}/daqstatus.root ${INDIR}/daqstatus/* 
+  && echo "Converting pedestals" 
+  && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* 
+
+  && echo "Copying aux and cfg" 
+  && cp -p -r ${INDIR}/aux  ${OUTDIR}/
+  && cp -p -r ${INDIR}/cfg  ${OUTDIR}/
+  && find ${INDIR} | sort  > ${OUTDIR}/rootified-list.txt
+
+  exit 1
+
+fi 
+
+
+exit 0
+
