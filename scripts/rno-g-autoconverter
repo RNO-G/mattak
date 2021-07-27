@@ -1,6 +1,7 @@
 #! /bin/bash 
 
 INGRESS=/data/ingress/
+ARCHIVED=/data/archived/
 ROOTIFIED=/data/rootified/
 OUTBOX=/data/outbox 
 STAGING=/data/staging
@@ -44,6 +45,12 @@ for st in ${STATIONS} ; do
     fi
   done
 done
+
+# synchronize ingress with archived
+rsync -a $INGRESS $ARCHIVED
+
+
+#eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations 
 
 
 
