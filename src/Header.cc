@@ -1,5 +1,6 @@
 #include "mattak/Header.h" 
 #include <iostream> 
+#include <cmath>
 
 
 ClassImp(mattak::Header); 
@@ -24,7 +25,12 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->sysclk_last_last_pps = head->sysclk_last_last_pps; 
 
   //subsecond part
-  this->trigger_time = ((double) this->sysclk - this->sysclk_last_pps) / (this->sysclk_last_pps - this->sysclk_last_last_pps) ; 
+  double sysclk_diff = this->sysclk - this->sysclk_last_pps; 
+  const double two_to_the_32 = 4294967296; 
+  if (sysclk_diff < 0) sysclk_diff += two_to_the_32;  
+  double last_sysclk_diff = this->sysclk_last_pps - this->sysclk_last_last_pps; 
+  if (last_sysclk_diff < 0)  last_sysclk_diff += two_to_the_32; 
+  this->trigger_time = sysclk_diff / last_sysclk_diff; 
 
   //readout time is always afer trigger time, so figure out the second based on what's closet
   if (1e-9 * head->readout_time_nsecs < this->trigger_time) this->trigger_time += head->readout_time_secs-1; 
