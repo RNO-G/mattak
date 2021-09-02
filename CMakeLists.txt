@@ -88,9 +88,10 @@ install (TARGETS ${libname}
 
 if (LIBRNO_G_SUPPORT) 
   add_definitions( -DLIBRNO_G_SUPPORT )
-  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH} ${UTIL_LIB_DIR})
+  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH}/build ${UTIL_LIB_DIR})
   find_package(ZLIB REQUIRED)
   include_directories(${UTIL_INC_DIR}) 
+  include_directories(${LIBRNO_G_PATH}/src) 
   include_directories(${LIBNUPHASE_PATH}) 
   target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES}) 
 else()
