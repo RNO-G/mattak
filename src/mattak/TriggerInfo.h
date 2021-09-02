@@ -35,11 +35,11 @@ namespace mattak
     bool ext_trigger = false;  // True if this is an external trigger
     bool radiant_trigger = false;  // True if this is a trigger from the RADIANT tunnel diodes
     bool lt_trigger = false;  // True if this is a trigger from the low-threshold board
-    bool surface_trigger = false;  // True if this is a surface trigger
+    int8_t which_radiant_trigger = -1; //which of the radiant triggers triggered. This is not reliably known so may be -1 even if radiant_trigger is true; 
 
     RadiantTriggerInfo radiant_info; 
     LTTriggerInfo lt_info; 
-    ClassDef(TriggerInfo,1); 
+    ClassDef(TriggerInfo,2); 
   }; 
 
 
