@@ -33,7 +33,7 @@ namespace mattak
       uint8_t flags=0; 
       uint8_t station_number=0; 
       float vbias[2];  //V, -1 means unknown
-      uint16_t pedestals[mattak::k::num_radiant_channels][mattak::k::num_lab4_samples] = {0}; 
+      uint16_t pedestals[mattak::k::num_radiant_channels][mattak::k::num_lab4_samples] = {}; 
       //Makes a pedestal histogram of the channel, user must delete 
       TH1 * pedestalHist(int chan, const char * name = NULL) const; 
     ClassDef(Pedestals,3); 

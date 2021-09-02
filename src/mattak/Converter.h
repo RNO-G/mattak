@@ -5,6 +5,7 @@ namespace mattak
 {
   namespace convert
   {
+#ifdef LIBRNO_G_SUPPORT
 
     int convertWaveformFile(const char * infile, const char *outfile, const char * treename =0, int station_override=-1); 
     int convertWaveformFiles(int nfiles, const char ** infiles, const char * outfile, const char * treename =0, int station_override=-1); 
@@ -22,6 +23,7 @@ namespace mattak
     int convertPedestalFiles(int nfiles, const char ** infiles, const char * outfile, const char * treename =0, int station_override=-1); 
     int convertPedestalDir(const char * dir, const char * outfile, const char * treename =0, int station_override=-1); 
 
+#endif
 
 
   }
