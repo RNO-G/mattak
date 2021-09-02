@@ -21,6 +21,9 @@ mattak::Pedestals::Pedestals(const rno_g_pedestal_t * peds )
 
 void mattak::Pedestals::doInit(const rno_g_pedestal_t * peds)
 {
+#ifndef LIBRNO_G_SUPPORT
+
+#else
   this->when = peds->when; 
   this->nevents = peds->nevents; 
   this->mask = peds->mask; 
@@ -32,6 +35,7 @@ void mattak::Pedestals::doInit(const rno_g_pedestal_t * peds)
   {
     memcpy(this->pedestals[i], peds->pedestals[i], sizeof(int16_t) * mattak::k::num_lab4_samples); 
   }
+#endif
 }
 
 mattak::Pedestals::Pedestals(const char * pedfile) 

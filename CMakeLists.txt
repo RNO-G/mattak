@@ -110,5 +110,7 @@ endmacro()
 
 
 
+if (LIBRNO_G_SUPPORT) 
 add_program(rno-g-convert) 
+endif( )
 add_program(rno-g-combine) 

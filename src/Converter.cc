@@ -11,6 +11,9 @@
 #include "mattak/Header.h"
 #include "mattak/DAQStatus.h"
 #include "mattak/Pedestals.h"
+
+
+#ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h" 
 
 template <typename T> const char * getName() { return ""; } 
@@ -151,4 +154,5 @@ int mattak::convert::convertPedestalDir(const char * dir, const char * outfile, 
   return convert_dir<rno_g_pedestal_t, rno_g_pedestal_read, mattak::Pedestals>(dir, outfile, treename,station); 
 }
 
+#endif
 
