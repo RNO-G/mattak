@@ -40,7 +40,7 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->trigger_info.force_trigger = !!(head->trigger_type & RNO_G_TRIGGER_SOFT); 
   this->trigger_info.pps_trigger = !!(head->trigger_type & RNO_G_TRIGGER_PPS); 
   this->trigger_info.radiant_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_RADIANTX | RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANT1)); 
-  this->trigger_info.lt_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_LT_SIMPLE | RNO_G_TRIGGER_RF_LT_PHASED | RNO_G_TRIGGER_RF_RADIANTX | RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANT1)); 
+  this->trigger_info.lt_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_LT_SIMPLE | RNO_G_TRIGGER_RF_LT_PHASED)); 
   this->trigger_info.which_radiant_trigger =  
     (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT0) ? 0 : 
     (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT1) ? 1 : 
