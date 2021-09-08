@@ -67,20 +67,18 @@ set(CC_FILES
   src/Pedestals.cc 
   src/Converter.cc 
   src/RunInfo.cc 
-  src/Version.cc 
+  Version.cc 
   )
 
 set (INSTALL_SCRIPTS
   scripts/rno-g-convert-run
 )
 
-execute_process(
- COMMAND git describe --always --dirty --match NOTATAG 
+add_custom_command(OUTPUT Version.cc 
+  COMMAND sh make_version.sh ${CMAKE_CURRENT_BINARY_DIR}
 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-OUTPUT_VARIABLE GIT_COMMIT_HASH
-OUTPUT_STRIP_TRAILING_WHITESPACE)
+)
 
-add_definitions( "-DGIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\"")
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
 
