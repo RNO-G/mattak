@@ -16,6 +16,8 @@
 #pragma link C++ class mattak::LTTriggerInfo+;
 #pragma link C++ class mattak::Sensors+;
 #pragma link C++ class mattak::GNSS+;
+#pragma link C++ class mattak::RunInfo+;
+#pragma link C++ class mattak::FirmwareVersion+;
 #pragma link C++ class mattak::GNSS::Sat+;
 #pragma link C++ class mattak::DAQStatus+;
 #pragma link C++ class mattak::LTScalerGroup+;
