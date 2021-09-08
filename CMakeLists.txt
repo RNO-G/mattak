@@ -74,7 +74,10 @@ set (INSTALL_SCRIPTS
   scripts/rno-g-convert-run
 )
 
-add_custom_command(OUTPUT Version.cc 
+add_custom_target (trick_cmake DEPENDS Version.cc.fake )
+
+
+add_custom_command(OUTPUT Version.cc.fake
   COMMAND sh make_version.sh ${CMAKE_CURRENT_BINARY_DIR}
 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
