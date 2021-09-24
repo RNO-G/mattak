@@ -1,8 +1,8 @@
 #include "mattak/RunInfo.h" 
 #include <fstream> 
-
 #include "mattak/Version.h" 
 #include <stdlib.h> 
+#include "TString.h"
 
 ClassImp(mattak::RunInfo); 
 
@@ -18,15 +18,17 @@ void trim(std::string & s)
 
 }
 
-mattak::RunInfo::RunInfo(const char * runfile)
+mattak::RunInfo::RunInfo(const char * auxdir)
 {
-  std::ifstream ifs(runfile); 
+
+  //TODO: use fmt? 
+  std::ifstream fruninfo(Form("%s/runinfo.txt",auxdir)); 
   std::string line; 
 
   mattak_version = mattak::version(); 
 
   //First fill the kvp 
-  while (std::getline(ifs,line))
+  while (std::getline(fruninfo,line))
   {
   
     std::string key; 

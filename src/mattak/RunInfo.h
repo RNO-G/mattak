@@ -28,7 +28,7 @@ namespace mattak
   {
 
     public: 
-      RunInfo(const char * runfile); 
+      RunInfo(const char * auxdir); 
       int station = 0; 
       int run = 0; 
 
