@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(mattak)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
@@ -88,9 +88,10 @@ install (TARGETS ${libname}
 
 if (LIBRNO_G_SUPPORT) 
   add_definitions( -DLIBRNO_G_SUPPORT )
-  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH} ${UTIL_LIB_DIR})
+  find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH}/build ${UTIL_LIB_DIR})
   find_package(ZLIB REQUIRED)
   include_directories(${UTIL_INC_DIR}) 
+  include_directories(${LIBRNO_G_PATH}/src) 
   include_directories(${LIBNUPHASE_PATH}) 
   target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES}) 
 else()
@@ -110,5 +111,8 @@ endmacro()
 
 
 
+if (LIBRNO_G_SUPPORT) 
 add_program(rno-g-convert) 
+add_program(rno-g-readout-elapsed) 
+endif( )
 add_program(rno-g-combine) 

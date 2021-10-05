@@ -35,7 +35,7 @@ namespace mattak
       uint16_t buffer_length = 0; 
 
       //These are pedestal subtracted, so signed
-      int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {0}; 
+      int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {}; 
     ClassDef(Waveforms,2); 
 
   }; 

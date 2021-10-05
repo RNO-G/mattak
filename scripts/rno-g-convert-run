@@ -34,18 +34,17 @@ mkdir -p ${OUTDIR}
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then 
 
 
-  echo "Converting waveforms"  
-  && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* 
-  && echo "Converting headers"  
-  && rno-g-convert hd ${OUTDIR}/headers.root ${INDIR}/header/* 
-  && echo "Converting daqstatus" 
-  && rno-g-convert ds ${OUTDIR}/daqstatus.root ${INDIR}/daqstatus/* 
-  && echo "Converting pedestals" 
-  && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* 
-
-  && echo "Copying aux and cfg" 
-  && cp -p -r ${INDIR}/aux  ${OUTDIR}/
-  && cp -p -r ${INDIR}/cfg  ${OUTDIR}/
+  echo "Converting waveforms"  \
+  && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* \
+  && echo "Converting headers"  \
+  && rno-g-convert hd ${OUTDIR}/headers.root ${INDIR}/header/* \
+  && echo "Converting daqstatus" \
+  && rno-g-convert ds ${OUTDIR}/daqstatus.root ${INDIR}/daqstatus/* \
+  && echo "Converting pedestals" \
+  && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* \
+  && echo "Copying aux and cfg"  \
+  && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
+  && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
   && find ${INDIR} | sort  > ${OUTDIR}/rootified-list.txt
 
   exit 1
