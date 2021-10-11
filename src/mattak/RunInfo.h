@@ -5,6 +5,7 @@
 #include "TDatime.h" 
 #include <string> 
 #include <unordered_map> 
+#include <mattak/Constants.h> 
 
 
 
@@ -23,6 +24,15 @@ namespace mattak
     ClassDef(FirmwareVersion,1); 
   }; 
 
+
+  struct FlowerGainCode
+  {
+    uint8_t codes[k::num_lt_channels]  = {0}; 
+    time_t when = 0; 
+    int station =0; 
+    int run = 0; 
+    ClassDef(FlowerGainCode,1); 
+  }; 
 
   class RunInfo
   {
@@ -43,12 +53,15 @@ namespace mattak
       std::string librnog_version = "";
       std::string daq_version = "";
       std::string mattak_version = ""; 
+      std::string comment =""; 
 
       float MB_free_data_partition = 0;
       float MB_free_main_partition = 0;
 
       //Returns "" if none! 
       const std::string & lookup(const std::string & key) const;
+
+      std::vector<FlowerGainCode> flower_codes; 
 
       //looks up the int, filling val. returns 0 if successful (return value is not the value). 
       int lookupInt(const std::string & key, int *val, int base =0) const; 

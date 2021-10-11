@@ -3,6 +3,7 @@
 #include "mattak/Version.h" 
 #include <stdlib.h> 
 #include "TString.h"
+#include <iostream> 
 
 ClassImp(mattak::RunInfo); 
 
@@ -20,51 +21,85 @@ void trim(std::string & s)
 
 mattak::RunInfo::RunInfo(const char * auxdir)
 {
+  mattak_version = mattak::version(); 
 
   //TODO: use fmt? 
   std::ifstream fruninfo(Form("%s/runinfo.txt",auxdir)); 
-  std::string line; 
 
-  mattak_version = mattak::version(); 
-
-  //First fill the kvp 
-  while (std::getline(fruninfo,line))
+  if (fruninfo.good())
   {
-  
-    std::string key; 
-    std::string value; 
-    //find = 
-    
-    size_t where = line.find("="); 
-  
-    //Skip lines without 
-    if (where == std::string::npos) 
+    std::string line; 
+
+
+    //First fill the kvp 
+    while (std::getline(fruninfo,line))
     {
-      continue; 
+    
+      std::string key; 
+      std::string value; 
+      //find = 
+      
+      size_t where = line.find("="); 
+    
+      //Skip lines without 
+      if (where == std::string::npos) 
+      {
+        continue; 
+      }
+
+      key = line.substr(0,where); 
+      value = line.substr(where+1); 
+
+      //trim leading and trailing whitespace
+      trim(key); 
+      kvp[key] = value; 
     }
 
-    key = line.substr(0,where); 
-    value = line.substr(where+1); 
 
-    //trim leading and trailing whitespace
-    trim(key); 
-    kvp[key] = value; 
+    //now let's fill in things we can find 
+    librnog_version = lookup("LIB-RNO-G-GIT-HASH"); 
+    daq_version = lookup("RNO-G-ICE-SOFTWARE-GIT-HASH"); 
+    lookupInt("STATION",&station);
+    lookupInt("RUN",&run);
+    lookupFloat("RADIANT-SAMPLE-RATE",&radiant_sample_rate); 
+    lookupFloat("FREE-SPACE-MB-OUTPUT-PARTITION", &MB_free_data_partition);
+    lookupFloat("FREE-SPACE-MB-RUNFILE-PARTITION", &MB_free_main_partition);
+    lookupTimeStamp("RUN-START-TIME", &run_start_time);
+    lookupTimeStamp("RUN-END-TIME", &run_end_time);
+    lookupFirmwareVersion("RADIANT-FPGA-FWVER", "RADIANT-FPGA-FWDATE", &radiant_fpga);
+    lookupFirmwareVersion("RADIANT-BM-FWVER", "RADIANT-BM-FWDATE", &radiant_bm);
+    lookupFirmwareVersion("FLOWER-FWVER", "FLOWER-FWDATE", &flower);
+  }
+  else
+  {
+    std::cerr << "Could not open runinfo.txt"; 
   }
 
+  //now look for flower gain codes 
 
-  //now let's fill in things we can find 
-  librnog_version = lookup("LIB-RNO-G-GIT-HASH"); 
-  daq_version = lookup("RNO-G-ICE-SOFTWARE-GIT-HASH"); 
-  lookupInt("STATION",&station);
-  lookupInt("RUN",&run);
-  lookupFloat("RADIANT-SAMPLE-RATE",&radiant_sample_rate); 
-  lookupFloat("FREE-SPACE-MB-OUTPUT-PARTITION", &MB_free_data_partition);
-  lookupFloat("FREE-SPACE-MB-RUNFILE-PARTITION", &MB_free_main_partition);
-  lookupTimeStamp("RUN-START-TIME", &run_start_time);
-  lookupTimeStamp("RUN-END-TIME", &run_end_time);
-  lookupFirmwareVersion("RADIANT-FPGA-FWVER", "RADIANT-FPGA-FWDATE", &radiant_fpga);
-  lookupFirmwareVersion("RADIANT-BM-FWVER", "RADIANT-BM-FWDATE", &radiant_bm);
-  lookupFirmwareVersion("FLOWER-FWVER", "FLOWER-FWDATE", &flower);
+  while(true) 
+  {
+    int iflower = 0; 
+    std::ifstream ifs(Form("%s/flower_gain_codes.%d.txt", auxdir, iflower)); 
+    if (!ifs.good()) break; 
+    FlowerGainCode code; 
+    std::string line; 
+    std::getline(ifs,line); 
+    sscanf(line.c_str(),"# Flower gain codes, station=%d, run=%d,  time=%d", &code.station,&code.run, &code.when); 
+    std::getline(ifs,line); 
+    sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.codes[0],&code.codes[1], &code.codes[2], &code.codes[3]); 
+    flower_codes.push_back(code); 
+  }
+
+  //now look for comment 
+  std::ifstream ifscomment(Form("%s/comment.txt", auxdir), std::ios::ate); 
+  if (ifscomment.good())
+  {
+    auto size = ifscomment.tellg(); 
+    comment.resize(size); 
+    ifscomment.seekg(0); 
+    ifscomment.read(&comment[0], size);
+  }
 }
 
 int mattak::RunInfo::lookupInt(const std::string & key, int * val, int base) const
