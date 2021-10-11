@@ -32,9 +32,11 @@ fi
 mkdir -p ${OUTDIR} 
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then 
+  tmpfile=`mktemp`
 
-
-  echo "Converting waveforms"  \
+  echo "Making rootified list" \ 
+  && find ${INDIR} | sort > $tmpfile\
+  && echo "Converting waveforms"  \
   && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* \
   && echo "Converting headers"  \
   && rno-g-convert hd ${OUTDIR}/headers.root ${INDIR}/header/* \
@@ -42,10 +44,14 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && rno-g-convert ds ${OUTDIR}/daqstatus.root ${INDIR}/daqstatus/* \
   && echo "Converting pedestals" \
   && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* \
+  && echo "Converting runinfo" \
+  && rno-g-convert runinfo ${OUTDIR}/runinfo.root ${INDIR}/aux \
   && echo "Copying aux and cfg"  \
   && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
-  && find ${INDIR} | sort  > ${OUTDIR}/rootified-list.txt
+  && cp $tmpfile ${OUTDIR}/rootified-list.txt
+
+  rm -f $tmpfile 
 
   exit 1
 

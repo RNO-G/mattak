@@ -24,8 +24,7 @@ namespace mattak
     int convertPedestalDir(const char * dir, const char * outfile, const char * treename =0, int station_override=-1); 
 
 #endif
-
-
+    int makeRunInfo(const char * auxdir, const char * outfile, int station_override = -1, int run_override =-1); 
   }
 }
 
