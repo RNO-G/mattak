@@ -1,0 +1,19 @@
+#! /bin/sh 
+
+# This script produces event lists for every file so that we can use this to remake files without remaking everything
+# Usage: rno-g-make-event-lists basedir outdir 
+
+basedir=$1
+outdir=$2
+
+
+
+for station in $basedir/*; 
+do
+  mkdir -p $outdir/$station
+  for rundir in $basedir/$station/* ; 
+  do
+    rno-g-make-eventlist $basedir/$station/$rundir/combined.root > $outdir/$station/$rundir.list 
+  done
+done 
+
