@@ -3,6 +3,7 @@
 
 #include "TTimeStamp.h" 
 #include "TDatime.h" 
+#include "TObject.h" 
 #include <string> 
 #include <unordered_map> 
 #include <mattak/Constants.h> 
@@ -34,7 +35,7 @@ namespace mattak
     ClassDef(FlowerGainCode,1); 
   }; 
 
-  class RunInfo
+  class RunInfo : public TObject
   {
 
     public: 
