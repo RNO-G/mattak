@@ -69,7 +69,7 @@ int main (int nargs, char ** args)
 
   TFile *wf_f = TFile::Open(args[2]); 
   TTree * wfs = wf_f ? (TTree*) wf_f->Get("wf") : 0; 
-  if (wfs) 
+  if (!wfs) 
   {
     std::cerr << "Could not open waveforms from " << args[2] << std::endl; 
     return 1; 
@@ -81,7 +81,7 @@ int main (int nargs, char ** args)
 
   if (use_file_list) 
   {
-    std::ifstream list(args[5]); 
+    std::ifstream list(args[6]); 
     std::string line; 
     while (std::getline(list,line))
     {
@@ -123,7 +123,7 @@ int main (int nargs, char ** args)
 
   TFile *hd_f = TFile::Open(args[3]); 
   TTree * hds = hd_f ? (TTree*) hd_f->Get("hdr") : 0; 
-  if (hds) 
+  if (!hds) 
   {
     std::cerr << " Could not open headers from " << args[3] << std::endl; 
     return 1; 
@@ -149,11 +149,12 @@ int main (int nargs, char ** args)
   mattak::RunInfo * ri = ri_f ? (mattak::RunInfo*) ri_f->Get("info") : 0; 
   if (!ri) 
   {
-    std::cerr << "Could not open runinfo from " << std::endl; 
+    std::cerr << "Could not open runinfo from " << args[5] << std::endl; 
     std::cerr << "Continuing without runinfo." <<std::endl; 
   }
   else
   {
+    of.cd(); 
     ri->Write("info"); 
   }
 
