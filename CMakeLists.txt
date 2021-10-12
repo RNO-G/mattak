@@ -76,18 +76,14 @@ set (INSTALL_SCRIPTS
   scripts/rno-g-make-eventlists
 )
 
-execute_process ( COMMAND git describe --always --dirty --match 'notatag' OUTPUT_VARIABLE GIT_VERSION ERROR_QUIET)
-string(STRIP "${GIT_VERSION}" GIT_VERSION) 
-SET(GIT_VERSION "\"${GIT_VERSION}\"")
-
-message ( "GIT VERSION IS ${GIT_VERSION}" )
-
-configure_file("src/Version.cc.in" "Version.cc")
+configure_file(src/Version.cc.in Version.cc.in COPYONLY) 
+add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)
 
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
 
 add_library(${libname} SHARED ${CC_FILES} ${DICTNAME}.cxx)
+add_dependencies(${libname} version)
 
 install (DIRECTORY src/mattak DESTINATION ${UTIL_INC_DIR})
 install (PROGRAMS ${INSTALL_SCRIPTS} DESTINATION ${UTIL_BIN_DIR})
