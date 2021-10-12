@@ -75,13 +75,14 @@ set (INSTALL_SCRIPTS
   scripts/rno-g-make-eventlists
 )
 
-add_custom_target (trick_cmake DEPENDS Version.cc.fake )
+execute_process ( COMMAND git describe --always --dirty --match 'notatag' OUTPUT_VARIABLE GIT_VERSION ERROR_QUIET)
+string(STRIP "${GIT_VERSION}" GIT_VERSION) 
+SET(GIT_VERSION "\"${GIT_VERSION}\"")
 
+message ( "GIT VERSION IS ${GIT_VERSION}" )
 
-add_custom_command(OUTPUT Version.cc Version.cc.fake
-  COMMAND sh make_version.sh ${CMAKE_CURRENT_BINARY_DIR}
-WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
+configure_file("src/Version.cc.in" "Version.cc")
+
 
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
