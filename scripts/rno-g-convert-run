@@ -32,10 +32,11 @@ fi
 mkdir -p ${OUTDIR} 
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then 
+
   tmpfile=`mktemp`
 
-  echo "Making rootified list" \ 
-  && find ${INDIR} | sort > $tmpfile\
+  echo "Making rootified list" \
+  && find ${INDIR} | sort -o $tmpfile \
   && echo "Converting waveforms"  \
   && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* \
   && echo "Converting headers"  \
