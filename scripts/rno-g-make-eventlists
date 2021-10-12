@@ -8,12 +8,16 @@ outdir=$2
 
 
 
-for station in $basedir/*; 
+for full_station in $basedir/*; 
 do
+  station=`basename $full_station`
+  echo $full_station $station 
   mkdir -p $outdir/$station
-  for rundir in $basedir/$station/* ; 
+  for full_rundir in $full_station/* ; 
   do
-    rno-g-make-eventlist $basedir/$station/$rundir/combined.root > $outdir/$station/$rundir.list 
+    rundir=`basename $full_rundir` 
+    echo $rundir $full_rundir 
+    rno-g-make-eventlist $full_rundir/combined.root > $outdir/$station/$rundir.list 
   done
 done 
 

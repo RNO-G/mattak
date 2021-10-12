@@ -72,6 +72,7 @@ set(CC_FILES
 
 set (INSTALL_SCRIPTS
   scripts/rno-g-convert-run
+  scripts/rno-g-make-eventlists
 )
 
 add_custom_target (trick_cmake DEPENDS Version.cc.fake )

@@ -174,6 +174,7 @@ int mattak::convert::makeRunInfo(const char *auxdir, const char * outfile, int s
     ri->run = run_override; 
   }
 
+  ri->Dump(); 
   ri->Write("info"); 
   of.Close();
   return 0; 

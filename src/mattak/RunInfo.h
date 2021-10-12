@@ -14,7 +14,7 @@
 namespace mattak 
 {
 
-  struct FirmwareVersion
+  struct FirmwareVersion : public TObject
   {
     uint8_t major = 0; 
     uint8_t minor = 0; 
@@ -26,7 +26,7 @@ namespace mattak
   }; 
 
 
-  struct FlowerGainCode
+  struct FlowerGainCode : public TObject 
   {
     uint8_t codes[k::num_lt_channels]  = {0}; 
     time_t when = 0; 
@@ -39,6 +39,7 @@ namespace mattak
   {
 
     public: 
+      RunInfo()  {;}
       RunInfo(const char * auxdir); 
       int station = 0; 
       int run = 0; 

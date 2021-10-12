@@ -14,7 +14,7 @@ void trim(std::string & s)
 {
   const char * ws = " \t"; 
   s.erase(s.find_last_not_of(ws)+1); 
-  s.erase(0, s.find_last_not_of(ws)); 
+  s.erase(0, s.find_first_not_of(ws)); 
 
 
 }
@@ -52,6 +52,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
 
       //trim leading and trailing whitespace
       trim(key); 
+      std::cout <<key <<":" << value << std::endl; 
       kvp[key] = value; 
     }
 
@@ -61,26 +62,26 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     daq_version = lookup("RNO-G-ICE-SOFTWARE-GIT-HASH"); 
     lookupInt("STATION",&station);
     lookupInt("RUN",&run);
-    lookupFloat("RADIANT-SAMPLE-RATE",&radiant_sample_rate); 
+    lookupFloat("RADIANT-SAMPLERATE",&radiant_sample_rate); 
     lookupFloat("FREE-SPACE-MB-OUTPUT-PARTITION", &MB_free_data_partition);
     lookupFloat("FREE-SPACE-MB-RUNFILE-PARTITION", &MB_free_main_partition);
     lookupTimeStamp("RUN-START-TIME", &run_start_time);
     lookupTimeStamp("RUN-END-TIME", &run_end_time);
-    lookupFirmwareVersion("RADIANT-FPGA-FWVER", "RADIANT-FPGA-FWDATE", &radiant_fpga);
+    lookupFirmwareVersion("RADIANT-FWVER", "RADIANT-FWDATE", &radiant_fpga);
     lookupFirmwareVersion("RADIANT-BM-FWVER", "RADIANT-BM-FWDATE", &radiant_bm);
     lookupFirmwareVersion("FLOWER-FWVER", "FLOWER-FWDATE", &flower);
   }
   else
   {
-    std::cerr << "Could not open runinfo.txt"; 
+    std::cerr << "Could not open runinfo.txt" << std::endl; 
   }
 
   //now look for flower gain codes 
 
+  int iflower = 0; 
   while(true) 
   {
-    int iflower = 0; 
-    std::ifstream ifs(Form("%s/flower_gain_codes.%d.txt", auxdir, iflower)); 
+    std::ifstream ifs(Form("%s/flower_gain_codes.%d.txt", auxdir, iflower++)); 
     if (!ifs.good()) break; 
     FlowerGainCode code; 
     std::string line; 
@@ -170,8 +171,8 @@ int mattak::RunInfo::lookupFirmwareVersion(const std::string & verkey, const std
   if (!val) return 1; 
 
 
-  return 3 != sscanf(ver.c_str(), "%d.%d.%d", &val->major, &val->minor, &val->rev) 
-  && 3 != sscanf(ver.c_str(), "%d-%d.%d", &val->year, &val->month, &val->day); 
+  return 3 != sscanf(ver.c_str(), "%02hhu.%02hhu.%02hhu", &val->major, &val->minor, &val->rev) 
+  || 3 != sscanf(date.c_str(), "%hu-%02hhu.%02hhu", &val->year, &val->month, &val->day); 
 
 }
 

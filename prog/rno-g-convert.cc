@@ -12,7 +12,7 @@ void usage()
 {
   std::cout << "Usage: rno-g-converter TYPE OUTFILE INFILE1 [INFILE2 ...]" << std::endl; 
   std::cout << "   or rno-g-converter TYPE OUTFILE INDIR << std::endl" << std::endl; 
-  std::cout << "   or rno-g-converter runinfo auxdir [stationoverride] [runoverride] << std::endl" << std::endl; 
+  std::cout << "   or rno-g-converter runinfo OUTFILE  auxdir [stationoverride] [runoverride] << std::endl" << std::endl; 
   std::cout << "   TYPE can be waveforms wfs header hd daqstatus ds pedestal ped runinfo" << std::endl; 
   std::cout << "   OUTFILE is the output ROOT file " << std::endl;
   std::cout << "   INFILE is one or more input files in order " << std::endl; 
