@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include "TFile.h" 
 #include "TTree.h" 
+#include "TRandom.h" 
+#include "TRandom3.h" 
 
 
 
@@ -129,6 +131,7 @@ int main (int nargs, char ** args)
     return 1; 
   }
   hds->SetBranchAddress("hdr",&hd); 
+  hds->GetEntry(0); 
 
   TFile *ds_f = TFile::Open(args[4]); 
   TTree * dss = ds_f ? (TTree*) ds_f->Get("ds") : 0; 
@@ -157,6 +160,31 @@ int main (int nargs, char ** args)
     of.cd(); 
     ri->Write("info"); 
   }
+
+  std::vector<int> entries; 
+  if (frac < 1) 
+  {
+    TRandom3 r(hd->station_number * 1e8+hd->run_number); 
+    entries.reserve(frac*nevents + 3*sqrt(frac*nevents)); 
+    int i = 0;
+    double invfrac = -log(1-frac); 
+    while ( i < nevents) 
+    {
+      int I = 1 + floor(log(r.Rndm()) * invfrac); 
+      i = (i+I); 
+      if (i < nevents) 
+      {
+        entries.push_back(i); 
+      }
+      else if (!entries.size()) // if we got nothing, try again . This breaks reproducibility but only for small numbers of events, I think! 
+      {
+        i = 0; 
+      } 
+    }
+  }
+
+
+  int N = frac < 1 ? entries.size() : nevents; 
 
   for (int i = 0; i < N; i++) 
   {

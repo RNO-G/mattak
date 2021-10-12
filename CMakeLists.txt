@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(mattak)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
@@ -122,6 +122,8 @@ endmacro()
 
 if (LIBRNO_G_SUPPORT) 
 add_program(rno-g-convert) 
+add_program(rno-g-readout-elapsed) 
 endif( )
 add_program(rno-g-combine) 
 add_program(rno-g-make-eventlist) 
+add_program(rno-g-summary-tree) 
