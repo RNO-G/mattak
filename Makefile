@@ -11,7 +11,7 @@ install: cmake-install
 
 
 cmake-build: build/Makefile 
-	touch CMakeLists.txt
+	@touch CMakeLists.txt
 	@+make -C  ./build
 
 
