@@ -68,6 +68,7 @@ set(CC_FILES
   src/Converter.cc 
   src/RunInfo.cc 
   Version.cc 
+  Empty.cc
   )
 
 set (INSTALL_SCRIPTS
@@ -82,7 +83,6 @@ SET(GIT_VERSION "\"${GIT_VERSION}\"")
 message ( "GIT VERSION IS ${GIT_VERSION}" )
 
 configure_file("src/Version.cc.in" "Version.cc")
-
 
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
