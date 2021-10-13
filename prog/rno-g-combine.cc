@@ -103,25 +103,7 @@ int main (int nargs, char ** args)
     std::sort(entries.begin(), entries.end()); 
   }
 
-  int N = use_file_list ? entries.size() : 
-               frac < 1 ? nevents * frac :
-               nevents; 
-
-  //TODO: std::sample is probalby better here
-  if (!use_file_list && frac < 1) 
-  {
-    std::random_device rd; 
-    std::mt19937 g(rd()); 
-
-    entries.reserve(nevents); 
-    for (int i = 0; i < nevents; i++) 
-    {
-      entries.push_back(i); 
-    }
-    std::shuffle(entries.begin(), entries.end(),g); 
-    entries.resize(N); 
-    std::sort(entries.begin(), entries.end()); 
-  }
+  
 
   TFile *hd_f = TFile::Open(args[3]); 
   TTree * hds = hd_f ? (TTree*) hd_f->Get("hdr") : 0; 
@@ -161,8 +143,7 @@ int main (int nargs, char ** args)
     ri->Write("info"); 
   }
 
-  std::vector<int> entries; 
-  if (frac < 1) 
+  if (!use_file_list && frac < 1) 
   {
     TRandom3 r(hd->station_number * 1e8+hd->run_number); 
     entries.reserve(frac*nevents + 3*sqrt(frac*nevents)); 
@@ -184,7 +165,7 @@ int main (int nargs, char ** args)
   }
 
 
-  int N = frac < 1 ? entries.size() : nevents; 
+  int N = use_file_list || frac < 1 ? entries.size() : nevents; 
 
   for (int i = 0; i < N; i++) 
   {
