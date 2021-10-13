@@ -1,12 +1,10 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(mattak)
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
 find_package(ROOT REQUIRED)
-
 
 
 set(libname mattak)
@@ -52,8 +50,11 @@ set(H_FILES
   mattak/Pedestals.h
   mattak/Converter.h
   mattak/RunInfo.h
+  mattak/Version.h
  ) 
 
+configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY) 
+configure_file("${CMAKE_CURRENT_BINARY_DIR}/Version.cc.in" "Version.cc" COPYONLY)
 
 
 set(CC_FILES 
@@ -67,8 +68,7 @@ set(CC_FILES
   src/Pedestals.cc 
   src/Converter.cc 
   src/RunInfo.cc 
-  Version.cc 
-  Empty.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/Version.cc 
   )
 
 set (INSTALL_SCRIPTS
@@ -76,7 +76,6 @@ set (INSTALL_SCRIPTS
   scripts/rno-g-make-eventlists
 )
 
-configure_file(src/Version.cc.in Version.cc.in COPYONLY) 
 add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)
 
 
