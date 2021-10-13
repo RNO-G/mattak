@@ -4,6 +4,7 @@
 #include "mattak/DAQStatus.h" 
 #include "TFile.h" 
 #include "TTree.h" 
+#include "TMath.h" 
 
 
 int main(int nargs, char ** args) 
@@ -56,6 +57,7 @@ int main(int nargs, char ** args)
       double vmax = 0; 
       double vmin = 0; 
 
+      //use more accurate way of computing RMS 
       double oldM1 = 0; 
       double M1 = 0, S1 = 0; 
       for (int isamp = 0; isamp  < wf->buffer_length; isamp++) 
@@ -75,5 +77,9 @@ int main(int nargs, char ** args)
     of.cd(); 
     sum->Fill(); 
   }
+
+  of.Write(); 
+
+  return 0; 
 
 }
