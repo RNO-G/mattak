@@ -17,10 +17,11 @@
 #ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h" 
 
-template <typename T> const char * getName() { return ""; } 
-template<> const char * getName<mattak::Waveforms>() { return "wf"; } 
-template<> const char * getName<mattak::Header>() { return "hdr"; } 
-template<> const char * getName<mattak::DAQStatus>() { return "ds"; } 
+template <typename T> const char * getName() { return "unnamed"; } 
+template<> const char * getName<mattak::Waveforms>() { return "waveforms"; } 
+template<> const char * getName<mattak::Header>() { return "header"; } 
+template<> const char * getName<mattak::DAQStatus>() { return "daqstatus"; } 
+template<> const char * getName<mattak::Pedestals>() { return "pedestals"; } 
 
 
 
