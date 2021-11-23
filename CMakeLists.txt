@@ -4,7 +4,7 @@ set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
-find_package(ROOT REQUIRED)
+find_package(ROOT COMPONENTS Matrix Minuit REQUIRED)
 
 
 set(libname mattak)
@@ -51,6 +51,7 @@ set(H_FILES
   mattak/Converter.h
   mattak/RunInfo.h
   mattak/Version.h
+  mattak/VoltageCalibration.h
  ) 
 
 configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY) 
@@ -68,6 +69,7 @@ set(CC_FILES
   src/Pedestals.cc 
   src/Converter.cc 
   src/RunInfo.cc 
+  src/VoltageCalibration.cc 
   ${CMAKE_CURRENT_BINARY_DIR}/Version.cc 
   )
 
