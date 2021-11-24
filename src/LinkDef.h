@@ -9,7 +9,10 @@
 #pragma link C++ namespace mattak::convert+; 
 
 #pragma link C++ class mattak::Header+;
+#pragma link C++ class mattak::IWaveforms+;
 #pragma link C++ class mattak::Waveforms+;
+#pragma link C++ class mattak::CalibratedWaveforms+;
+#pragma link C++ struct mattak::WaveformPlotOptions+;
 #pragma link C++ class mattak::VoltageCalibration+;
 #pragma link C++ class mattak::Pedestals+;
 #pragma link C++ class mattak::TriggerInfo+;
