@@ -39,7 +39,7 @@ namespace mattak
        *
        */ 
       VoltageCalibration(const char * raw_bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
-      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff); 
+      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff, int turnover_threshold = 20); 
 
 
       int getFitOrder() const { return fit_order; } 
@@ -61,19 +61,25 @@ namespace mattak
       int getStationNumber() const { return station_number; }; 
       uint32_t getStartTime() const { return start_time; } 
       uint32_t getEndTime() const { return start_time; } 
+      int scanSize() const { return vbias[0].size() ; } 
+      const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
+      const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels][0]; } 
+      int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
 
     private:
-      std::vector<std::pair<double,double>> vbias;  //Left, Right
+      std::array<std::vector<double>,2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result; 
       std::array<std::vector<double>, mattak::k::num_radiant_channels> fit_coeffs;  //packed format, per channel 
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_chisq; //sum of difference squared, really... 
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_maxerr; //maximum error
+      std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       int fit_order; 
       int station_number; 
       double fit_vref; 
       double fit_min; 
       double fit_max; 
       uint32_t start_time; 
+      int turnover_threshold;
       uint32_t end_time; 
       bool left_equals_right; 
     ClassDef(VoltageCalibration, 1); 

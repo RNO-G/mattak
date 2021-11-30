@@ -44,9 +44,12 @@ mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, 
       station_number= ped.station; 
     }
     else
+    {
       end_time = ped.when; 
+    }
 
-    vbias.push_back(std::pair<double,double>(bias_l, bias_r)); 
+    vbias[0].push_back(bias_l);
+    vbias[1].push_back(bias_r); 
     scan_result.emplace_back(); 
     memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals)); 
   }
@@ -104,11 +107,12 @@ static double evalPars(double x, int order, const double * p)
 //}
 
 
-void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, uint32_t mask) 
+void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, uint32_t mask, int turnover_threshold) 
 {
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order; 
   order = fit_order; 
   fit_min = min; 
+  this->turnover_threshold = turnover_threshold; 
   fit_max = max; 
   fit_vref = vref; 
 
@@ -138,7 +142,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         double last_v = 0; 
         for (unsigned j = 0; j < vbias.size(); j++) 
         {
-          double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[j].first : vbias[j].second; 
+          double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
           if (v >= vref) 
           {
              if (v == vref || j == 0) 
@@ -161,7 +165,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       double last_adc = -4096;
       for (unsigned j = 0; j < vbias.size(); j++) 
       {
-        double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[j].first : vbias[j].second; 
+        double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
         if (v >= fit_min && v <= fit_max) 
         {
           if (vref) 
@@ -172,7 +176,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           double  adc = scan_result[j][ichan][i]; 
 
           //don't include if it turns over
-          if (!jmin ||  adc  > last_adc - 100)  
+          if (!jmin ||  adc  > last_adc - turnover_threshold)  
           {
             fit.AddPoint(&adc, v); 
             jmax = j; 
@@ -215,12 +219,14 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       fit_chisq[ichan][i] = 0;
       fit_maxerr[ichan][i] = 0;
 
+      turnover_index[ichan][i] = jmax+1; 
+
       //calculate max deviation and chi square
       for (int j = jmin ; j <= jmax; j++) 
       {
 
         double adc = scan_result[j][ichan][i]; 
-        double meas = ichan < mattak::k::num_radiant_channels / 2 ? vbias[j].first : vbias[j].second; 
+        double meas = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
         meas -= vref; 
         double pred = evalPars(adc, fit_order, &fit_coeffs[ichan][i * (order+1)]); 
         double delta = fabs(meas-pred); 
@@ -238,11 +244,11 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   int nV = vbias.size(); 
   if (nV < 2) return 0; //makes no sense! 
 
-  bool left =  chan < mattak::k::num_radiant_channels / 2  ;
-  double min_V = left? vbias[0].first : vbias[0].second - fit_vref; 
-  double dmin_V =( left? vbias[1].first : vbias[1].second) - min_V - fit_vref; 
-  double max_V = left? vbias[nV-1].first : vbias[nV-1].second - fit_vref; 
-  double dmax_V =  max_V - (left? vbias[nV-2].first : vbias[nV-2].second) - fit_vref; 
+  bool right =  chan >= mattak::k::num_radiant_channels / 2  ;
+  double min_V =  vbias[right][0]- fit_vref; 
+  double dmin_V = vbias[right][1]- min_V - fit_vref; 
+  double max_V = vbias[right][nV-1] - fit_vref; 
+  double dmax_V =  max_V - vbias[right][nV-2] - fit_vref; 
 
   //set up the bin edges 
   std::vector<double> Vs;
@@ -250,7 +256,7 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   Vs.push_back(min_V-dmin_V/2); 
   for (int i = 0; i < nV-1; i++) 
   {
-    Vs.push_back( left ? (vbias[i].first + vbias[i+1].first)/2 - fit_vref : (vbias[i].second + vbias[i+1].second)/2 - fit_vref); 
+    Vs.push_back( (vbias[right][i]+ vbias[right][i+1])/2 - fit_vref); 
   }
   Vs.push_back(max_V + dmax_V/2); 
 
@@ -289,15 +295,13 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
   double xmin =0; 
   double xmax = 0;
   bool first = true; 
-  for (unsigned j = 0; j < vbias.size(); j++) 
+  for (unsigned j = 0; j < turnover_index[chan][samp]; j++) 
   {
-    double v = chan < mattak::k::num_radiant_channels / 2 ? vbias[j].first : vbias[j].second; 
+    double v = chan < mattak::k::num_radiant_channels / 2 ? vbias[0][j] : vbias[1][j]; 
 
     if (v < fit_min || v > fit_max) continue; 
     v-=fit_vref;
-
     double x= scan_result[j][chan][samp]; 
-    if (!first && x < xmax - 100) break; 
     if (first) xmin = x; 
     xmax = x; 
     if (resid) v-= fn->Eval(x); 
@@ -447,7 +451,7 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
 
   int N = in_info.size; 
     
-  auto packed_info = packed_coeffs.requets(); 
+  auto packed_info = packed_coeffs.request(); 
 
   if (packed_info.format != py::format_descriptor<double>::format() || packed_info.ndim != 1 || packed_info.strides[0] != 0)
   {
