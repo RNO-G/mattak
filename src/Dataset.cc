@@ -1,5 +1,6 @@
 #include "mattak/Dataset.h" 
 #include "TSystem.h" 
+#include "TROOT.h" 
 #include <iostream> 
 
 template <typename D> 
@@ -91,6 +92,7 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
     }
 
     field->tree->SetBranchAddress(branch, &field->ptr); 
+    gROOT->cd(); 
     return 0; 
  }
  std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl; 
@@ -104,8 +106,8 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
   clear(field); 
   field->file = silentlyTryToOpen(filename,"READ"); 
   if (!field->file) return -1; 
-
   field->ptr = (D*) field->file->Get(obj_name); 
+  gROOT->cd();
   return field->ptr!=nullptr; 
 }
 
