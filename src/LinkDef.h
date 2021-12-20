@@ -19,6 +19,7 @@
 #pragma link C++ class mattak::RadiantTriggerInfo+;
 #pragma link C++ class mattak::LTTriggerInfo+;
 #pragma link C++ class mattak::Sensors+;
+#pragma link C++ class mattak::LTEStats+;
 #pragma link C++ class mattak::GNSS+;
 
 #pragma link C++ class mattak::RunInfo+;

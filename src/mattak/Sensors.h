@@ -4,23 +4,18 @@
 #include "TObject.h"
 #include <stdint.h> 
 
-//not defined yet
-typedef int rno_g_sensors_t; 
-#ifdef LIBRNO_G_SUPPORT
-#include "rno-g.h" 
-#else
-#endif
-
 
 namespace mattak 
 {
+
+
 
   class Sensors
   {
     public: 
 
       Sensors() { ; } 
-      Sensors(const rno_g_sensors_t * sensors); 
+
 
       //Note this is approximate, not all of these are necessarily collected at the same time
       //May have multiple times in the future... 
@@ -44,24 +39,26 @@ namespace mattak
       float downhole_currents[3] = {0}; 
       float amp_currents[6] = {0}; 
 
-      //CPU stats 
-      float disk_space_SD_card = -1; //GB
-      float disk_space_internal = -1; //GB
-      float free_mem = -1; // MB 
-      float loadavg[3] = { 0,0,0}; 
-      float cpu_uptime = 0; //seconds
 
-      //micro stats 
-      uint32_t mcu_uptime = 0; //seconds
+      static int makeTreeFromDatabase(const char * outfile, const char * pgconninfo, int station, int start_time, int end_time, const char * tree_name = "sensors"); 
+      static int makeInterpolatedEventTreeFromDatabase(const char * outfile, const char * pgconninfo, const char * header_file, const char * tree_name = "sensors"); 
+
+
+      ClassDef(Sensors,1); 
+  }; 
+
+  class LTEStats
+  {
 
       //LTE stats 
+      double readout_time =0; 
       float lte_rsrq = 0; 
       float lte_rsrp = 0;
       float lte_rssi = 0;
       float lte_snr = 0;
-
-      ClassDef(Sensors,1); 
+      ClassDef(LTEStats,1); 
   }; 
+
 }; 
 
 #endif
