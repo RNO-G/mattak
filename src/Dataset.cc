@@ -70,13 +70,18 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
   int itry = 0; 
   while(tree_names[itry]) 
   {
-    if (!field->file->Get(tree_names[itry]))
+    field->tree = (TTree*) field->file->Get(tree_names[itry]); 
+    if (!field->tree) 
+    {
+      field->tree = (TTree*) field->file->Get("combined"); 
+    }
+
+    if (!field->tree) 
     {
       itry++; 
       continue; 
     }
 
-    field->tree = (TTree*) field->file->Get(tree_names[itry]); 
 
     const char * branch = branch_names ? branch_names[itry] : tree_names[itry]; 
     if (!field->tree->GetBranch(branch))
@@ -259,7 +264,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
   if (force || wf.loaded_entry != current_entry)
   {
-    if (full_dataset) 
+    if (full_dataset || skip_incomplete) 
     {
       wf.tree->GetEntry(current_entry); 
     }
@@ -348,7 +353,6 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
   }
 
   return calib_wf.missing_entry ? nullptr : calib_wf.ptr; 
-
 }
 
 
