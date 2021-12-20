@@ -31,6 +31,4 @@
 #pragma link C++ class mattak::LTScalerGroup+;
 
 
-
-
-
+#pragma link C++ class mattak::Dataset+;
