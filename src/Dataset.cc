@@ -152,6 +152,13 @@ const char * pedestal_tree_names[] = {"pedestal","ped","peds","",0};
 
 int mattak::Dataset::loadRun(int station, int run, bool partial_skip) 
 {
+  TString dir;
+  dir.Form("%s/station%d/run%d", data_dir.c_str(), station, run); 
+  return loadDir(dir.Data(), partial_skip); 
+}
+
+int mattak::Dataset::loadDir(const char * dir, bool partial_skip) 
+{
 
   skip_incomplete = partial_skip; 
 
@@ -160,16 +167,16 @@ int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
   current_entry = 0; 
 
   //we need to figure out if this is a full run or partial run, so check for existence of waveforms.root
-  if (setup(&wf, Form("%s/station%d/run%d/waveforms.root", data_dir.c_str(), station, run), waveform_tree_names, 0))
+  if (setup(&wf, Form("%s/waveforms.root", dir), waveform_tree_names, 0))
   {
     //no waveforms file! 
     full_dataset = false;
 
     //let's load from combined file instead
-    if (setup(&wf, Form("%s/station%d/run%d/combined.root", data_dir.c_str(), station, run), waveform_tree_names))
+    if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names))
     {
       //uh oh, we didn't find it there either :( 
-      std::cerr << "Failed to find waveforms.root or combined.root in " << Form("%s/station%d/run%d", data_dir.c_str(),station,run) << std::endl; 
+      std::cerr << "Failed to find waveforms.root or combined.root in " << dir << std::endl; 
       return -1; 
     }
   }
@@ -181,10 +188,10 @@ int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
 
  //now load the header files 
  if ( setup(&hd, 
-      Form("%s/station%d/run%d/%s.root", data_dir.c_str(), station, run, (full_dataset || !partial_skip) ? "headers" : "combined"), 
+      Form("%s/%s.root", dir, (full_dataset || !partial_skip) ? "headers" : "combined"), 
       header_tree_names) )
  {
-   std::cerr << "Failed to find headers.root or combined.root in " << Form("%s/station%d/run%d", data_dir.c_str(),station,run) << std::endl; 
+   std::cerr << "Failed to find headers.root or combined.root in " << dir << std::endl; 
    return -1; 
  }
 
@@ -196,10 +203,10 @@ int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
 
  //and the status files
  if ( setup(&ds, 
-      Form("%s/station%d/run%d/%s.root", data_dir.c_str(), station, run, full_dataset || !partial_skip ? "daqstatus" : "combined"), 
+      Form("%s/%s.root", dir, full_dataset || !partial_skip ? "daqstatus" : "combined"), 
       daqstatus_tree_names) )
  {
-   std::cerr << "Failed to find daqstatus.root or combined.root in " << Form("%s/station%d/run%d", data_dir.c_str(),station,run) << std::endl; 
+   std::cerr << "Failed to find daqstatus.root or combined.root in " << dir << std::endl; 
    return -1; 
  }
 
@@ -210,15 +217,15 @@ int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
 
 //and the pedestal files
  if ( setup(&pd, 
-      Form("%s/station%d/run%d/pedestal.root", data_dir.c_str(), station, run), 
+      Form("%s/pedestal.root", dir), 
       pedestal_tree_names) )
  {
-   std::cerr << "Failed to find pedestal.root in " << Form("%s/station%d/run%d", data_dir.c_str(),station,run) << std::endl; 
+   std::cerr << "Failed to find pedestal.root in " <<dir << std::endl; 
    return -1; 
  }
 
  //and try the runinfo file 
- setup(&runinfo, Form("%s/station%d/run%d/runinfo.root", data_dir.c_str(), station, run),"info"); 
+ setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
  return 0; 
 }
 

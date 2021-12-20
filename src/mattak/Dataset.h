@@ -22,7 +22,9 @@ namespace mattak
       Dataset (int station, int run, const VoltageCalibration * calib, const char * data_dir = 0, bool partial_skip_incomplete = true); 
       Dataset (const char * data_dir = 0); 
       virtual ~Dataset() { unload() ; }
+      /** Loads run corresponding to station/run" in the data dir, i.e. equivalent to calling loadDir(data_dir/stationS/runR) */ 
       int loadRun(int station, int run, bool partial_skip_incomplete = true); 
+      int loadDir(const char * dir, bool partial_skip_incomplete = true); 
       void setDataDir(const char * dir); 
 
       void setEntry(int entry); 
