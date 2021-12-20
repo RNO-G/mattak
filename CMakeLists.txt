@@ -45,13 +45,13 @@ set(H_FILES
   mattak/Sensors.h
   mattak/TriggerInfo.h
   mattak/GNSS.h
-  mattak/Sensors.h
   mattak/Waveforms.h
   mattak/Pedestals.h
   mattak/Converter.h
   mattak/RunInfo.h
   mattak/Version.h
   mattak/VoltageCalibration.h
+  mattak/Dataset.h
  ) 
 
 configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY) 
@@ -64,12 +64,12 @@ set(CC_FILES
   src/Sensors.cc
   src/TriggerInfo.cc
   src/GNSS.cc
-  src/Sensors.cc
   src/Waveforms.cc 
   src/Pedestals.cc 
   src/Converter.cc 
   src/RunInfo.cc 
   src/VoltageCalibration.cc 
+  src/Dataset.cc
   ${CMAKE_CURRENT_BINARY_DIR}/Version.cc 
   )
 
