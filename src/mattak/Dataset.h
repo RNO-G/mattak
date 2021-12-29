@@ -21,6 +21,7 @@ namespace mattak
       //data_dir defaults to RNO_G_ROOT_DATA
       Dataset (int station, int run, const VoltageCalibration * calib, const char * data_dir = 0, bool partial_skip_incomplete = true); 
       Dataset (const char * data_dir = 0); 
+      void setVerbose(bool v) { verbose = v; } 
       virtual ~Dataset() { unload() ; }
       /** Loads run corresponding to station/run" in the data dir, i.e. equivalent to calling loadDir(data_dir/stationS/runR) */ 
       int loadRun(int station, int run, bool partial_skip_incomplete = true); 
@@ -80,6 +81,8 @@ namespace mattak
       std::string data_dir; 
       bool full_dataset ; 
       bool skip_incomplete;
+      bool verbose = false; 
+
   }; 
 }
 

@@ -83,15 +83,21 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
       continue; 
     }
 
-
-    const char * branch = branch_names ? branch_names[itry] : tree_names[itry]; 
-    if (!field->tree->GetBranch(branch))
+    const char * branch_name = branch_names ? branch_names[itry] : tree_names[itry]; 
+    if (!field->tree->GetBranch(branch_name))
     {
       itry++; 
       continue;
     }
 
-    field->tree->SetBranchAddress(branch, &field->ptr); 
+    //avoid annoying message for empty string branch 
+    RedirectHandle_t rh; 
+    if (!branch_name[0]) gSystem->RedirectOutput(BITBUCKET,"a",&rh); 
+
+    field->tree->GetBranch(branch_name)->SetAddress(&field->ptr); 
+
+    if (!branch_name[0]) gSystem->RedirectOutput(0,"a",&rh); 
+
     gROOT->cd(); 
     return 0; 
  }
@@ -167,17 +173,20 @@ int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
 int mattak::Dataset::loadDir(const char * dir, bool partial_skip) 
 {
 
+  if (verbose) std::cout << "mattak::Dataset::loadDir ( " << dir  << "," << partial_skip << ") called" << std::endl;
   skip_incomplete = partial_skip; 
 
   //first clear all 
   unload(); 
   current_entry = 0; 
 
+  if (verbose) std::cout << "about to load waveforms " << std::endl; 
   //we need to figure out if this is a full run or partial run, so check for existence of waveforms.root
   if (setup(&wf, Form("%s/waveforms.root", dir), waveform_tree_names, 0))
   {
     //no waveforms file! 
     full_dataset = false;
+    if (verbose) std::cout << " full dataset not found " << std::endl;
 
     //let's load from combined file instead
     if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names))
@@ -189,10 +198,12 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
   }
   else
   {
+    if (verbose) std::cout << " full dataset found " << std::endl;
     full_dataset = true; 
   }
 
 
+if (verbose) std::cout << "about to load headers " << std::endl; 
  //now load the header files 
  if ( setup(&hd, 
       Form("%s/%s.root", dir, (full_dataset || !partial_skip) ? "headers" : "combined"), 
@@ -208,6 +219,7 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
    wf.tree->BuildIndex("event_number"); 
  }
 
+if (verbose) std::cout << "about to load daqstatus " << std::endl; 
  //and the status files
  if ( setup(&ds, 
       Form("%s/%s.root", dir, full_dataset || !partial_skip ? "daqstatus" : "combined"), 
@@ -222,6 +234,7 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
    ds.tree->BuildIndex("readout_time_radiant"); 
  }
 
+if (verbose) std::cout << "about to load pedestal " << std::endl; 
 //and the pedestal files
  if ( setup(&pd, 
       Form("%s/pedestal.root", dir), 
@@ -230,6 +243,7 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
    std::cerr << "Failed to find pedestal.root in " <<dir << std::endl; 
    return -1; 
  }
+if (verbose) std::cout << "about to load runinfo " << std::endl; 
 
  //and try the runinfo file 
  setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
