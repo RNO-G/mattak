@@ -63,7 +63,7 @@ namespace mattak
       uint32_t getEndTime() const { return start_time; } 
       int scanSize() const { return vbias[0].size() ; } 
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
-      const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels][0]; } 
+      const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; } 
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
 
     private:
@@ -73,6 +73,7 @@ namespace mattak
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_chisq; //sum of difference squared, really... 
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_maxerr; //maximum error
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
+      std::array<double,mattak::k::num_radiant_channels> adc_offset; 
       int fit_order; 
       int station_number; 
       double fit_vref; 

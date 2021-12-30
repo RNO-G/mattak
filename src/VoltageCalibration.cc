@@ -38,7 +38,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, 
   {
     double bias_l = ped.vbias[0] / 4095. *3.3; 
     double bias_r = ped.vbias[1] / 4095. *3.3; 
-    if (!vbias.size())
+    if (!scanSize())
     {
       start_time = ped.when; 
       station_number= ped.station; 
@@ -128,7 +128,12 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     fit_coeffs[ichan].clear(); 
     if ( (mask & (1 << ichan))  == 0) continue; 
 
+    //check if channel seems broken by looking for zeroes
+
     fit_coeffs[ichan].resize((order+1) * mattak::k::num_lab4_samples, 0); 
+
+    int nbroken = 0; 
+
     for (int i = 0; i < mattak::k::num_lab4_samples; i++) 
     {
       fit.ClearPoints(); 
@@ -136,23 +141,22 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       int jmin = 0;
       int jmax = 0;
 
-      double adc_offset = 0;
       if (vref) 
       {
         double last_v = 0; 
-        for (unsigned j = 0; j < vbias.size(); j++) 
+        for (unsigned j = 0; j < scanSize(); j++) 
         {
           double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
           if (v >= vref) 
           {
              if (v == vref || j == 0) 
              {
-               adc_offset = scan_result[j][ichan][i]; 
+               adc_offset[ichan] = scan_result[j][ichan][i]; 
              }
              else //have too interpolate
              {
                double frac_low = (v - vref) / (v-last_v); 
-               adc_offset = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i]; 
+               adc_offset[ichan] = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i]; 
              }
              break; 
           }
@@ -163,7 +167,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 
       double last_adc = -4096;
-      for (unsigned j = 0; j < vbias.size(); j++) 
+      int nzero = 0;
+      for (unsigned j = 0; j < scanSize(); j++) 
       {
         double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
         if (v >= fit_min && v <= fit_max) 
@@ -171,9 +176,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           if (vref) 
           {
             v-=vref; 
-            scan_result[j][ichan][i] -= adc_offset; 
           }
-          double  adc = scan_result[j][ichan][i]; 
+          double adc = scan_result[j][ichan][i] - adc_offset[ichan]; 
+          if (adc == 0) nzero++; 
 
           //don't include if it turns over
           if (!jmin ||  adc  > last_adc - turnover_threshold)  
@@ -191,8 +196,14 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       {
         fit.FixParameter(0, 0); 
       }
-
-      fit.Eval(); 
+      if (nzero > 1) 
+      {
+        nbroken++;
+      }
+      else
+      {
+        fit.Eval(); 
+      }
 
 
       if (vref) fit.ReleaseParameter(0); 
@@ -202,20 +213,23 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         fit_coeffs[ichan][i * (order+1) + iorder] = fit.GetParameter(iorder); 
       }
 
-      if (vref)
-      {
-        //we need to unshift our polynomial. 
-        //first let's grab the coefficient
-        double * a = &fit_coeffs[ichan][i*(order+1)]; 
+/*** leave it in terms of vref ***/
 
-        //add y offset back 
-//        a[0] += vref; 
-
-        //use taylor shift to do the x offset (Shaw/Traub method) 
-//        taylor_shift(order, a, -adc_offset); 
-      }
-
-
+//      if (vref)
+//      {
+//        //we need to unshift our polynomial. 
+//        //first let's grab the coefficient
+//        double * a = &fit_coeffs[ichan][i*(order+1)]; 
+//
+//        //add y offset back 
+////        a[0] += vref; 
+//
+//        //use taylor shift to do the x offset (Shaw/Traub method) 
+////        taylor_shift(order, a, -adc_offset); 
+//      }
+//
+//
+//
       fit_chisq[ichan][i] = 0;
       fit_maxerr[ichan][i] = 0;
 
@@ -234,6 +248,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         fit_chisq[ichan][i] +=delta*delta / (0.010*0.010);  // estimate 10 mV equivalent RMS? 
       }
     }
+
+    if (nbroken) printf("WARNING: Channel %d seems to have %d broken samples?\n", ichan, nbroken); 
   }
 }
 
@@ -241,14 +257,14 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
 
-  int nV = vbias.size(); 
+  int nV = scanSize(); 
   if (nV < 2) return 0; //makes no sense! 
 
   bool right =  chan >= mattak::k::num_radiant_channels / 2  ;
   double min_V =  vbias[right][0]- fit_vref; 
   double dmin_V = vbias[right][1]- min_V - fit_vref; 
   double max_V = vbias[right][nV-1] - fit_vref; 
-  double dmax_V =  max_V - vbias[right][nV-2] - fit_vref; 
+  double dmax_V =  max_V - (vbias[right][nV-2] - fit_vref); 
 
   //set up the bin edges 
   std::vector<double> Vs;
@@ -260,8 +276,9 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   }
   Vs.push_back(max_V + dmax_V/2); 
 
+
   TH2S * h = new TH2S(Form("hbias_s%d_c%d_%d_%d", station_number, chan, start_time,end_time), 
-                      Form("Bias Scan, Station %d, Channel %d, Time [%d-%d] ; Sample ; Vbias [V] ; adu", station_number, chan, start_time, end_time), 
+                      Form("Bias Scan, Station %d, Channel %d, Time [%d-%d], VRef=%g ; Sample ; Vbias [V] ; adu", station_number, chan, start_time, end_time,fit_vref), 
                       mattak::k::num_lab4_samples, 0, mattak::k::num_lab4_samples, 
                       nV, min_V, max_V
                       ); 
@@ -272,7 +289,7 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   {
     for (int i = 1; i <=  mattak::k::num_lab4_samples; i++) 
     {
-      h->SetBinContent(i,j, scan_result[j-1][chan][i-1]); 
+      h->SetBinContent(i,j, scan_result[j-1][chan][i-1] - adc_offset[chan]); 
     }
   }
 
@@ -301,7 +318,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
     if (v < fit_min || v > fit_max) continue; 
     v-=fit_vref;
-    double x= scan_result[j][chan][samp]; 
+    double x= scan_result[j][chan][samp]-adc_offset[chan]; 
     if (first) xmin = x; 
     xmax = x; 
     if (resid) v-= fn->Eval(x); 
