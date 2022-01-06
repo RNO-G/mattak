@@ -71,13 +71,18 @@ int main (int nargs, char ** args)
 
 
   TFile *wf_f = TFile::Open(args[2]); 
-  TTree * wfs = wf_f ? (TTree*) wf_f->Get("wf") : 0; 
+  TTree * wfs = nullptr; 
+  if (wf_f) 
+  {
+    wfs = (TTree*) wf_f->Get("wf");
+    if (!wfs) wfs = (TTree*) wf_f->Get("waveforms");
+  }
   if (!wfs) 
   {
     std::cerr << "Could not open waveforms from " << args[2] << std::endl; 
     return 1; 
   }
-  wfs->SetBranchAddress("wf",&wf); 
+  wfs->SetBranchAddress(wfs->GetName(),&wf); 
 
   int nevents = wfs->GetEntries(); 
   std::vector<int> entries; 
@@ -107,17 +112,28 @@ int main (int nargs, char ** args)
   
 
   TFile *hd_f = TFile::Open(args[3]); 
-  TTree * hds = hd_f ? (TTree*) hd_f->Get("hdr") : 0; 
+  TTree * hds = nullptr; 
+  if (hd_f) 
+  {
+    hds =(TTree*) hd_f->Get("hdr"); 
+    if (!hds) hds = (TTree*) hd_f->Get("header"); 
+  }
   if (!hds) 
   {
     std::cerr << " Could not open headers from " << args[3] << std::endl; 
     return 1; 
   }
-  hds->SetBranchAddress("hdr",&hd); 
+  hds->SetBranchAddress(hds->GetName(),&hd); 
   hds->GetEntry(0); 
 
   TFile *ds_f = TFile::Open(args[4]); 
-  TTree * dss = ds_f ? (TTree*) ds_f->Get("ds") : 0; 
+  TTree * dss = nullptr; 
+  if (ds_f) 
+  {
+    dss = (TTree*) ds_f->Get("ds"); 
+    if (!dss) dss = (TTree*) ds_f->Get("daqstatus"); 
+
+  }
 
   if (!dss) 
   {
@@ -126,7 +142,7 @@ int main (int nargs, char ** args)
   }
   else
   {
-    dss->SetBranchAddress("ds",&ds); 
+    dss->SetBranchAddress(dss->GetName(),&ds); 
     dss->BuildIndex("readout_time_radiant"); 
   }
 
