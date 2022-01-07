@@ -124,7 +124,7 @@ static TPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & opt, TP
   {
     for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++) 
     {
-      if (ichan & ~opt.mask) continue; 
+      if ( (1 <<ichan) & ~opt.mask) continue; 
       for (int isamp = 0; isamp < wf.buffer_length; isamp++) 
       {
         if (wf.radiant_data[ichan][isamp] > gmax) 
@@ -140,7 +140,7 @@ static TPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & opt, TP
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++) 
   {
 
-    if (ichan & ~opt.mask) continue; 
+    if ((1<<ichan) & ~opt.mask) continue; 
 
     where->cd(ipad++); 
 
