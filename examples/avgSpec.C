@@ -1,7 +1,7 @@
 R__LOAD_LIBRARY(libRootFftwWrapper.so) 
 #include "FFTtools.h" 
 
-TGraph * makeAveragePowerSpectrum(int ch, mattak::Dataset & d, int max_N = 0, bool zero_mean = true)
+TGraph * makeAveragePowerSpectrum(int ch, mattak::Dataset & d, bool arithmetic_mean = true, int max_N = 0, bool zero_mean = true)
 {
    TGraph * spec_sum = 0;
    int N = d.N();
@@ -16,7 +16,7 @@ TGraph * makeAveragePowerSpectrum(int ch, mattak::Dataset & d, int max_N = 0, bo
         for (int i = 0; i < wf->GetN(); i++) wf->GetY()[i]-=mean; 
       }
 
-      TGraph * spec = FFTtools::makePowerSpectrumMilliVoltsNanoSeconds(wf);
+      TGraph * spec = arithmetic_mean ? FFTtools::makePowerSpectrumMilliVoltsNanoSeconds(wf) : FFTtools::makePowerSpectrumMilliVoltsNanoSecondsdB(wf);
       //no longer need wf, let's delete it
       delete wf;
       // if spec_sum hasn't been set up yet, let's just set it to spec
@@ -32,8 +32,11 @@ TGraph * makeAveragePowerSpectrum(int ch, mattak::Dataset & d, int max_N = 0, bo
    for (int i = 0; i < spec_sum->GetN(); i++)
    {
      spec_sum->GetY()[i] /= N; //take average
-     if (spec_sum->GetY()[i] > 0)   spec_sum->GetY()[i] = 20 * TMath::Log10(spec_sum->GetY()[i]);
-     else spec_sum->GetY()[i] = -100; //just some small value to avoid -infinity, adjust as necessary
+     if (arithmetic_mean) 
+     {
+       if (spec_sum->GetY()[i] > 0)   spec_sum->GetY()[i] = 10 * TMath::Log10(spec_sum->GetY()[i]);
+       else spec_sum->GetY()[i] = -100; //just some small value to avoid -infinity, adjust as necessary
+     }
    }
    spec_sum->SetTitle(Form("Power Spectrum Ch %d", ch)); 
    spec_sum->GetXaxis()->SetTitle("Freq [MHz]"); 
