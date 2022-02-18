@@ -42,7 +42,6 @@ namespace mattak
       void setCalibration(const VoltageCalibration * calib); 
       const VoltageCalibration * getCalibration() const { return calib; } 
 
-    private: 
 
       template <typename D> 
       struct field
@@ -65,6 +64,7 @@ namespace mattak
         TFile * file = nullptr; 
       };
 
+    private: 
 
 
       tree_field<Waveforms> wf; 
