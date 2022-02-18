@@ -161,7 +161,7 @@ void mattak::Dataset::setCalibration(const VoltageCalibration * c)
 const char * waveform_tree_names[] = {"waveforms","wfs","wf","waveform",0}; 
 const char * header_tree_names[] = {"hdr","header","hd","hds","headers",0}; 
 const char * daqstatus_tree_names[] = {"daqstatus","ds","status",0}; 
-const char * pedestal_tree_names[] = {"pedestal","ped","peds","",0}; 
+const char * pedestal_tree_names[] = {"pedestals","pedestal","ped","peds","",0}; 
 
 int mattak::Dataset::loadRun(int station, int run, bool partial_skip) 
 {
