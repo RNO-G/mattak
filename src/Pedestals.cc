@@ -29,8 +29,8 @@ void mattak::Pedestals::doInit(const rno_g_pedestal_t * peds)
   this->mask = peds->mask; 
   this->station_number = peds->station; 
   this->flags = peds->flags; 
-  this->vbias[0] = peds->vbias[0] < 0 ? -1 : 2.5*peds->vbias[0]/4096; 
-  this->vbias[1] = peds->vbias[1] < 0 ? -1 : 2.5*peds->vbias[1]/4096; 
+  this->vbias[0] = peds->vbias[0] < 0 ? -1 : 3.3*peds->vbias[0]/4095; 
+  this->vbias[1] = peds->vbias[1] < 0 ? -1 : 3.3*peds->vbias[1]/4095; 
   for (unsigned i = 0; i < mattak::k::num_radiant_channels; i++) 
   {
     memcpy(this->pedestals[i], peds->pedestals[i], sizeof(int16_t) * mattak::k::num_lab4_samples); 

@@ -1,0 +1,5 @@
+#include "mattak/Version.h"
+
+#define CODE_VERSION @GIT_VERSION@
+
+const char * mattak::version() { return CODE_VERSION; } 

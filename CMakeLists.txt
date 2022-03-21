@@ -1,12 +1,10 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(mattak)
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
-find_package(ROOT REQUIRED)
-
+find_package(ROOT COMPONENTS Matrix Minuit REQUIRED)
 
 
 set(libname mattak)
@@ -47,12 +45,17 @@ set(H_FILES
   mattak/Sensors.h
   mattak/TriggerInfo.h
   mattak/GNSS.h
-  mattak/Sensors.h
   mattak/Waveforms.h
   mattak/Pedestals.h
   mattak/Converter.h
+  mattak/RunInfo.h
+  mattak/Version.h
+  mattak/VoltageCalibration.h
+  mattak/Dataset.h
  ) 
 
+configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY) 
+configure_file("${CMAKE_CURRENT_BINARY_DIR}/Version.cc.in" "Version.cc" COPYONLY)
 
 
 set(CC_FILES 
@@ -61,20 +64,27 @@ set(CC_FILES
   src/Sensors.cc
   src/TriggerInfo.cc
   src/GNSS.cc
-  src/Sensors.cc
   src/Waveforms.cc 
   src/Pedestals.cc 
   src/Converter.cc 
+  src/RunInfo.cc 
+  src/VoltageCalibration.cc 
+  src/Dataset.cc
+  ${CMAKE_CURRENT_BINARY_DIR}/Version.cc 
   )
 
 set (INSTALL_SCRIPTS
   scripts/rno-g-convert-run
+  scripts/rno-g-make-eventlists
 )
+
+add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)
 
 
 ROOT_GENERATE_DICTIONARY(${DICTNAME} ${H_FILES} LINKDEF src/LinkDef.h) 
 
 add_library(${libname} SHARED ${CC_FILES} ${DICTNAME}.cxx)
+add_dependencies(${libname} version)
 
 install (DIRECTORY src/mattak DESTINATION ${UTIL_INC_DIR})
 install (PROGRAMS ${INSTALL_SCRIPTS} DESTINATION ${UTIL_BIN_DIR})
@@ -116,3 +126,5 @@ add_program(rno-g-convert)
 add_program(rno-g-readout-elapsed) 
 endif( )
 add_program(rno-g-combine) 
+add_program(rno-g-make-eventlist) 
+add_program(rno-g-summary-tree) 
