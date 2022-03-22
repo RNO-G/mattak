@@ -1,0 +1,74 @@
+#! /bin/bash 
+
+ARCHIVED=/data/archived/
+ROOTIFIED=/data/rootified/
+OUTBOX=/data/outbox 
+STAGING=/data/staging
+EVENTLISTS=/data/eventlists
+TRASH=/data/staging/trash
+
+if [[ $# -ne 3 ]] ; then 
+  echo "rno-g-reconvert station run"; 
+  exit 2; 
+fi 
+
+run=${ARCHIVED}/station${st}/run$runno 
+rootdir=${ROOTIFIED}/station${st}/run$runno
+eventlist=${EVENTLISTS}/station${st}/run$runno.list
+
+
+
+if [[ ! -d $run ]] 
+  echo "cannot find station ${st} run ${runno} in archive dir"
+  exit 2
+fi 
+
+if [[ ! -d $rootdir ]] 
+  echo "cannot find station ${st} run ${runno} in rootified (never converted?)" 
+  exit 2
+fi 
+
+if [[ ! -f $eventlist ]] 
+  echo "cannot find station ${st} run ${runno} in eventlists" 
+  exit 2
+fi 
+
+
+
+st = $1
+runno =$2 
+
+echo "RECONVERTING STATION ${st} RUN ${runno}" 
+
+rno-g-convert-run $run $rootdir 1 
+echo "COPYING TO STAGING" 
+outdir=${OUTBOX}/station${st}/run$runno
+
+#if the outdir already exists, move out of the outbox, and delete it 
+  if [ -d $outdir ] ; then
+     echo "RUN EXISTS IN OUTBOX, TRASHING" 
+     mkdir -p ${TRASH} 
+     mv $outdir ${TRASH} 
+     rm -rf ${TRASH}/$brun
+   fi 
+
+stagedir=${STAGING}/station${st}/run$runno 
+mkdir -p $stagedir
+cp -p $rootdir/headers.root $stagedir
+cp -p $rootdir/daqstatus.root $stagedir
+cp -p $rootdir/pedestal.root $stagedir
+cp -p -r $rootdir/aux $stagedir
+cp -p -r $rootdir/cfg $stagedir
+
+rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $eventlist
+
+echo "MOVING TO OUTBOX" 
+mv $stagedir $outdir 
+
+
+
+
+
+
+
+
