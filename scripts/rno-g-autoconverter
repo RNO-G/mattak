@@ -39,7 +39,7 @@ for st in ${STATIONS} ; do
       cp -p $rootdir/pedestal.root $stagedir
       cp -p -r $rootdir/aux $stagedir
       cp -p -r $rootdir/cfg $stagedir
-      rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $FRAC
+      rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC
       chmod -R 0777 $stagedir
       mv $stagedir $outdir 
     fi

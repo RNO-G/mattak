@@ -11,15 +11,17 @@
 #include "mattak/Header.h"
 #include "mattak/DAQStatus.h"
 #include "mattak/Pedestals.h"
+#include "mattak/RunInfo.h"
 
 
 #ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h" 
 
-template <typename T> const char * getName() { return ""; } 
-template<> const char * getName<mattak::Waveforms>() { return "wf"; } 
-template<> const char * getName<mattak::Header>() { return "hdr"; } 
-template<> const char * getName<mattak::DAQStatus>() { return "ds"; } 
+template <typename T> const char * getName() { return "unnamed"; } 
+template<> const char * getName<mattak::Waveforms>() { return "waveforms"; } 
+template<> const char * getName<mattak::Header>() { return "header"; } 
+template<> const char * getName<mattak::DAQStatus>() { return "daqstatus"; } 
+template<> const char * getName<mattak::Pedestals>() { return "pedestals"; } 
 
 
 
@@ -37,17 +39,19 @@ static int convert_impl(int N, const char ** infiles, const char * outfile, cons
   {
 
     rno_g_file_handle h; 
-    rno_g_init_handle(&h, infiles[i], "r"); 
-
-    Traw raw; 
-    while (ReaderFn(h, &raw) > 0) 
+    if (0 == rno_g_init_handle(&h, infiles[i], "r")) 
     {
-      nprocessed++; 
-      b = new (b) Troot(&raw); 
-      if (station > 0) b->station_number = station; 
-      t->Fill(); 
+      Traw raw; 
+      while (ReaderFn(h, &raw) > 0) 
+      {
+        nprocessed++; 
+        b = new (b) Troot(&raw); 
+        if (station > 0) b->station_number = station; 
+        t->Fill(); 
+      }
+      rno_g_close_handle(&h); 
     }
-    rno_g_close_handle(&h); 
+
   }
 
   f.Write(); 
@@ -154,5 +158,26 @@ int mattak::convert::convertPedestalDir(const char * dir, const char * outfile, 
   return convert_dir<rno_g_pedestal_t, rno_g_pedestal_read, mattak::Pedestals>(dir, outfile, treename,station); 
 }
 
+
 #endif
+
+int mattak::convert::makeRunInfo(const char *auxdir, const char * outfile, int station_override, int run_override) 
+{
+  TFile of(outfile,"RECREATE"); 
+  RunInfo * ri = new RunInfo(auxdir); 
+  if (station_override > 0) 
+  {
+    ri->station = station_override; 
+  }
+
+  if (run_override > 0) 
+  {
+    ri->run = run_override; 
+  }
+
+//  ri->Dump(); 
+  ri->Write("info"); 
+  of.Close();
+  return 0; 
+}
 

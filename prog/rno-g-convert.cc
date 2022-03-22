@@ -12,7 +12,8 @@ void usage()
 {
   std::cout << "Usage: rno-g-converter TYPE OUTFILE INFILE1 [INFILE2 ...]" << std::endl; 
   std::cout << "   or rno-g-converter TYPE OUTFILE INDIR << std::endl" << std::endl; 
-  std::cout << "   TYPE can be waveforms wfs header hd daqstatus ds pedestal ped " << std::endl; 
+  std::cout << "   or rno-g-converter runinfo OUTFILE  auxdir [stationoverride] [runoverride] << std::endl" << std::endl; 
+  std::cout << "   TYPE can be waveforms wfs header hd daqstatus ds pedestal ped runinfo" << std::endl; 
   std::cout << "   OUTFILE is the output ROOT file " << std::endl;
   std::cout << "   INFILE is one or more input files in order " << std::endl; 
   std::cout << "   INDIR is an input directory, an attempt will be made to get any number from a string and sorted. " << std::endl; 
@@ -76,7 +77,7 @@ int main (int nargs, char ** args)
       N = mattak::convert::convertDAQStatusFiles(nargs-3, (const char**) (args+3), outfile); 
     }
   }
-   else if (!strcmp(type,"ped") || !strcmp(type,"pedestal"))
+  else if (!strcmp(type,"ped") || !strcmp(type,"pedestal"))
   {
     if (first_input_dir) 
     {
@@ -86,6 +87,10 @@ int main (int nargs, char ** args)
     {
       N = mattak::convert::convertPedestalFiles(nargs-3, (const char**) (args+3), outfile); 
     }
+  }
+  else if (!strcmp(type,"runinfo"))
+  {
+    return mattak::convert::makeRunInfo(firstinput,outfile, nargs > 4 ? atoi(args[4]) : -1, nargs > 5 ? atoi(args[5]) : -1 ); 
   }
  
   else
