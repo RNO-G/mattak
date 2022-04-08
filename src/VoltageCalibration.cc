@@ -33,30 +33,35 @@ mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, 
 
   rno_g_pedestal_t ped; 
   rno_g_file_handle_t h; 
-  rno_g_init_handle(&h, raw_bias_scan_file,"r"); 
-  while  (rno_g_pedestal_read(h, &ped) )
+  if (rno_g_init_handle(&h, raw_bias_scan_file,"r")) 
   {
-    double bias_l = ped.vbias[0] / 4095. *3.3; 
-    double bias_r = ped.vbias[1] / 4095. *3.3; 
-    if (!scanSize())
-    {
-      start_time = ped.when; 
-      station_number= ped.station; 
-    }
-    else
-    {
-      end_time = ped.when; 
-    }
-
-    vbias[0].push_back(bias_l);
-    vbias[1].push_back(bias_r); 
-    scan_result.emplace_back(); 
-    memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals)); 
+    std::cerr <<"Trouble opening "<< raw_bias_scan_file << std::endl; 
   }
+  else
+  {
+    while  (rno_g_pedestal_read(h, &ped) )
+    {
+      double bias_l = ped.vbias[0] / 4095. *3.3; 
+      double bias_r = ped.vbias[1] / 4095. *3.3; 
+      if (!scanSize())
+      {
+        start_time = ped.when; 
+        station_number= ped.station; 
+      }
+      else
+      {
+        end_time = ped.when; 
+      }
 
+      vbias[0].push_back(bias_l);
+      vbias[1].push_back(bias_r); 
+      scan_result.emplace_back(); 
+      memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals)); 
+    }
+    scan_result.shrink_to_fit(); 
+    recalculateFits(fit_order, min, max, vref); 
+  }
   rno_g_close_handle(&h); 
-  scan_result.shrink_to_fit(); 
-  recalculateFits(fit_order, min, max, vref); 
 #endif
 
 }
