@@ -2,7 +2,7 @@
 #define _MATTAK_VOLTAGE_CALIBRAION_H 
 
 
-#ifndef MATTAK_CALIB_NOROOT
+#ifndef MATTAK_NOROOT
 #include "TH2.h" 
 #include "TGraph.h" 
 #endif
@@ -24,7 +24,7 @@ namespace mattak
                                    const double * packed_fit_params, int fit_order, double fit_min, double fit_max); 
 
 
-#ifndef MATTAK_CALIB_PYBIND_NOROOT
+#ifndef MATTAK_NOROOT
   class VoltageCalibration : public TObject
   {
     public:
