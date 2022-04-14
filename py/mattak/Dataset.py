@@ -5,12 +5,13 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import typing
-from typing import Sequence, Union
+from typing import Sequence, Union, Tuple
 import numpy 
 import datetime 
 
 
 ## Pure python event information. In effect duplicating the ROOT header
+## TODO: do we want this to be a struct of arrays rather than an array of structs? 
 @dataclass 
 class EventInfo: 
     eventNumber: int 
@@ -20,7 +21,7 @@ class EventInfo:
     triggerTime : float
     triggerType: str
     sysclk: int
-    sysclkLastPPS: typing.Tuple[int,int]  # the last 2 PPS sysclks, most recent first
+    sysclkLastPPS: Tuple[int,int]  # the last 2 PPS sysclks, most recent first
     pps: int 
     radiantStartWindows: numpy.ndarray
 
@@ -29,13 +30,28 @@ class EventInfo:
   This presents an event-by-event interface. Bulk interface, uses the AbstractBulkDataset''' 
 
 class AbstractDataset(ABC): 
-    ''' Select entries to read out with wfs or eventInfo. As a convenience, it's possible to just
-        pass an int. 
-        Returns the number of entries that are valid 
+    ''' Select entries to read out with wfs or eventInfo. Can either be a
+    single entry or a tuple representating start and end entries, inclusive. Use (0,dataset.N()) to select all events.
+
     ''' 
-    @abstractmethod 
-    def setEntries( self, i : Union[int,Sequence[int]]):
-        pass
+    def setEntries( self, i : Union[int,Tuple[int,int]]):
+        if isinstance(i, typing.Tuple):
+            self.multiple  = True
+            self.first = i[0]
+            self.last = i[1]
+            if self.first < 0: 
+                self.first += self.N()
+            if self.last < 0: 
+                self.last += self.N()
+
+            if self.last > self.N():
+                self.last = self.N() 
+        else:
+            self.multiple = False
+            self.entry = i
+            self.first = i
+            self.last = i+1
+ 
 
     def N(self) -> int: 
         return 0
@@ -48,7 +64,6 @@ class AbstractDataset(ABC):
     @abstractmethod
     def wfs(self, calibrated : bool = False) -> numpy.ndarray:  
         pass
-
 
 
 
@@ -74,9 +89,9 @@ def Dataset(station, run, data_dir = None, backend="auto"):
                 return None 
                 
    if backend == "uproot": 
-        from mattak.backends.uproot.dataset import Dataset as uprootDataset 
-        return uprootDataset(station, run, data_dir)
+        import mattak.backends.uproot.dataset 
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir)
    else: 
-        from mattak.backends.pyroot.dataset import Dataset as PyROOTDataset
-        return PyROOTDataset(station, run, data_dir) 
+        import mattak.backends.pyroot.dataset 
+        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir) 
 

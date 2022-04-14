@@ -9,17 +9,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str): 
         self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir) 
-        self.entries =0 
         self.station = station
         self.run = run 
+        self.data_dir = data_dir
+        self.setEntries(0) 
 
     def N(self) -> int: 
         return self.ds.N() 
 
-    def setEntries(self, i : typing.Union[int,typing.Sequence[int]]) -> None : 
-            self.entries = i 
-    
-    
     def _eventInfo(self, i : int) -> mattak.Dataset.EventInfo:
         #todo: handle this in C++ code if it's too slow in Python
         self.ds.setEntry(i)
@@ -51,18 +48,27 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk = hdr.sysclk
         sysclkLastPPS = ( hdr.sysclk_last_pps, hdr.sysclk_last_last_pps) 
         radiantStartWindows = numpy.frombuffer( cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24*2).reshape(24,2)
-        return mattak.Dataset.EventInfo(eventNumber = eventNumber, station = station, run = run, readoutTime=readoutTime, triggerTime=triggerTime, triggerType=triggerType, sysclk=sysclk, sysclkLastPPS=sysclkLastPPS, pps=pps, radiantStartWindows = radiantStartWindows)
+        return mattak.Dataset.EventInfo(eventNumber = eventNumber, 
+                                        station = station, 
+                                        run = run, 
+                                        readoutTime=readoutTime, 
+                                        triggerTime=triggerTime, 
+                                        triggerType=triggerType, 
+                                        sysclk=sysclk, 
+                                        sysclkLastPPS=sysclkLastPPS, 
+                                        pps=pps, 
+                                        radiantStartWindows = radiantStartWindows)
 
 
     def eventInfo(self) -> typing.Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
 
-        if isinstance(self.entries, typing.Sequence): 
+        if self.multiple:
             infos = [] 
-            for i in self.entries: 
+            for i in range(self.first,self.last):
                 infos.append(self._eventInfo(i))
             return infos 
 
-        return self._eventInfo(self.entries)
+        return self._eventInfo(self.entry)
 
     def _wfs(self, i : int, calibrated: bool = False): 
         self.ds.setEntry(i)
@@ -76,16 +82,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             
         # the simple case first
-        if not isinstance(self.entries, typing.Sequence):
-            return self._wfs(self.entries, calibrated) 
-        
-        #otherwise, let's set up the output ahead of time 
+        if not self.multiple:
+            return self._wfs(self.entry, calibrated) 
 
-        out = numpy.zeros((len(self.entries), 24, 2048))
-        for i, entry in enumerate(self.entries):
-            out[i][:][:] = self._wfs(entry, calibrated)
+        out = numpy.zeros((self.last-self.first, 24, 2048),dtype='int16')
+        for entry in range(self.first,self.last):
+            out[entry-self.first][:][:] = self._wfs(entry, calibrated)
 
-            
         return out
 
         
