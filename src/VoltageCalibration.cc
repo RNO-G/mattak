@@ -10,7 +10,20 @@
 #include "rno-g.h" 
 #endif
 
-#ifndef MATTAK_CALIB_PYBIND_NOROOT
+static double evalPars(double x, int order, const double * p)
+{
+  double ans = p[order]; 
+  int i = order -1; 
+  while (i>=0) 
+  {
+    ans = x * ans + p[i--]; 
+  }
+  return ans; 
+}
+
+
+
+#ifndef MATTAK_NOROOT
 
 #include "TLinearFitter.h" 
 #include "TF1.h" 
@@ -68,16 +81,6 @@ mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, 
 
 static const char * formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","pol1","pol2","pol3","pol4","pol5","pol6","pol7","pol8","pol9"}; 
 
-static double evalPars(double x, int order, const double * p)
-{
-  double ans = p[order]; 
-  int i = order -1; 
-  while (i>=0) 
-  {
-    ans = x * ans + p[i--]; 
-  }
-  return ans; 
-}
 
 /// THIS IS IN cASE WE WANTED TO SHIFT BACK IN TERMS OF ABSOLUTE ADU. BUT WE DON'T! 
 
@@ -455,7 +458,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
 //PYTHON BINDING 
 
-#ifdef MATTAK_CALIB_PYBIND_NOROOT
+#ifdef MATTAK_NOROOT
 
 namespace py = pybind11; 
 
@@ -464,11 +467,11 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
   //make sure in is int16_t, get n 
   
   auto in_info = in.request(); 
-  if (in_info.format() !=  py::format_descriptor<int16_t>::format() || in_info.ndim != 1 || in_info.strides[0]!=0 )
+  if ( (in_info.format !=  py::format_descriptor<int16_t>::format()) || (in_info.ndim != 1) || (in_info.strides[0]!=0) )
   {
 
     std::cerr << "in must be of type int16_t, 1 dim, no stride" << std::endl; 
-    return py::none; 
+    return py::none(); 
   }
 
   int N = in_info.size; 
@@ -478,21 +481,20 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
   if (packed_info.format != py::format_descriptor<double>::format() || packed_info.ndim != 1 || packed_info.strides[0] != 0)
   {
     std::cerr << "packed_coeffs must be of type double, 1 dim, no stride" << std::endl; 
-    return py::none: 
+    return py::none(); 
   }
 
   if (packed_info.size != (order+1) * mattak::k::num_lab4_samples)
   {
     std::cerr << "Packed coeffs not right size" << std::endl; 
-    return py::none; 
+    return py::none(); 
   }
 
   auto ret = py::array_t<double>(N); 
 
-  if (!apply_voltage_calibration(N, (int16_t*) in.ptr, (double*) ret.ptr, start_window, (double*) packed_coeffs.ptr, order, min, max)); 
+  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, (double*) packed_coeffs.ptr(), order, min, max)); 
   {
-    delete ret; //Or is it auto deleted by Python? 
-    return py::none; 
+    return py::none(); 
   }
 
   return ret; 
