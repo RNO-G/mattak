@@ -25,6 +25,8 @@ static double evalPars(double x, int order, const double * p)
 
 #ifndef MATTAK_NOROOT
 
+#include "mattak/Pedestals.h" 
+
 #include "TLinearFitter.h" 
 #include "TF1.h" 
 #include "TList.h" 
@@ -33,6 +35,38 @@ ClassImp(mattak::VoltageCalibration);
 
 //ROOT STUFF 
 
+
+//almost copy-pasted from raw file reader... 
+mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max) 
+{
+
+  mattak::Pedestals * ped = 0; 
+  tree->SetBranchAddress(branch_name,&ped); 
+
+  for (int i = 0; i < tree->GetEntries(); i++) 
+  {
+    tree->GetEntry(i); 
+    double bias_l = ped->vbias[0];
+    double bias_r = ped->vbias[1];
+    if (!scanSize()) 
+    {
+      start_time = ped->when; 
+      station_number = ped->station_number; 
+    }
+    else
+    {
+      end_time = ped->when;
+    }
+    vbias[0].push_back(bias_l);
+    vbias[1].push_back(bias_r); 
+    scan_result.emplace_back(); 
+    memcpy(&scan_result.back()[0][0], ped->pedestals, sizeof(ped->pedestals)); 
+  }
+  delete ped; 
+  ped = 0; 
+  scan_result.shrink_to_fit(); 
+  recalculateFits(fit_order, min, max, vref); 
+}
 
 mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, double vref, int fit_order, double min, double max) 
 {
