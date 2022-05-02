@@ -87,7 +87,7 @@ TGraph* graphImpl(const T & wf, int chan, bool ns)
 }
 
 template <typename T>
-static TPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & opt, TPad * where) 
+static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & opt, TVirtualPad * where) 
 {
   int nplots = __builtin_popcount(opt.mask); 
   if (!nplots) return nullptr; 
@@ -212,12 +212,12 @@ static TPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & opt, TP
 }
 
 
-TPad * mattak::Waveforms::drawWaveforms(const WaveformPlotOptions & opt, TPad * where)  const
+TVirtualPad * mattak::Waveforms::drawWaveforms(const WaveformPlotOptions & opt, TVirtualPad * where)  const
 {
   return drawImpl(*this, opt, where); 
 }
 
-TPad * mattak::CalibratedWaveforms::drawWaveforms(const WaveformPlotOptions & opt, TPad * where)  const
+TVirtualPad * mattak::CalibratedWaveforms::drawWaveforms(const WaveformPlotOptions & opt, TVirtualPad * where)  const
 {
   return drawImpl(*this, opt, where); 
 }
