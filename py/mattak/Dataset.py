@@ -10,7 +10,7 @@ import numpy
 import datetime 
 
 
-## Pure python event information. In effect duplicating the ROOT header
+## Pure python event information. In effect duplicating the most important bits of the ROOT header
 ## TODO: do we want this to be a struct of arrays rather than an array of structs? 
 @dataclass 
 class EventInfo: 
@@ -30,15 +30,19 @@ class EventInfo:
   This presents an event-by-event interface. Bulk interface, uses the AbstractBulkDataset''' 
 
 class AbstractDataset(ABC): 
+
     ''' Select entries to read out with wfs or eventInfo. Can either be a
-    single entry or a tuple representating start and end entries, inclusive. Use (0,dataset.N()) to select all events.
+    single entry or a tuple representating start and end entries, exclusive.
+    Use (0,dataset.N()) or (0, None) to select all events. Negative indices indicate from end. 
 
     ''' 
     def setEntries( self, i : Union[int,Tuple[int,int]]):
-        if isinstance(i, typing.Tuple):
+        if isinstance(i, tuple):
             self.multiple  = True
             self.first = i[0]
             self.last = i[1]
+            if self.last is None:
+                self.last = self.N() 
             if self.first < 0: 
                 self.first += self.N()
             if self.last < 0: 
@@ -53,22 +57,60 @@ class AbstractDataset(ABC):
             self.last = i+1
  
 
+    ''' Return the number of events available in this dataset'''
     def N(self) -> int: 
         return 0
 
-    '''Get Event Info as a dataclass'''
+
+    ''' implementation-defned part of iterator'''
+    @abstractmethod
+    def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Tuple[EventInfo, numpy.ndarray]:
+        pass
+
+    ''' Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
+        Returns a tuple of EventInfo and the event waveforms (potentially calibrated). 
+    '''
+    def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Union[Tuple[EventInfo, numpy.ndarray],None]:
+        if start < 0: 
+            start += self.N() 
+        if start < 0 or start > self.N(): 
+            return None
+
+        if stop is None: 
+            stop = self.N()
+        
+        if stop < 0: 
+            stop += self.N() 
+
+        if stop < 0 or start > self.N(): 
+            return None
+
+        return self._iterate(start,stop,calibrated,max_entries_in_mem) 
+
+
+
+    '''Get selected event info(s) 
+       Depending on what was passed to setEntries this can return either one EventInfo or a list of them
+    '''
     @abstractmethod
     def eventInfo(self) -> Union[EventInfo,Sequence[EventInfo]]:
         pass
 
+    ''' Get select waveform(s). 
+        Depending on what was passed to setEntries, this may be a single waveform or many
+    '''
     @abstractmethod
     def wfs(self, calibrated : bool = False) -> numpy.ndarray:  
         pass
 
 
-
-# This is not a class, but a factory method! 
-def Dataset(station, run, data_dir = None, backend="auto"): 
+'''
+This is not a class, but a factory method! 
+Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
+then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
+use the best one. 
+'''
+def Dataset(station, run, data_dir = None, backend="auto", verbose = False): 
 
    if data_dir is None: 
        data_dir = os.environ['RNO_G_DATA'] 
@@ -77,13 +119,15 @@ def Dataset(station, run, data_dir = None, backend="auto"):
         try: 
             import ROOT 
             import mattak.backends.pyroot.mattakloader 
-            print('Using pyroot backend') 
+            if verbose: 
+                print('Using pyroot backend') 
             backend = "pyroot" 
         except: 
             try: 
                 import uproot
                 backend = "uproot" 
-                print('Using uproot backend') 
+                if verbose: 
+                    print('Using uproot backend') 
             except:
                 print("No backends available")
                 return None 
@@ -91,7 +135,10 @@ def Dataset(station, run, data_dir = None, backend="auto"):
    if backend == "uproot": 
         import mattak.backends.uproot.dataset 
         return mattak.backends.uproot.dataset.Dataset(station, run, data_dir)
-   else: 
+   elif backend == "pyroot": 
         import mattak.backends.pyroot.dataset 
         return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir) 
+   else: 
+       print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
+       return None 
 

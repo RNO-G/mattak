@@ -91,8 +91,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         return out
 
-        
-
+# ignore max_in_mem since it doesn't save much time for us... 
+    def _iterate(self, start, stop, calibrated, max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+        for i in range(start,stop): 
+            yield ( self._eventInfo(i), self._wfs(i,calibrated)) 
+       
 
 
 

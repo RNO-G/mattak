@@ -6,15 +6,15 @@
 # to find libmattak.so, first trying to import it in case some version has been
 # added to LD_LIBRARY_PATH, otherwise checking the same directory).
 
-# We also build a C++ module using PyBind11 that doesn't depend on ROOT for use with the uproot backend. 
+# We also build a C++ module using pybind11 that doesn't depend on ROOT for use with the uproot backend. 
+# So really you need a C++ compiler and cmake installed, not to mention pybind11... 
 
 import os
 import sys
 import pathlib
 import subprocess
-from setuptools import setup, Extension, find_packets
+from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
-import importutils 
 
 try:
     import ROOT 
@@ -24,12 +24,13 @@ except ImportError:
 
 class MattakExtension(Extension): 
     def __init__(self, name): 
-        Extension.__init__*self,name, sources=[])
+        Extension.__init__(*self,name, sources=[])
 
 
 class MattakBuild(build_ext): 
 
     def run(self): 
+        print('Starting Mattak build') 
 
         #check if we have cmake available, and a C++ compiler, if not complain 
         try: 
@@ -77,13 +78,17 @@ class MattakBuild(build_ext):
 
         pybind_build_dir = self.build_temp + "/pybind-build"
         os.makedirs(pybind_build_dir, exist_ok = True) 
-        subprocess.check_call(['cmake', base_dir ], cwd=pybind_build_dir)
+        subprocess.check_call(['cmake -D ROOTLESS=yes', base_dir ], cwd=pybind_build_dir)
         subprocess.check_call(['cmake','--build','.'], cwd=pybind_build_dir)
         os.makedirs(dest_dir + "/backends/uproot", exist_ok = True)
         print("---Finding a home for them---") 
         self.copy_file(pybind_build_dir+"/mattak-noroot.so", dest_dir  + "/backends/pyroot/_cxx")
 
 
-setup (name='mattak') 
+setup (name='mattak', 
+
+
+        
+        ) 
 
 

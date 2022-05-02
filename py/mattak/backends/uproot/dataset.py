@@ -3,6 +3,7 @@ import uproot
 
 import mattak.Dataset
 import typing
+from typing import Union,List
 import numpy
 
 
@@ -58,7 +59,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         
 
 
-    def eventInfo(self) -> typing.Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
+    def eventInfo(self) -> Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
         station = self._hds['station_number'].array(entry_start = self.first, entry_stop = self.last)
         run = self._hds['run_number'].array(entry_start = self.first, entry_stop = self.last)
         eventNumber = self._hds['event_number'].array(entry_start = self.first, entry_stop = self.last)
@@ -72,7 +73,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')
-        infos = [] if self.multiple else None
+        infos : Union[None,List[mattak.Dataset.EventInfo]] = [] if self.multiple else None
         for i in range(self.last-self.first): 
             triggerType  = "UNKNOWN"; 
             if triggerInfo[i]['trigger_info.radiant_trigger']:
@@ -116,13 +117,35 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 #        assert(not calibrated) # not implemented yet 
 
         w = self._wfs['radiant_data[24][2048]'].array(entry_start = self.first, entry_stop = self.last, library='np')
-        print(w)
         if self.multiple: 
             return w
         return w[0] 
         
 
+    def _iterate(self, start, stop, calibrated,  max_in_mem) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
+        current_start = -1 
+        current_stop = -1
+        w = None
+        e = None
+        i = start 
+        preserve_entries = self.entry
+        if self.multiple:
+            preserve_entries = (self.first, self.last) 
+        while i < stop: 
+            if i >= current_stop:
+                current_start = i
+                current_stop = min(i+max_in_mem, stop)
+                self.setEntries((current_start, current_stop)) 
+                w = self.wfs(calibrated)
+                e = self.eventInfo()
+                self.setEntries(preserve_entries) # hide that we're modifying these 
+
+            rel_i = i -current_start
+            i+=1
+            yield (e[rel_i], w[rel_i])
+
+ 
 
 
 
