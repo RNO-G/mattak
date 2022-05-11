@@ -26,9 +26,7 @@ class EventInfo:
     radiantStartWindows: numpy.ndarray
 
 ##
-''' Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT
-  This presents an event-by-event interface. Bulk interface, uses the AbstractBulkDataset''' 
-
+''' Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT'''
 class AbstractDataset(ABC): 
 
     ''' Select entries to read out with wfs or eventInfo. Can either be a
