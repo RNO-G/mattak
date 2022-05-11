@@ -17,7 +17,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int: 
         return self.ds.N() 
 
-    def _eventInfo(self, i : int) -> mattak.Dataset.EventInfo:
+    def _eventInfo(self, i : int) -> typing.Optional[mattak.Dataset.EventInfo]:
         #todo: handle this in C++ code if it's too slow in Python
         self.ds.setEntry(i)
         hdr = self.ds.header() 
@@ -60,7 +60,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                         radiantStartWindows = radiantStartWindows)
 
 
-    def eventInfo(self) -> typing.Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
+    def eventInfo(self) -> typing.Union[typing.Optional[mattak.Dataset.EventInfo],typing.Sequence[typing.Optional[mattak.Dataset.EventInfo]]]: 
 
         if self.multiple:
             infos = [] 

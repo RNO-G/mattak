@@ -30,6 +30,6 @@ if not loaded:
                 break 
 
 if not loaded: 
-    raise('Could not load libmattak.so') 
+    raise Exception('Could not load libmattak.so') 
 
 

@@ -122,7 +122,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         return w[0] 
         
 
-    def _iterate(self, start, stop, calibrated,  max_in_mem) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+    def _iterate(self, start, stop, calibrated,  max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
         current_start = -1 
         current_stop = -1

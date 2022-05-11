@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import typing
-from typing import Sequence, Union, Tuple
+from typing import Sequence, Union, Tuple, Optional
 import numpy 
 import datetime 
 
@@ -62,7 +62,7 @@ class AbstractDataset(ABC):
         return 0
 
 
-    ''' implementation-defned part of iterator'''
+    ''' implementation-defined part of iterator'''
     @abstractmethod
     def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Tuple[EventInfo, numpy.ndarray]:
         pass
@@ -70,7 +70,7 @@ class AbstractDataset(ABC):
     ''' Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
         Returns a tuple of EventInfo and the event waveforms (potentially calibrated). 
     '''
-    def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Union[Tuple[EventInfo, numpy.ndarray],None]:
+    def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Optional[Tuple[EventInfo, numpy.ndarray]]:
         if start < 0: 
             start += self.N() 
         if start < 0 or start > self.N(): 
@@ -93,14 +93,14 @@ class AbstractDataset(ABC):
        Depending on what was passed to setEntries this can return either one EventInfo or a list of them
     '''
     @abstractmethod
-    def eventInfo(self) -> Union[EventInfo,Sequence[EventInfo]]:
+    def eventInfo(self) -> Union[Optional[EventInfo],Optional[Sequence[EventInfo]]]:
         pass
 
     ''' Get select waveform(s). 
         Depending on what was passed to setEntries, this may be a single waveform or many
     '''
     @abstractmethod
-    def wfs(self, calibrated : bool = False) -> numpy.ndarray:  
+    def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:  
         pass
 
 
