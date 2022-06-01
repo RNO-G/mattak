@@ -147,27 +147,6 @@ int main (int nargs, char ** args)
   }
 
 
-  if (nargs < 6 || !strcasecmp(args[5],"None"))
-  {
-
-    std::cerr << "Not using a runinfo"  << std::endl; 
-  }
-  else
-  {
-    TFile * ri_f = TFile::Open(args[5]); 
-    mattak::RunInfo * ri = ri_f ? (mattak::RunInfo*) ri_f->Get("info") : 0; 
-    if (!ri) 
-    {
-      std::cerr << "Could not open runinfo from " << args[5] << std::endl; 
-      std::cerr << "Continuing without runinfo." <<std::endl; 
-    }
-    else
-    {
-      of.cd(); 
-      ri->Write("info"); 
-    }
-  }
-
   if (!use_file_list && frac < 1) 
   {
     TRandom3 r(hd->station_number * 1e8+hd->run_number); 
@@ -213,6 +192,28 @@ int main (int nargs, char ** args)
     of.cd(); 
     out->Fill(); 
   }
+
+  if (nargs < 6 || !strcasecmp(args[5],"None"))
+  {
+
+    std::cerr << "Not using a runinfo"  << std::endl; 
+  }
+  else
+  {
+    TFile * ri_f = TFile::Open(args[5]); 
+    mattak::RunInfo * ri = ri_f ? (mattak::RunInfo*) ri_f->Get("info") : 0; 
+    if (!ri) 
+    {
+      std::cerr << "Could not open runinfo from " << args[5] << std::endl; 
+      std::cerr << "Continuing without runinfo." <<std::endl; 
+    }
+    else
+    {
+      of.cd(); 
+      ri->Write("info"); 
+    }
+  }
+
 
   of.Write(); 
   return 0; 
