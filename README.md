@@ -1,9 +1,13 @@
 # Mattak 
 
-Mattak is a Greenlandic meal consisting of whale skin and blubber. Blubber is a store of energy. That's close enough to data storage... 
+Mattak is a Greenlandic meal consisting of whale skin and blubber. Blubber is a
+store of energy. That's close enough to data storage... 
 
-Mattak is (will eventually be)  a multilingual package containing readers and helpers for RNO-G in C++, Python (via both uproot and PyROOT) and js (via rootjs). Writers are provided in C++ and python (via PyROOT only for now, until uproot write support is mature). 
+Mattak is (will eventually be) a multilingual package containing readers and
+helpers for RNO-G in C++, Python (via both uproot and PyROOT) and maybe even JS (via
+rootjs). Writers are provided in C++ ( and Python via PyROOT)
 These are all in the same package so that they can be kept in concert with each other. 
+
 
 # Data directory hierarchy 
 
@@ -20,13 +24,13 @@ ${RNO_G_DATA}/station_${STATION_NUMBER}/runs/run_${RUN_NUMBER_%05d}/cfg
 And any auxilliary files we might generate will be under
 ${RNO_G_DATA}/station_${STATION_NUMBER}/runs/run_${RUN_NUMBER_%05d}/aux 
 
-Note that this might result in a lot of files in a directory. If we assume a run is 4 hours, then 
+Note that this might result in a lot of files in a directory. 
 
-Sensor data is stored based on the time collected, as is GNSS
+Sensor data (not implemented yet) is stored based on the time collected, as is GNSS
 ${RNO_G_DATA}/station_${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
 ${RNO_G_DATA}/station_${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
 
-Calibration data is stored under ${RNO_G_DATA}/station_${STATION_NUMBER}/calib  but the rest of this has yet to be defined. 
+Calibration data is stored under ${RNO_G_DATA}/station_${STATION_NUMBER}/calib but the rest of this has yet to be defined. 
 
 There may also be auxiliary files globally in ${RNO_G_DATA} and ${RNO_G_DATA}/station_${STATION_NUMBER} (things like mappings, who knows?)
 
@@ -55,6 +59,6 @@ Any data related to digitizer calibration. TODO.
 Any data from the GNSS (not PPS data, but pseudodistances, etc.). TODO. 
 
 ## Sensors
-Sensor housekeeping data, async
+Sensor housekeeping data, async. TODO 
 
 

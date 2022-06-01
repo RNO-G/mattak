@@ -2,8 +2,9 @@
 #define _MATTAK_VOLTAGE_CALIBRAION_H 
 
 
-#ifndef MATTAK_CALIB_NOROOT
+#ifndef MATTAK_NOROOT
 #include "TH2.h" 
+#include "TTree.h" 
 #include "TGraph.h" 
 #endif
 
@@ -24,7 +25,7 @@ namespace mattak
                                    const double * packed_fit_params, int fit_order, double fit_min, double fit_max); 
 
 
-#ifndef MATTAK_CALIB_PYBIND_NOROOT
+#ifndef MATTAK_NOROOT
   class VoltageCalibration : public TObject
   {
     public:
@@ -39,6 +40,7 @@ namespace mattak
        *
        */ 
       VoltageCalibration(const char * raw_bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
+      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff, int turnover_threshold = 20); 
 
 
