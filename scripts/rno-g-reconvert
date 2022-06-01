@@ -40,7 +40,7 @@ runno =$2
 
 echo "RECONVERTING STATION ${st} RUN ${runno}" 
 
-rno-g-convert-run $run $rootdir 1 
+rno-g-convert-run $run $rootdir 1 || exit 1
 echo "COPYING TO STAGING" 
 outdir=${OUTBOX}/station${st}/run$runno
 
@@ -49,7 +49,7 @@ outdir=${OUTBOX}/station${st}/run$runno
      echo "RUN EXISTS IN OUTBOX, TRASHING" 
      mkdir -p ${TRASH} 
      mv $outdir ${TRASH} 
-     rm -rf ${TRASH}/$brun
+     rm -rf ${TRASH}/run$runno
    fi 
 
 stagedir=${STAGING}/station${st}/run$runno 
