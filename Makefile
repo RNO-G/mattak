@@ -8,7 +8,7 @@ builddir=build
 rootlessdir=build-noroot
 
 
-all: cmake-build cmake-rootless-build
+all: cmake-build #cmake-rootless-build
 rootless: cmake-rootless-build
 clean: cmake-clean cmake-rootless-clean
 install: cmake-install 
