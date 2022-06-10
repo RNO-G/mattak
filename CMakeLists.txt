@@ -135,5 +135,4 @@ else()
   include_directories(${PROJECT_SOURCE_DIR}/src)
   add_library(mattak_noroot MODULE src/VoltageCalibration.cc)
   target_link_libraries(mattak_noroot PUBLIC pybind11::module)
->>>>>>> 96abf1c0ccf5bcfa555eb139ecad4644af19489a
 endif() 
