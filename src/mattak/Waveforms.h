@@ -5,7 +5,7 @@
 #include <vector> 
 #include <array> 
 #include "TObject.h" 
-class TPad; 
+class TVirtualPad; 
 class TGraph; 
 
 #ifdef LIBRNO_G_SUPPORT
@@ -54,7 +54,7 @@ namespace mattak
      uint16_t station_number = 0; 
      uint16_t buffer_length = 0; 
      virtual TGraph * makeGraph(int chan, bool ns = true) const = 0; 
-     virtual TPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TPad * where = nullptr) const = 0; 
+     virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0; 
      ClassDef(IWaveforms, 1); 
   }; 
 
@@ -78,7 +78,7 @@ namespace mattak
 
        int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {}; 
        virtual TGraph * makeGraph(int chan, bool ns = true) const; 
-       virtual TPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TPad * where = nullptr) const; 
+       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const; 
     ClassDef(Waveforms,3); 
 
   }; 
@@ -104,7 +104,7 @@ namespace mattak
       CalibratedWaveforms(const Waveforms & wf, const Header & h,  const VoltageCalibration & vc); 
 
       virtual TGraph * makeGraph(int chan, bool ns = true) const; 
-      virtual TPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TPad * where = nullptr) const; 
+      virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const; 
       double radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {}; 
       ClassDef(CalibratedWaveforms, 1); 
   }; 

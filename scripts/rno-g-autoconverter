@@ -6,6 +6,8 @@ ROOTIFIED=/data/rootified/
 OUTBOX=/data/outbox 
 STAGING=/data/staging
 TRASH=/data/staging/trash
+EVENTLISTS=/data/eventlists
+
 FRAC=0.25
 STATIONS="21 11 22"
 
@@ -37,9 +39,12 @@ for st in ${STATIONS} ; do
       cp -p $rootdir/headers.root $stagedir
       cp -p $rootdir/daqstatus.root $stagedir
       cp -p $rootdir/pedestal.root $stagedir
+      cp -p $rootdir/runinfo.root $stagedir
       cp -p -r $rootdir/aux $stagedir
       cp -p -r $rootdir/cfg $stagedir
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC
+      mkdir -p $EVENTLISTS/station${st} 
+      rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
       mv $stagedir $outdir 
     fi

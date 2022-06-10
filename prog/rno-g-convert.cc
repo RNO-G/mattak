@@ -40,6 +40,14 @@ int main (int nargs, char ** args)
   if (nargs < 4) usage(); 
   const char * type       = args[1]; 
   const char * outfile    = args[2]; 
+  //check if outfile ends with .root 
+  if (!TString(outfile).EndsWith(".root"))
+  {
+    std::cerr << "Outfile should end with .root" << std::endl; 
+    return 1; 
+  }
+
+  
   const char * firstinput = args[3]; 
   int first_input_dir = isdir(firstinput); 
   int N = 0;
