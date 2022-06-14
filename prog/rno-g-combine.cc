@@ -39,7 +39,7 @@ int main (int nargs, char ** args)
     //is this a file list or a float? 
     char *endp = 0; 
     frac = std::strtod(fraction_or_filelist,&endp); 
-    if (endp)
+    if (endp[0])
     {
       if (access(fraction_or_filelist, R_OK))
       {
