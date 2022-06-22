@@ -19,6 +19,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         # check for full or partial run by looking for waveforms.root
 
+
         try: 
             self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
             self.combined_tree = None
@@ -37,6 +38,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                     break 
  
             self.full = True
+
         except: 
             self.full = False
             self.combined_tree = uproot.open("%s/combined.root;combined" %(self.rundir))
@@ -56,7 +58,13 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         self.run = run
         self.data_dir = data_dir
         self.setEntries(0) 
-        
+
+        self.run_info = None
+        # try to get the run info, if we're using combined tree, try looking in tehre 
+        if self.combined_Tree is not None: 
+            self.run_info = uproot.open("%s/combined.root;info", %(self.rundir))
+        else 
+            self.run_info = uproot.open("%s/runinfo.root;info", %(self.rundir))
 
 
     def eventInfo(self) -> Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
@@ -70,6 +78,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         sysclk = self._hds['sysclk'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(entry_start = self.first, entry_stop = self.last)
+        sampleRate = 3.2 if self.run_info is None else self.run_info.radiant_sample_rate 
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')

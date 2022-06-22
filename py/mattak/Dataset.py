@@ -23,6 +23,7 @@ class EventInfo:
     sysclkLastPPS: Tuple[int,int]  # the last 2 PPS sysclks, most recent first
     pps: int 
     radiantStartWindows: numpy.ndarray
+    sampleRate: float  # Sample rate, in GSa/s 
 
 ##
 class AbstractDataset(ABC): 
