@@ -10,10 +10,9 @@ import numpy
 import datetime 
 
 
-## Pure python event information. In effect duplicating the most important bits of the ROOT header
-## TODO: do we want this to be a struct of arrays rather than an array of structs? 
 @dataclass 
 class EventInfo: 
+   """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
     eventNumber: int 
     station : int
     run: int
@@ -26,15 +25,16 @@ class EventInfo:
     radiantStartWindows: numpy.ndarray
 
 ##
-''' Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT'''
 class AbstractDataset(ABC): 
+    """ Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT"""
 
-    ''' Select entries to read out with wfs or eventInfo. Can either be a
-    single entry or a tuple representating start and end entries, exclusive.
-    Use (0,dataset.N()) or (0, None) to select all events. Negative indices indicate from end. 
-
-    ''' 
     def setEntries( self, i : Union[int,Tuple[int,int]]):
+        """
+        Select entries to read out with wfs or eventInfo. Can either be a
+        single entry or a tuple representating start and end entries, exclusive.
+        Use (0,dataset.N()) or (0, None) to select all events. Negative indices indicate from end. 
+        """ 
+
         if isinstance(i, tuple):
             self.multiple  = True
             self.first = i[0]
@@ -55,20 +55,20 @@ class AbstractDataset(ABC):
             self.last = i+1
  
 
-    ''' Return the number of events available in this dataset'''
     def N(self) -> int: 
+        """ Return the number of events available in this dataset"""
         return 0
 
 
-    ''' implementation-defined part of iterator'''
     @abstractmethod
     def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Tuple[EventInfo, numpy.ndarray]:
+        """ implementation-defined part of iterator"""
         pass
 
-    ''' Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
-        Returns a tuple of EventInfo and the event waveforms (potentially calibrated). 
-    '''
     def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Optional[Tuple[EventInfo, numpy.ndarray]]:
+        """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
+            Returns a tuple of EventInfo and the event waveforms (potentially calibrated). 
+        """
         if start < 0: 
             start += self.N() 
         if start < 0 or start > self.N(): 
@@ -87,28 +87,28 @@ class AbstractDataset(ABC):
 
 
 
-    '''Get selected event info(s) 
-       Depending on what was passed to setEntries this can return either one EventInfo or a list of them
-    '''
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo],Optional[Sequence[EventInfo]]]:
+        """Get selected event info(s) 
+           Depending on what was passed to setEntries this can return either one EventInfo or a list of them
+        """
         pass
 
-    ''' Get select waveform(s). 
-        Depending on what was passed to setEntries, this may be a single waveform or many
-    '''
     @abstractmethod
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:  
+        """ Get select waveform(s). 
+            Depending on what was passed to setEntries, this may be a single waveform or many
+        """
         pass
 
 
-'''
-This is not a class, but a factory method! 
-Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
-then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-use the best one. 
-'''
 def Dataset(station, run, data_dir = None, backend="auto", verbose = False): 
+    """
+    This is not a class, but a factory method! 
+    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
+    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
+    use the best one. 
+    """
 
    if data_dir is None: 
        data_dir = os.environ['RNO_G_DATA'] 
