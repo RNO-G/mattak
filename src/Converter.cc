@@ -27,12 +27,11 @@ template<> const char * getName<mattak::Pedestals>() { return "pedestals"; }
 
 template <typename Traw, int(*ReaderFn)(rno_g_file_handle_t, Traw*), typename Troot>
 static int convert_impl(int N, const char ** infiles, const char * outfile, const char * treename, int station)
+
 {
-  TFile f(outfile,"RECREATE"); 
-  if (!treename) treename = getName<Troot>(); 
-  TTree * t = new TTree(treename,treename); 
-  Troot * b = new Troot; 
-  t->Branch(treename, &b); 
+  TFile * f = 0; 
+  TTree *t = 0; 
+  Troot * b = 0; 
 
   int nprocessed = 0; 
   for (int i = 0; i < N; i++) 
@@ -44,6 +43,14 @@ static int convert_impl(int N, const char ** infiles, const char * outfile, cons
       Traw raw; 
       while (ReaderFn(h, &raw) > 0) 
       {
+        if (!f) 
+        {
+          f = new TFile(outfile,"RECREATE"); 
+          if (!treename) treename = getName<Troot>(); 
+          TTree * t = new TTree(treename,treename); 
+          Troot * b = new Troot; 
+          t->Branch(treename, &b); 
+        }
         nprocessed++; 
         b = new (b) Troot(&raw); 
         if (station > 0) b->station_number = station; 
@@ -54,7 +61,11 @@ static int convert_impl(int N, const char ** infiles, const char * outfile, cons
 
   }
 
-  f.Write(); 
+  if (f)
+  {
+    f->Write(); 
+    delete f;
+  }
 
   return nprocessed; 
 }
