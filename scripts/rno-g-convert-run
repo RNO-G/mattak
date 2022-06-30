@@ -54,10 +54,15 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
   && cp $tmpfile ${OUTDIR}/rootified-list.txt
 
+  retval=$?
   rm -f $tmpfile 
-
-  exit 1
-
+  if [ $retval -eq 0] ; then 
+    echo "success"
+    exit 1
+  else 
+    echo "bailing"
+    exit -1 
+  fi 
 fi 
 
 
