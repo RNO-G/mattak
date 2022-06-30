@@ -39,7 +39,7 @@ int main (int nargs, char ** args)
     //is this a file list or a float? 
     char *endp = 0; 
     frac = std::strtod(fraction_or_filelist,&endp); 
-    if (endp[0])
+    if (*endp)
     {
       if (access(fraction_or_filelist, R_OK))
       {
@@ -152,11 +152,12 @@ int main (int nargs, char ** args)
     TRandom3 r(hd->station_number * 1e8+hd->run_number); 
     entries.reserve(frac*nevents + 3*sqrt(frac*nevents)); 
     int i = 0;
-    double invfrac = -log(1-frac); 
     while ( i < nevents) 
     {
-      int I = 1 + floor(log(r.Rndm()) * invfrac); 
+      int I = 1 + floor(-log(r.Rndm()) / frac); 
+      if (I < 1) I = 1; 
       i = (i+I); 
+      printf("%d %d\n",i,I); 
       if (i < nevents) 
       {
         entries.push_back(i); 

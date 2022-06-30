@@ -6,9 +6,8 @@ ROOTIFIED=/data/rootified/
 OUTBOX=/data/outbox 
 STAGING=/data/staging
 TRASH=/data/staging/trash
+FRAC=0.05
 EVENTLISTS=/data/eventlists
-
-FRAC=0.25
 STATIONS="21 11 22"
 
 
