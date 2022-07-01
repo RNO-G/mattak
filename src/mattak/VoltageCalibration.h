@@ -32,14 +32,15 @@ namespace mattak
       VoltageCalibration()  { ; } 
 
       /** 
-       * Create a Voltage Calibration from raw_bias_scan_file which consists of a a bunch of raw pedestals with associated vbiases.
+       * Create a Voltage Calibration from bias_scan_file. If bias_scan_file ends with .root, it's assumed to contain a tree named pedestals with branch pedestals.  
+       * Otherwise it's assumed to be afile which consists of a bunch of raw pedestals with associated vbiases.
        * This does a polynomial fit of order fit_order . for each sample in each channel for voltages betwee fit_min_V and fit_max_V. 
        *
        * If fit_Vref is non-zero then the fit is fixed to cross the scan at that vref (useful if that's your nominal pedestal!) 
        *  
        *
        */ 
-      VoltageCalibration(const char * raw_bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
+      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2); 
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff, int turnover_threshold = 20); 
 
@@ -83,6 +84,7 @@ namespace mattak
       double fit_max; 
       uint32_t start_time; 
       int turnover_threshold;
+      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max); 
       uint32_t end_time; 
       bool left_equals_right; 
     ClassDef(VoltageCalibration, 1); 

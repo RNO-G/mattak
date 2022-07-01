@@ -1,4 +1,5 @@
 #include "mattak/VoltageCalibration.h" 
+#include "TFile.h" 
 #include <iostream> 
 
 
@@ -36,8 +37,17 @@ ClassImp(mattak::VoltageCalibration);
 //ROOT STUFF 
 
 
-//almost copy-pasted from raw file reader... 
+
+
+
 mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max) 
+{
+  setupFromTree(tree,branch_name,vref,fit_order,min,max); 
+
+
+}
+//almost copy-pasted from raw file reader... 
+void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max) 
 {
 
   mattak::Pedestals * ped = 0; 
@@ -68,46 +78,58 @@ mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch
   recalculateFits(fit_order, min, max, vref); 
 }
 
-mattak::VoltageCalibration::VoltageCalibration(const char * raw_bias_scan_file, double vref, int fit_order, double min, double max) 
+mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max) 
 {
+  const char * suffix = strrchr(bias_scan_file,'.');
 
+  if (!strcmp(suffix,".root") && !(*(suffix + sizeof(".root")-1)))
+  {
+    TFile f(bias_scan_file); 
+    TTree * t = (TTree*) f.Get("pedestals"); 
+    if (!t) 
+    {
+      std::cerr << "Could not open tree pedestals in " << bias_scan_file << std::endl; 
+      return; 
+    }
+    setupFromTree(t,"pedestals", vref, fit_order, min, max); 
+    return; 
+  }
 #ifndef LIBRNO_G_SUPPORT
 
   std::cerr << "Not compiled with librno-g support. "<< std::endl;
-  (void) raw_bias_scan_file; 
+  (void) bias_scan_file; 
 #else
 
 
   rno_g_pedestal_t ped; 
   rno_g_file_handle_t h; 
-  if (rno_g_init_handle(&h, raw_bias_scan_file,"r")) 
+  if (rno_g_init_handle(&h, bias_scan_file,"r")) 
   {
-    std::cerr <<"Trouble opening "<< raw_bias_scan_file << std::endl; 
+    std::cerr <<"Trouble opening "<< bias_scan_file << std::endl; 
+    return; 
   }
-  else
-  {
-    while  (rno_g_pedestal_read(h, &ped) )
-    {
-      double bias_l = ped.vbias[0] / 4095. *3.3; 
-      double bias_r = ped.vbias[1] / 4095. *3.3; 
-      if (!scanSize())
-      {
-        start_time = ped.when; 
-        station_number= ped.station; 
-      }
-      else
-      {
-        end_time = ped.when; 
-      }
 
-      vbias[0].push_back(bias_l);
-      vbias[1].push_back(bias_r); 
-      scan_result.emplace_back(); 
-      memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals)); 
+  while  (rno_g_pedestal_read(h, &ped) )
+  {
+    double bias_l = ped.vbias[0] / 4095. *3.3; 
+    double bias_r = ped.vbias[1] / 4095. *3.3; 
+    if (!scanSize())
+    {
+      start_time = ped.when; 
+      station_number= ped.station; 
     }
-    scan_result.shrink_to_fit(); 
-    recalculateFits(fit_order, min, max, vref); 
+    else
+    {
+      end_time = ped.when; 
+    }
+
+    vbias[0].push_back(bias_l);
+    vbias[1].push_back(bias_r); 
+    scan_result.emplace_back(); 
+    memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals)); 
   }
+  scan_result.shrink_to_fit(); 
+  recalculateFits(fit_order, min, max, vref); 
   rno_g_close_handle(&h); 
 #endif
 
