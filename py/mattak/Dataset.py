@@ -12,7 +12,7 @@ import datetime
 
 @dataclass 
 class EventInfo: 
-   """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
+    """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
     eventNumber: int 
     station : int
     run: int
@@ -104,12 +104,12 @@ class AbstractDataset(ABC):
 
 
 def Dataset(station, run, data_dir = None, backend="auto", verbose = False): 
-    """
-    This is not a class, but a factory method! 
-    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
-    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-    use the best one. 
-    """
+   """
+   This is not a class, but a factory method! 
+   Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
+   then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
+   use the best one. 
+   """
 
    if data_dir is None: 
        data_dir = os.environ['RNO_G_DATA'] 
