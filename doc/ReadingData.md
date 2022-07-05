@@ -82,7 +82,7 @@ interface just by adding the `py` directory under the `mattak` root directory to
 Then you can do something like:  
 
     import mattak.Dataset
-    d = mattak.Dataset.Dataset(station=21, run=1000, data_dir=datadir) # if you don't pass data_dir, it will use env var RNO_G_DATA
+    d = mattak.Dataset.Dataset(station=21, run=1000, data_dir=datadir) # if you don't pass data_dir, it will use env var RNO_G_DATA, you can also pass a backend explicitly insitead of using auto
     d.setEntries(10) # load the 10th event
     d.eventInfo() # event info 
     d.wfs() # waveform data
@@ -90,6 +90,12 @@ Then you can do something like:
     d.eventInfo() # list of 10 event infos 
     d.wfs() # 10 events worth of data 
 
+Both "uproot" and "pyroot" backends are supported. If you don't pass a backend
+to `Dataset` it will use `PyROOT` if it can load `libmattak.so` (WARNING: code
+probably doesn't work on Macs yet, someone who has a Mac should add support)
+or `uproot` otherwise. The interface is identical. 
+
+Eventually it will be possible to access calibrated data this way. 
 
 # Converting raw data
 
