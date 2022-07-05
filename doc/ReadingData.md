@@ -60,11 +60,11 @@ If you don't have the full directory structure, but just files from a run, you c
 
 All of the `ROOT` code can be transcribed to `PyROOT`. For example, abbreviated: 
 
-   import ROOT
-   ROOT.gSystem.Load("path/to/libmattak.so") 
-   d = ROOT.mattak.Dataset(21,1000,0, "path/to/data/dir")
-   d.setEntry(10)
-   d.raw().drawWaveforms() 
+    import ROOT
+    ROOT.gSystem.Load("path/to/libmattak.so") 
+    d = ROOT.mattak.Dataset(21,1000,0, "path/to/data/dir")
+    d.setEntry(10)
+    d.raw().drawWaveforms() 
 
 
 ## Reading data with the "stable" Python API 
