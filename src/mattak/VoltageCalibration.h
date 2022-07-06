@@ -63,7 +63,7 @@ namespace mattak
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; } 
       int getStationNumber() const { return station_number; }; 
       uint32_t getStartTime() const { return start_time; } 
-      uint32_t getEndTime() const { return start_time; } 
+      uint32_t getEndTime() const { return end_time; } 
       int scanSize() const { return vbias[0].size() ; } 
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; } 
