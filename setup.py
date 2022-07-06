@@ -16,6 +16,9 @@ import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
+
+raise NotImplementedError("setup.py implementation not done") 
+
 try:
     import ROOT 
 except ImportError: 
