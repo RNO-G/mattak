@@ -133,7 +133,7 @@ def Dataset(station, run, data_dir = None, backend="auto", verbose = False):
                 
    if backend == "uproot": 
         import mattak.backends.uproot.dataset 
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir)
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose)
    elif backend == "pyroot": 
         import mattak.backends.pyroot.dataset 
         return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir) 
