@@ -36,7 +36,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
                 which = "X" 
-            triggerType = "RADIANT" + which
+            triggerType = "RADIANT" + str(which)
         elif hdr.trigger_info.lt_trigger:
             triggerType = "LT" 
         elif hdr.trigger_info.force_trigger:
