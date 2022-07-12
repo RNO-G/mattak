@@ -47,10 +47,11 @@ static int convert_impl(int N, const char ** infiles, const char * outfile, cons
         {
           f = new TFile(outfile,"RECREATE"); 
           if (!treename) treename = getName<Troot>(); 
-          TTree * t = new TTree(treename,treename); 
-          Troot * b = new Troot; 
+          t = new TTree(treename,treename); 
+          b = new Troot; 
           t->Branch(treename, &b); 
         }
+
         nprocessed++; 
         b = new (b) Troot(&raw); 
         if (station > 0) b->station_number = station; 
@@ -65,6 +66,7 @@ static int convert_impl(int N, const char ** infiles, const char * outfile, cons
   {
     f->Write(); 
     delete f;
+    f = 0; 
   }
 
   return nprocessed; 
