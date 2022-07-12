@@ -12,7 +12,7 @@ header_tree_names = ["hdr","header","hd","hds","headers"]
 
 class Dataset ( mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str): 
+    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False): 
         self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
 
         # this duplicates a bunch of C++ code in mattak::Dataset
@@ -22,6 +22,8 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         try: 
             self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
+            if verbose: 
+                print ("Found full file")
             self.combined_tree = None
             for wf_tree_name in waveform_tree_names:
                 if wf_tree_name in self.wf_file:
@@ -41,7 +43,12 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         except: 
             self.full = False
-            self.combined_tree = uproot.open("%s/combined.root;combined" %(self.rundir))
+
+            self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+
+            if verbose: 
+                print ("Found combined file")
+                print (self.combined_tree)
             # get the right branch names
             for wf_branch_name in waveform_tree_names:
                 if wf_branch_name in self.combined_tree:
@@ -60,11 +67,11 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         self.setEntries(0) 
 
         self.run_info = None
-        # try to get the run info, if we're using combined tree, try looking in tehre 
-        if self.combined_Tree is not None: 
-            self.run_info = uproot.open("%s/combined.root;info", %(self.rundir))
-        else 
-            self.run_info = uproot.open("%s/runinfo.root;info", %(self.rundir))
+        # try to get the run info, if we're using combined tree, try looking in there 
+        if self.combined_tree is not None: 
+            self.run_info = uproot.open("%s/combined.root;info" %(self.rundir))
+        else:
+            self.run_info = uproot.open("%s/runinfo.root;info" %(self.rundir))
 
 
     def eventInfo(self) -> Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
