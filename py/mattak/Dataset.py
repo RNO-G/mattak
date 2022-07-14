@@ -103,12 +103,27 @@ class AbstractDataset(ABC):
         pass
 
 
-def Dataset(station, run, data_dir = None, backend="auto", verbose = False): 
+def Dataset(station : int, run : int, data_dir : str = None, backend : str="auto", verbose : bool = False, skip_incomplete : bool = True): 
    """
    This is not a class, but a factory method! 
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-   use the best one. 
+   use the best one (PyROOT if available, otherwise will rever tto uproot). 
+
+   There is a special case of setting station = 0 and run = 0 and data_dir will
+   be interpreted as a directory containing ROOT files, useful if you don't
+   have the full directory hierarchy setup or want to look at data taken with
+   the fakedaq.
+   
+   verbose prints out things mostly useful for debugging.
+
+   skip_incomplete affects what happens when a dataset is incomplete
+   (telemetered). If True, will only index fully telemetered events. If False,
+   will be indexed by full dataset, but untelemetered events will have
+   waveforms of None type (if requested singly) or be all 0's (if requested
+   via the bulk interface, as numpy doesn't support jagged ararys). 
+
+   
    """
 
    if data_dir is None: 
@@ -133,10 +148,10 @@ def Dataset(station, run, data_dir = None, backend="auto", verbose = False):
                 
    if backend == "uproot": 
         import mattak.backends.uproot.dataset 
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose)
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete)
    elif backend == "pyroot": 
         import mattak.backends.pyroot.dataset 
-        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir) 
+        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete) 
    else: 
        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
        return None 

@@ -7,10 +7,24 @@ import numpy
 
 class Dataset(mattak.Dataset.AbstractDataset): 
 
-    def __init__(self, station : int, run : int, data_dir : str): 
-        self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir) 
-        self.station = station
-        self.run = run 
+    def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True): 
+
+        #special case where we load a directory instead of a station/run 
+        if station == 0 and run == 0: 
+            if self.verbose:
+                print("Trying to load data dir!") 
+            self.ds = ROOT.mattak.Dataset() 
+            self.ds.loadDir(data_dir, skip_incomplete) 
+            self.station = self.ds.header().station
+            self.run = self.ds.header().run
+
+            if self.verbose: 
+                print("We think we found station %d run %d" % (self.station,self.run))
+
+        else: 
+            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete) 
+            self.station = station
+            self.run = run 
         self.data_dir = data_dir
         self.setEntries(0) 
 
@@ -18,7 +32,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return self.ds.N() 
 
     def _eventInfo(self, i : int) -> typing.Optional[mattak.Dataset.EventInfo]:
-        #todo: handle this in C++ code if it's too slow in Python
+        #TODO: handle this in C++ code if it's too slow in Python
         self.ds.setEntry(i)
         hdr = self.ds.header() 
         if hdr is None: 
@@ -87,9 +101,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.multiple:
             return self._wfs(self.entry, calibrated) 
 
-        out = numpy.zeros((self.last-self.first, 24, 2048),dtype='int16')
+        out = numpy.zeros((self.last-self.first, 24, 2048),dtype= 'float64' if calibrated else 'int16')
         for entry in range(self.first,self.last):
-            out[entry-self.first][:][:] = self._wfs(entry, calibrated)
+            this_wfs = self._wfs(entry,calibrated)
+            if this_wfs is not None: 
+                out[entry-self.first][:][:] =this_wfs 
 
         return out
 
