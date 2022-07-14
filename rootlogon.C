@@ -1,11 +1,5 @@
 {
-  gSystem->Load("build/libmattak.so")
+  gSystem->Load(Form("build/libmattak.%s", gSystem->GetSoExt()))
 }
 
-/* Only MacOS: Replace the above loader with the comment below. -JM */
 
-/*
-{
-  gSystem->Load("build/libmattak.dylib")
-}
-*/
