@@ -57,7 +57,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                 # get the full head tree
                 self.full_head_file = uproot.open("%s/headers.root" % (self.rundir))
                 for hd_tree_name in header_tree_names: 
-                    if hd_tree_name in self.full_head_tree: 
+                    if hd_tree_name in self.full_head_file: 
                         self.full_head_tree = self.full_head_file[hd_tree_name]
                         break 
 
@@ -127,7 +127,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         sysclk = self._hds['sysclk'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(entry_start = self.first, entry_stop = self.last)
-        sampleRate = 3.2 if self.run_info is None else self.run_info['radiant-samplerate']/1000.
+        sampleRate = 3.2 if self.run_info is None else float(self.run_info['radiant-samplerate'])/1000.
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')
@@ -138,7 +138,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                 which = triggerInfo[i]['trigger_info.which_radiant_trigger']
                 if which == -1: 
                     which = "X" 
-                triggerType = "RADIANT" + which
+                triggerType = "RADIANT" + str(which)
             elif triggerInfo[i]['trigger_info.lt_trigger']:
                 triggerType = "LT"
             elif triggerInfo[i]['trigger_info.force_trigger']:
@@ -195,13 +195,14 @@ class Dataset ( mattak.Dataset.AbstractDataset):
             wf_idxs = [] 
             for i in range(self.first, self.last): 
                 if i in self._wf_dict: 
-                    wf_idxs.append(i) 
+                    wf_idxs.append(i-self.first) 
+                    # these are the start and stop of our array we need to load
                     if wf_start is None: 
                         wf_start = self._wf_dict[i]
                     wf_end = self._wf_dict[i]+1 
             
-            if len(wf_idxes): 
-                w[wf_idxs][:][:] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_end = wf_end)
+            if len(wf_idxs): 
+                w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop = wf_end, library='np')
 
         # here we'd eventually handle calibration I think? 
 
