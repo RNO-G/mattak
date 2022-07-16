@@ -1,5 +1,7 @@
 import os 
 import uproot
+import os.path
+import configparser
 
 import mattak.Dataset
 import typing
@@ -96,10 +98,22 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         self.run_info = None
         # try to get the run info, if we're using combined tree, try looking in there 
-        if self.combined_tree is not None: 
-            self.run_info = uproot.open("%s/combined.root:info" %(self.rundir))
-        else:
-            self.run_info = uproot.open("%s/runinfo.root:info" %(self.rundir))
+        # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
+###        if self.combined_tree is not None: 
+###            self.run_info = uproot.open("%s/combined.root:info" %(self.rundir))
+###       else:
+###            self.run_info = uproot.open("%s/runinfo.root:info" %(self.rundir))
+        
+
+        if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)): 
+            with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo: 
+                # we'll abuse configparser to read the runinfo, but we have to add a dummy section to properly abuse it 
+                config = configparser.ConfigParser() 
+                config.read_string('[dummy]\n' + fruninfo.read())
+                self.run_info = config['dummy'] 
+                
+
+
 
 
     def eventInfo(self) -> Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
@@ -113,7 +127,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         sysclk = self._hds['sysclk'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(entry_start = self.first, entry_stop = self.last)
-        sampleRate = 3.2 if self.run_info is None else self.run_info.radiant_sample_rate
+        sampleRate = 3.2 if self.run_info is None else self.run_info['radiant-samplerate']/1000.
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')
@@ -142,7 +156,8 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                                             sysclk = sysclk[i],
                                             sysclkLastPPS = (sysclk_lastpps[i], sysclk_lastlastpps[i]), 
                                             pps = pps[i], 
-                                            radiantStartWindows = radiantStartWindows[i])
+                                            radiantStartWindows = radiantStartWindows[i],
+                                            sampleRate = sampleRate)
 
             if not self.multiple:
                 return info
