@@ -15,8 +15,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 print("Trying to load data dir!") 
             self.ds = ROOT.mattak.Dataset() 
             self.ds.loadDir(data_dir, skip_incomplete) 
-            self.station = self.ds.header().station
-            self.run = self.ds.header().run
+            self.station = self.ds.header().station_number
+            self.run = self.ds.header().run_number
 
             if verbose: 
                 print("We think we found station %d run %d" % (self.station,self.run))
