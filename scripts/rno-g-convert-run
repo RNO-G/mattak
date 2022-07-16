@@ -19,7 +19,7 @@ NEED_TO_UPDATE=1
 
 if [ ${FORCE} -eq 0 ]
 then 
-  if  [ -f ${OUTDIR}/rootified-list.txt ]  ;
+  if  [ -f ${OUTDIR}/rootified-list.txt -a -f ${OUTDIR}/aux/acq-file-list.txt ]  ;
   then
     diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort ) 
     NEED_TO_UPDATE=$?
@@ -54,15 +54,10 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
   && cp $tmpfile ${OUTDIR}/rootified-list.txt
 
-  retval=$?
   rm -f $tmpfile 
-  if [ $retval -eq 0 ] ; then 
-    echo "success"
-    exit 1
-  else 
-    echo "bailing"
-    exit -1 
-  fi 
+
+  exit 1
+
 fi 
 
 
