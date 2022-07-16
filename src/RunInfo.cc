@@ -52,6 +52,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
 
       //trim leading and trailing whitespace
       trim(key); 
+      trim(value); 
       std::cout <<key <<":" << value << std::endl; 
       kvp[key] = value; 
     }
@@ -130,7 +131,7 @@ int mattak::RunInfo::lookupFloat(const std::string & key, float * val) const
   }
   float tmp; 
 
-  if  (1!=sscanf(str.c_str(),"%f", &tmp)) ;
+  if  (1!=sscanf(str.c_str(),"%f", &tmp))
   {
     return 1; 
   }
