@@ -94,7 +94,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _wfs(self, i : int, calibrated: bool = False): 
         self.ds.setEntry(i)
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
-        if wf is None: 
+        if ROOT.addressof(wf) == 0: 
             return None 
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count = 24*2048).reshape(24,2048)
 
