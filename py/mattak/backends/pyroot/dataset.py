@@ -11,14 +11,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         #special case where we load a directory instead of a station/run 
         if station == 0 and run == 0: 
-            if self.verbose:
+            if verbose:
                 print("Trying to load data dir!") 
             self.ds = ROOT.mattak.Dataset() 
             self.ds.loadDir(data_dir, skip_incomplete) 
             self.station = self.ds.header().station
             self.run = self.ds.header().run
 
-            if self.verbose: 
+            if verbose: 
                 print("We think we found station %d run %d" % (self.station,self.run))
 
         else: 
