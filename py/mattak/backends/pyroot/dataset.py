@@ -62,11 +62,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk = hdr.sysclk
         sysclkLastPPS = ( hdr.sysclk_last_pps, hdr.sysclk_last_last_pps) 
         radiantStartWindows = numpy.frombuffer( cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24*2).reshape(24,2)
-        sampleRate = 3.2 if self.ds.info() is None else self.ds.info().radiant_sample_rate/1000.
+        sampleRate = 3.2 #if ( ROOT.AddressOf(self.ds.info()) ==0 or self.ds.info().radiant_sample_rate == 0)  else self.ds.info().radiant_sample_rate/1000.
 
-        # fix for poorly parsed runinfos 
-        if sampleRate == 0: 
-            sampleRate = 3.2 
 
         return mattak.Dataset.EventInfo(eventNumber = eventNumber, 
                                         station = station, 
