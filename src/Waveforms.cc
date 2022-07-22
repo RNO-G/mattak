@@ -77,7 +77,7 @@ TGraph* graphImpl(const T & wf, int chan, bool ns)
 
 
   g->GetXaxis()->SetTitle(ns ? "ns" : "sample"); 
-  g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]); 
+  g->GetXaxis()->SetLimits(g->GetX()[0], g->GetX()[wf.buffer_length-1]); 
   g->GetYaxis()->SetTitle(getYaxisLabel<T>()); 
 
   g->SetName(Form("g_s%d_r%d_e%d_ch%d", wf.station_number, wf.run_number, wf.event_number, chan));
