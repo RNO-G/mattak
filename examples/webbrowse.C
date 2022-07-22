@@ -1,3 +1,8 @@
+// web browser example
+
+R__LOAD_LIBRARY(libRootFftwWrapper.so) 
+#include "FFTtools.h" 
+
 mattak::Dataset * d = 0; 
 TCanvas * cweb = 0;
 TPad * pinfo = 0; 
@@ -6,6 +11,24 @@ int current;
 THttpServer * srv = 0; 
 TPaveText * txt = 0; 
 
+
+bool fft = false;  
+
+double * x = 0; 
+std::complex<double> *X = 0 ;
+double * mag = 0; 
+
+
+int mode(std::string m) 
+{
+  if (m == "fft")
+  {
+    fft = true; 
+    return 1; 
+  }
+  else fft = false;
+  return 0; 
+}
 
 int setsize(int w, int h) 
 {
@@ -36,7 +59,43 @@ int go(int i)
         ( d->header()->trigger_info.which_radiant_trigger == 0 ? "RF0" : d->header()->trigger_info.which_radiant_trigger == 1 ?"RF1" : "RFX") : "no"));
   txt->Draw(); 
   pwf->Clear(); 
-  d->raw()->drawWaveforms(mattak::WaveformPlotOptions(),pwf);
+
+
+  if (fft) 
+  {
+    //we'll be a bit sleazy here
+    pwf->Divide(6,4,0.001,0.001); 
+
+    for (int chan = 0; chan < 24; chan++) 
+    {
+
+
+      TGraph * g = d->raw()->makeGraph(chan); 
+      TGraph * P = FFTtools::makePowerSpectrumMilliVoltsNanoSecondsdB(g); 
+      TString gname = g->GetName();
+      gname[0]='P'; 
+      P->GetXaxis()->SetTitle("Freq [MHz]"); 
+      P->GetXaxis()->SetRangeUser(0,1599); 
+      P->GetYaxis()->SetRangeUser(-20,60); 
+      P->GetYaxis()->SetTitle("Power [dBArb]"); 
+      P->SetTitle(""); 
+      P->SetTitle(g->GetTitle()); 
+      P->SetName(gname); 
+      P->SetLineColor(kRed+2); 
+      P->SetBit(TGraph::kCanDelete);
+      P->SetBit(TGraph::kIsSortedX); 
+      P->SetBit(TGraph::kNotEditable); 
+      TVirtualPad * p = pwf->cd(chan+1); 
+      p->SetGridx();
+      p->SetGridy();
+      P->Draw("al"); 
+    }
+  }
+  else 
+  {
+    d->raw()->drawWaveforms(mattak::WaveformPlotOptions(),pwf);
+  }
+
   pwf->Update(); 
   gSystem->ProcessEvents(); 
   srv->ProcessRequests(); 
@@ -85,7 +144,9 @@ void init(int port, const char * data_dir)
   srv->RegisterCommand("/Get","go(%arg1%)"); 
   srv->RegisterCommand("/SetStationRun","set_run(%arg1%,%arg2%)"); 
   srv->RegisterCommand("/Resize","setsize(%arg1%,%arg2%)"); 
+  srv->RegisterCommand("/SetMode","mode(\"%arg1%\")"); 
   srv->RegisterCommand("/First","first()"); 
+  srv->RegisterCommand("/Reload","go(current)"); 
   srv->RegisterCommand("/Last","last()"); 
   srv->RegisterCommand("/Next","next()"); 
   srv->RegisterCommand("/Previous","previous()"); 

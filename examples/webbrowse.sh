@@ -21,5 +21,5 @@ RUN=$2
 DATA=${3-/data/rootified}
 PORT=${4-12345} 
 
-root -b examples/webbrowse.C\($STATION,$RUN,\"$DATA\",$PORT\); 
+LD_LIBRARY_PATH+=/usr/local/lib root -b examples/webbrowse.C\($STATION,$RUN,\"$DATA\",$PORT\); 
 

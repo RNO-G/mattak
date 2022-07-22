@@ -9,10 +9,16 @@
 
    <script type='text/javascript'>
 
+     function refresh(obj) 
+     {
+        JSROOT.cleanup("draw_wf"); 
+        JSROOT.redraw("draw_wf",obj); 
+
+     }
     
      function drawwf()
      { 
-        JSROOT.httpRequest("Canvases/cweb/root.json.gz",'object').then (obj => JSROOT.redraw("draw_wf",obj)); 
+        JSROOT.httpRequest("Canvases/cweb/root.json.gz",'object').then (obj => refresh(obj)); 
      }
 
      function update(txt) 
@@ -20,6 +26,14 @@
         document.getElementById("in_entry").value = txt; 
         drawwf(); 
      }
+
+     function reload(txt) 
+     {
+        document.getElementById("in_entry").value = txt; 
+        JSROOT.httpRequest("Reload/cmd.json",'text').then (obj => drawwf()); 
+     }
+
+
 
      function setCmd(id, cmd) 
      {
@@ -59,7 +73,9 @@
  <input id="in_entry" type="number" title="Entry" value="0" min=0/>
  <input id="btn_next" type="button" title="Next" value="-->"/>
  <input id="btn_last" type="button" title="Last" value="--]"/>
- <input id="btn_change" type="button" title="Change" value="..."/>
+
+ | Change station/run:<input id="btn_change" type="button" title="Change" value="..."/>
+ | Spectrum: <input id="chk_fft" title="fft" type="checkbox" />
  <div id="draw_wf"></div>
 
 </body>
@@ -76,6 +92,15 @@
          JSROOT.httpRequest("/Get/cmd.json?arg1="+document.getElementById('in_entry').value,'text')
           .then( txt=> update(txt) ); 
      };
+
+     document.getElementById('chk_fft').onchange = function() 
+     {
+        var val = document.getElementById('chk_fft').checked ? "fft" : "normal" 
+        JSROOT.httpRequest("/SetMode/cmd.json?arg1="+val,'text')
+          .then( txt=> reload(txt) ); 
+     };
+
+
 
      document.getElementById('btn_change').onclick = function() 
      {
