@@ -27,7 +27,7 @@ int go(int i)
   txt = new TPaveText(0.01,0.01,0.99,0.99); 
   txt->AddText(Form("S %d, R: %d, ev: %d",d->header()->station_number, d->header()->run_number, d->header()->event_number)); 
   TTimeStamp trigtime(int(d->header()->trigger_time), int(1e9*(d->header()->trigger_time-int(d->header()->trigger_time))));
-  TTimeStamp readtime(int(d->header()->trigger_time), int(1e9*(d->header()->trigger_time-int(d->header()->trigger_time))));
+  TTimeStamp readtime(int(d->header()->trigger_time), int(1e9*(d->header()->readout_time-int(d->header()->readout_time))));
   TString str_trig = trigtime.AsString();
   TString str_read = readtime.AsString();
   txt->AddText(Form("Trigger time: %s, Readout time: %s", str_trig.Data(), str_read.Data())); 
