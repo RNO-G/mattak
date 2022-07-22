@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="utf-8">
+   <title>mattakview</title>
+
+
+   <script src="jsrootsys/scripts/JSRoot.core.js" type="text/javascript"></script>
+
+   <script type='text/javascript'>
+
+    
+     function drawwf()
+     { 
+        JSROOT.httpRequest("Canvases/cweb/root.json.gz",'object').then (obj => JSROOT.redraw("draw_wf",obj)); 
+     }
+
+     function update(txt) 
+     {
+        document.getElementById("in_entry").value = txt; 
+        drawwf(); 
+     }
+
+     function setCmd(id, cmd) 
+     {
+       document.getElementById(id).onclick = function() 
+       {
+         JSROOT.httpRequest("/" + cmd + "/cmd.json",'text')
+           .then( txt => update(txt) ); 
+       }
+     }
+
+     function setsize() 
+     {
+       JSROOT.httpRequest("/Resize/cmd.json?arg1=" + window.innerWidth + "&arg2=" + window.innerHeight, 'text').then(hd => drawwf());
+       console.log(window.innerWidth + " " + window.innerHeight); 
+     }
+
+
+   </script>
+
+  <style type="text/css"> 
+   #draw_wf
+   {
+     width: 100%; 
+     height: 100%; 
+   }
+
+  </style>
+
+
+
+</head>
+
+<body>
+
+ <input id="btn_first" type="button" title="First" value="[--"/>
+ <input id="btn_prev" type="button" title="Previous" value="<--"/>
+ <input id="in_entry" type="number" title="Entry" value="0" min=0/>
+ <input id="btn_next" type="button" title="Next" value="-->"/>
+ <input id="btn_last" type="button" title="Last" value="--]"/>
+ <input id="btn_change" type="button" title="Change" value="..."/>
+ <div id="draw_wf"></div>
+
+</body>
+
+  <script type="text/javascript">
+     setCmd("btn_first","First"); 
+     setCmd("btn_prev","Previous"); 
+     setCmd("btn_next","Next"); 
+     setCmd("btn_last","Last"); 
+
+     document.getElementById('in_entry').onchange = function() 
+     {
+       
+         JSROOT.httpRequest("/Get/cmd.json?arg1="+document.getElementById('in_entry').value,'text')
+          .then( txt=> update(txt) ); 
+     };
+
+     document.getElementById('btn_change').onclick = function() 
+     {
+       let station = parseInt(prompt("Station?")); 
+       let run = parseInt(prompt("Run?")); 
+       
+       JSROOT.httpRequest("/SetStationRun/cmd.json?arg1="+station+'&arg2='+run,'text')
+          .then( txt => update(txt) ); 
+     };
+
+     setsize(); 
+     document.getElementById('in_entry').value='0'; 
+ 
+  </script>
+
+
+</html>
