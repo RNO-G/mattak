@@ -24,7 +24,16 @@
      function update(txt) 
      {
         document.getElementById("in_entry").value = txt; 
-        drawwf(); 
+        if (txt < 0) 
+        {
+          JSROOT.cleanup("draw_wf"); 
+          document.getElementById("draw_wf").innerHTML="<b color=red>Bad station/run</b>" 
+
+        }
+        else
+        { 
+          drawwf(); 
+        }
      }
 
      function reload(txt) 

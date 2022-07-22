@@ -39,6 +39,7 @@ int setsize(int w, int h)
 
 int go(int i) 
 {
+  if (d->N() <= 0) return -1; 
 
   current= i; 
   if (current< 0) current= 0;
@@ -102,10 +103,10 @@ int go(int i)
   return current; 
 }
 
-void set_run(int station, int run)
+int set_run(int station, int run)
 {
   d->loadRun(station,run); 
-  go(0); 
+  return go(0); 
 }
 
 
