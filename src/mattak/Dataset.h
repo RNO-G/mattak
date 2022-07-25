@@ -38,6 +38,10 @@ namespace mattak
       mattak::RunInfo * info() const { return runinfo.ptr; }
       mattak::Pedestals * peds(bool force_reload = false, int entry = 0); 
 
+      TTree * daqStatusTree() { return ds.tree; }
+      TTree * headTree() { return hd.tree; }
+      TTree * wfTree() { return wf.tree; }
+
       bool isFullDataset() const { return full_dataset; }
       void setCalibration(const VoltageCalibration * calib); 
       const VoltageCalibration * getCalibration() const { return calib; } 
