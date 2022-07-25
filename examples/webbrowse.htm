@@ -9,17 +9,28 @@
 
    <script type='text/javascript'>
 
-     function refresh(obj) 
+     function refresh(obj,what) 
      {
-        JSROOT.cleanup("draw_wf"); 
-        JSROOT.redraw("draw_wf",obj); 
+        JSROOT.cleanup(what); 
+        JSROOT.redraw(what,obj); 
 
      }
     
      function drawwf()
      { 
-        JSROOT.httpRequest("Canvases/cweb/root.json.gz",'object').then (obj => refresh(obj)); 
+        JSROOT.httpRequest("Canvases/cweb/root.json.gz",'object').then (obj => refresh(obj,"draw_wf")); 
      }
+    
+     function draw_thresh()
+     { 
+        JSROOT.httpRequest("Canvases/cthresh/root.json.gz",'object').then (obj => refresh(obj, "draw_thresh")); 
+     }
+
+     function draw_crates()
+     { 
+        JSROOT.httpRequest("Canvases/crates/root.json.gz",'object').then (obj => refresh(obj, "draw_rates")); 
+     }
+
 
      function update(txt) 
      {
@@ -55,7 +66,7 @@
 
      function setsize() 
      {
-       JSROOT.httpRequest("/Resize/cmd.json?arg1=" + window.innerWidth + "&arg2=" + window.innerHeight, 'text').then(hd => drawwf());
+       JSROOT.httpRequest("/Resize/cmd.json?arg1=" + window.innerWidth + "&arg2=" + window.innerHeight, 'text').then(drawwf()).then(draw_thresh()).then(draw_crates());
        console.log(window.innerWidth + " " + window.innerHeight); 
      }
 
@@ -63,12 +74,11 @@
    </script>
 
   <style type="text/css"> 
-   #draw_wf
+   #draw_wf, #draw_thresh, #draw_rates
    {
      width: 100%; 
      height: 100%; 
    }
-
   </style>
 
 
@@ -86,6 +96,8 @@
  | Change station/run:<input id="btn_change" type="button" title="Change" value="..."/>
  | Spectrum: <input id="chk_fft" title="fft" type="checkbox" />
  <div id="draw_wf"></div>
+ <div id="draw_rates"></div>
+ <div id="draw_thresh"></div>
 
 </body>
 
@@ -117,7 +129,7 @@
        let run = parseInt(prompt("Run?")); 
        
        JSROOT.httpRequest("/SetStationRun/cmd.json?arg1="+station+'&arg2='+run,'text')
-          .then( txt => update(txt) ); 
+          .then( txt => update(txt)).then( draw_thresh());
      };
 
      setsize(); 
