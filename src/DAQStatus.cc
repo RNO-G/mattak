@@ -47,6 +47,7 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
   this->lt_100Hz_scalers.trig_coinc = status->lt_scalers.s_100Hz.trig_coinc;
   this->lt_100Hz_scalers.servo_coinc = status->lt_scalers.s_100Hz.servo_coinc;
 
+  this->station_number = status->station; 
 
 
 
