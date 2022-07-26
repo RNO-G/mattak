@@ -15,13 +15,10 @@ int current;
 THttpServer * srv = 0; 
 TPaveText * txt = 0; 
 
-
 bool fft = false;  
-
 double * x = 0; 
 std::complex<double> *X = 0 ;
 double * mag = 0; 
-
 
 int mode(std::string m) 
 {
@@ -131,9 +128,11 @@ void draw_ds()
     int N = st->Draw(Form("radiant_thresholds[%d]/16777215*2.5:radiant_scalers[%d]:readout_time_radiant", ch, ch),"","goff"); 
     TGraph * gth = new TGraph(N, st->GetV3(), st->GetV1()); 
     gth->SetTitle(Form("RAD ch%d; readout time; threshold [V]", ch));
+    gth->SetName(Form("radch%d", ch));
     gth->GetXaxis()->SetTimeDisplay(1); 
     TGraph * gsc = new TGraph(N, st->GetV3(), st->GetV2()); 
-    gsc->SetTitle(Form("RAD ch%d; readout time; Scaler [Hz]", ch));
+    gsc->SetTitle(Form("RAD ch%d; readout time; rate [Hz]", ch));
+    gth->SetName(Form("radch%d", ch));
     gsc->GetXaxis()->SetTimeDisplay(1); 
     grad_th->Add(gth);
     grad_sc->Add(gsc); 
@@ -202,22 +201,36 @@ void draw_ds()
   cthresh->Divide(2,2); 
   cthresh->cd(1); 
   grad_th->GetXaxis()->SetTimeDisplay(1);
+  grad_th->GetXaxis()->SetTimeOffset(0,"GMT");
   gStyle->SetPalette(kRainBow); 
   grad_th->Draw("a pmc plc"); 
+  gPad->SetGridx();
+  gPad->SetGridy();
   gPad->BuildLegend();
+
   cthresh->cd(2); 
   grad_sc->GetXaxis()->SetTimeDisplay(1);
+  grad_sc->GetXaxis()->SetTimeOffset(0,"GMT");
   grad_sc->Draw("a pmc plc"); 
 
+  gPad->SetGridx();
+  gPad->SetGridy();
   gPad->BuildLegend();
   cthresh->cd(3); 
   gflo_th->GetXaxis()->SetTimeDisplay(1);
   gflo_th->Draw("a pmc plc"); 
+  gflo_th->GetXaxis()->SetTimeOffset(0,"GMT");
+  gPad->SetGridx();
+  gPad->SetGridy();
   gPad->BuildLegend();
   cthresh->cd(4); 
   gflo_sc->Draw("a pmc plc"); 
   gflo_sc->GetXaxis()->SetTimeDisplay(1);
+  gflo_sc->GetXaxis()->SetTimeOffset(0,"GMT");
+  gPad->SetGridx();
+  gPad->SetGridy();
   gPad->BuildLegend();
+  gPad->Update(); 
 
 
 }
@@ -239,6 +252,7 @@ void draw_rates()
   total->SetMarkerColor(kBlack);
   total->SetLineWidth(2); 
   total->GetXaxis()->SetTimeDisplay(1); 
+  total->GetXaxis()->SetTimeOffset(0,"GMT");
   TH1 * force = new TH1F("force","Force",nbins,min,max);
   force->SetLineColor(kRed-2); 
   force->SetMarkerColor(kRed-2); 
@@ -255,20 +269,28 @@ void draw_rates()
   total->SetStats(false); 
   hd->Draw("trigger_time >> total","","goff"); 
   total->Scale(1./total->GetBinWidth(1));
+  total->SetBit(TObject::kCanDelete);
   total->Draw("L"); 
   hd->Draw("trigger_time >> force","trigger_info.force_trigger","goff"); 
   force->Scale(1./total->GetBinWidth(1));
+  force->SetBit(TObject::kCanDelete);
   force->Draw("Lsame");
   hd->Draw("trigger_time >> lt","trigger_info.lt_trigger","goff"); 
   lt->Scale(1./total->GetBinWidth(1));
+  lt->SetBit(TObject::kCanDelete);
   lt->Draw("Lsame"); 
   hd->Draw("trigger_time >> pps","trigger_info.pps_trigger","goff"); 
   pps->Scale(1./total->GetBinWidth(1));
+  pps->SetBit(TObject::kCanDelete);
   pps->Draw("Lsame");
   hd->Draw("trigger_time >> radiant","trigger_info.radiant_trigger","goff"); 
   rad->Scale(1./total->GetBinWidth(1));
+  rad->SetBit(TObject::kCanDelete);
   rad->Draw("Lsame"); 
   gPad->BuildLegend(); 
+  gPad->SetGridx();
+  gPad->SetGridy();
+  gPad->Update(); 
 }
 
 
@@ -332,7 +354,6 @@ void init(int port, const char * data_dir)
   srv->SetDefaultPage("examples/webbrowse.htm"); 
   srv->SetTimer(); 
 }
-
 
 
 int webbrowse(int station, int run, const char * data_dir = NULL, int port = 12345) 

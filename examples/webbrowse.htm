@@ -12,7 +12,7 @@
      function refresh(obj,what) 
      {
         JSROOT.cleanup(what); 
-        JSROOT.redraw(what,obj); 
+        JSROOT.draw(what,obj); 
 
      }
     
@@ -32,7 +32,7 @@
      }
 
 
-     function update(txt) 
+     function update(txt, all = false) 
      {
         document.getElementById("in_entry").value = txt; 
         if (txt < 0) 
@@ -44,6 +44,11 @@
         else
         { 
           drawwf(); 
+          if (all) 
+          {
+            draw_crates(); 
+            draw_thresh(); 
+          }
         }
      }
 
@@ -96,7 +101,9 @@
  | Change station/run:<input id="btn_change" type="button" title="Change" value="..."/>
  | Spectrum: <input id="chk_fft" title="fft" type="checkbox" />
  <div id="draw_wf"></div>
+ <hr/>
  <div id="draw_rates"></div>
+ <hr/>
  <div id="draw_thresh"></div>
 
 </body>
@@ -129,7 +136,7 @@
        let run = parseInt(prompt("Run?")); 
        
        JSROOT.httpRequest("/SetStationRun/cmd.json?arg1="+station+'&arg2='+run,'text')
-          .then( txt => update(txt)).then( draw_thresh());
+          .then( txt => update(txt, true));
      };
 
      setsize(); 
