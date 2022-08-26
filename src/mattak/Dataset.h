@@ -68,6 +68,11 @@ namespace mattak
         TFile * file = nullptr; 
       };
 
+      //0 terminated arrays 
+      static const char ** getWaveformTreeNames(); 
+      static const char ** getHeaderTreeNames(); 
+      static const char ** getDAQStatusTreeNames(); 
+      static const char ** getPedestalTreeNames(); 
     private: 
 
 

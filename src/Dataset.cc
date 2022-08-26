@@ -163,6 +163,28 @@ const char * header_tree_names[] = {"hdr","header","hd","hds","headers",0};
 const char * daqstatus_tree_names[] = {"daqstatus","ds","status",0}; 
 const char * pedestal_tree_names[] = {"pedestals","pedestal","ped","peds","",0}; 
 
+const char ** mattak::Dataset::getWaveformTreeNames() 
+{
+  return waveform_tree_names; 
+}
+
+const char ** mattak::Dataset::getHeaderTreeNames() 
+{
+  return header_tree_names; 
+}
+
+const char ** mattak::Dataset::getDAQStatusTreeNames() 
+{
+  return daqstatus_tree_names; 
+}
+
+const char ** mattak::Dataset::getPedestalTreeNames() 
+{
+  return pedestal_tree_names; 
+}
+
+
+
 int mattak::Dataset::loadRun(int station, int run, bool partial_skip) 
 {
   TString dir;
