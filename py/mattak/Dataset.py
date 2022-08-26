@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import typing
-from typing import Sequence, Union, Tuple, Optional
+from typing import Sequence, Union, Tuple, Optional, Generator
 import numpy 
 import datetime 
 
@@ -62,11 +62,11 @@ class AbstractDataset(ABC):
 
 
     @abstractmethod
-    def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Tuple[EventInfo, numpy.ndarray]:
+    def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Generator[Tuple[EventInfo, numpy.ndarray],None,None]:
         """ implementation-defined part of iterator"""
         pass
 
-    def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Optional[Tuple[EventInfo, numpy.ndarray]]:
+    def iterate(self, start : int = 0, stop : Union[int,None] = None,  calibrated: bool = False, max_entries_in_mem : int = 256) -> Generator[Optional[Tuple[EventInfo, numpy.ndarray]],None,None]:
         """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
             Returns a tuple of EventInfo and the event waveforms (potentially calibrated). 
         """
@@ -89,7 +89,7 @@ class AbstractDataset(ABC):
 
 
     @abstractmethod
-    def eventInfo(self) -> Union[Optional[EventInfo],Optional[Sequence[EventInfo]]]:
+    def eventInfo(self) -> Union[Optional[EventInfo],Sequence[Optional[EventInfo]]]:
         """Get selected event info(s) 
            Depending on what was passed to setEntries this can return either one EventInfo or a list of them
         """
@@ -103,7 +103,7 @@ class AbstractDataset(ABC):
         pass
 
 
-def Dataset(station : int, run : int, data_dir : str = None, backend : str="auto", verbose : bool = False, skip_incomplete : bool = True): 
+def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True) -> Optional[AbstractDataset]: 
    """
    This is not a class, but a factory method! 
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
@@ -123,7 +123,6 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str="auto
    waveforms of None type (if requested singly) or be all 0's (if requested
    via the bulk interface, as numpy doesn't support jagged ararys). 
 
-   
    """
 
    if data_dir is None: 

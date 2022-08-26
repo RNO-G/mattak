@@ -116,7 +116,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
 
 
-    def eventInfo(self) -> Union[mattak.Dataset.EventInfo,typing.Sequence[mattak.Dataset.EventInfo]]: 
+    def eventInfo(self) -> Union[typing.Optional[mattak.Dataset.EventInfo],typing.Sequence[typing.Optional[mattak.Dataset.EventInfo]]]: 
         station = self._hds['station_number'].array(entry_start = self.first, entry_stop = self.last)
         run = self._hds['run_number'].array(entry_start = self.first, entry_stop = self.last)
         eventNumber = self._hds['event_number'].array(entry_start = self.first, entry_stop = self.last)
@@ -131,7 +131,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')
-        infos : Union[None,List[mattak.Dataset.EventInfo]] = [] if self.multiple else None
+        infos = [] 
         for i in range(self.last-self.first): 
             triggerType  = "UNKNOWN"; 
             if triggerInfo[i]['trigger_info.radiant_trigger']:
@@ -163,7 +163,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                 return info
             infos.append(info) 
 
-        return infos
+        return infos if self.multiple else None 
 
 
 
