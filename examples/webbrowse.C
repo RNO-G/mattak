@@ -113,6 +113,7 @@ int go(int i)
 void draw_ds()
 {
   TTree *st = d->daqStatusTree(); 
+  if (!st) return; 
   cthresh->cd(); 
 
   TMultiGraph *grad_th = new TMultiGraph; 
