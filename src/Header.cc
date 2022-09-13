@@ -36,9 +36,9 @@ mattak::Header::Header(const rno_g_header_t * head)
   if (1e-9 * head->readout_time_nsecs < this->trigger_time) this->trigger_time += head->readout_time_secs-1; 
   else this->trigger_time += head->readout_time_secs; 
 
-  this->trigger_info.rf_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_LT_SIMPLE | RNO_G_TRIGGER_RF_LT_PHASED | RNO_G_TRIGGER_RF_RADIANTX)); 
   this->trigger_info.force_trigger = !!(head->trigger_type & RNO_G_TRIGGER_SOFT); 
   this->trigger_info.pps_trigger = !!(head->trigger_type & RNO_G_TRIGGER_PPS); 
+  this->trigger_info.rf_trigger = ! (this->trigger_info.force_trigger || this->trigger_info.pps_trigger); 
   this->trigger_info.radiant_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_RADIANTX)); 
   this->trigger_info.lt_trigger = !!(head->trigger_type & (RNO_G_TRIGGER_RF_LT_SIMPLE | RNO_G_TRIGGER_RF_LT_PHASED)); 
   if (this->trigger_info.radiant_trigger) 
