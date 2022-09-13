@@ -49,6 +49,17 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
 
   this->station_number = status->station; 
 
+  this->radiant_voltages.V10 = status->radiant_voltages.V_1_0; 
+  this->radiant_voltages.V18 = status->radiant_voltages.V_1_8; 
+  this->radiant_voltages.V25 = status->radiant_voltages.V_2_5; 
+  this->radiant_voltages.VLeftMon = status->radiant_voltages.V_LeftMon; 
+  this->radiant_voltages.VRightMon = status->radiant_voltages.V_RightMon; 
+
+  this->calinfo.enabled = status->cal.enabled; 
+  this->calinfo.T = status->cal.T_times_16/16.; 
+  this->calinfo.mode = (mattak::CalpulserMode) status->cal.mode;
+  this->calinfo.output =(mattak::CalpulserOutput)  status->cal.out;
+  this->calinfo.attenuation = status->cal.atten_times_2/2.; 
 
 
 #endif

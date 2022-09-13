@@ -26,6 +26,41 @@ namespace mattak
     uint16_t servo_per_chan[mattak::k::num_lt_channels] = {0};
   }; 
 
+  struct RadiantVoltages
+  {
+    float V10; 
+    float V18; 
+    float V25; 
+    float VLeftMon;
+    float VRightMon; 
+  };
+
+  enum CalpulserMode
+  {
+      CALPULSER_NO_SIGNAL,
+      CALPULSER_PULSER, 
+      CALPULSER_VC0, 
+      CALPULSER_VCO2
+  } ;
+
+  enum CalpulserOutput
+  {
+      CALPULSER_NO_OUTPUT,
+      CALPULSER_COAX, 
+      CALPULSER_FIB0, 
+      CALPULSER_FIB1 
+  }; 
+
+
+  struct CalpulserInfo
+  {
+    bool enabled; 
+    float T;
+    float attenuation;
+    CalpulserMode mode;
+    CalpulserOutput output;
+  }; 
+
   class DAQStatus : public TObject
   {
     public: 
@@ -50,7 +85,9 @@ namespace mattak
       uint64_t lt_ncycles = 0; 
       uint16_t lt_scaler_counter = 0; 
       uint8_t station_number = 0; 
-    ClassDef(DAQStatus,2); 
+      RadiantVoltages radiant_voltages; 
+      CalpulserInfo calinfo; 
+    ClassDef(DAQStatus,3); 
   }; 
 
 }
