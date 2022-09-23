@@ -39,6 +39,7 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
   }
 
   this->lt_ncycles = status->lt_scalers.ncycles;
+  this->lt_cycle_counter = status->lt_scalers.cycle_counter;
   this->lt_scaler_counter = status->lt_scalers.scaler_counter_1Hz;
   this->lt_1Hz_scalers.trig_coinc = status->lt_scalers.s_1Hz.trig_coinc;
   this->lt_1Hz_scalers.servo_coinc = status->lt_scalers.s_1Hz.servo_coinc;

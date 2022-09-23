@@ -83,11 +83,12 @@ namespace mattak
       LTScalerGroup lt_1Hz_gated_scalers;
       LTScalerGroup lt_100Hz_scalers;
       uint64_t lt_ncycles = 0; 
+      uint64_t lt_cycle_counter = 0; 
       uint16_t lt_scaler_counter = 0; 
       uint8_t station_number = 0; 
       RadiantVoltages radiant_voltages; 
       CalpulserInfo calinfo; 
-    ClassDef(DAQStatus,3); 
+    ClassDef(DAQStatus,4); 
   }; 
 
 }
