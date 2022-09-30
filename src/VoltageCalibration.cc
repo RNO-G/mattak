@@ -303,7 +303,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       for (int j = jmin ; j <= jmax; j++) 
       {
 
-        double adc = scan_result[j][ichan][i]; 
+        double adc = scan_result[j][ichan][i] - adc_offset[ichan]; 
         double meas = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j]; 
         meas -= vref; 
         double pred = evalPars(adc, fit_order, &fit_coeffs[ichan][i * (order+1)]); 
