@@ -58,7 +58,8 @@ namespace mattak
                                        getPackedFitCoeffs(chan), getFitOrder(), getFitMin(), getFitMax()); 
       }
       TH2S * makeHist(int channel) const; 
-      TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const; 
+      TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
+      int getNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; } 
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; } 
       int getStationNumber() const { return station_number; }; 
@@ -72,7 +73,8 @@ namespace mattak
     private:
       std::array<std::vector<double>,2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result; 
-      std::array<std::vector<double>, mattak::k::num_radiant_channels> fit_coeffs;  //packed format, per channel 
+      std::array<std::vector<double>, mattak::k::num_radiant_channels> fit_coeffs;  //packed format, per channel
+      std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_ndof; //number of degree of freedom
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_chisq; //sum of difference squared, really... 
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_maxerr; //maximum error
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
