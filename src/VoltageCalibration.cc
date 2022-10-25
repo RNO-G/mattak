@@ -296,6 +296,10 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 //
       fit_chisq[ichan][i] = 0;
       fit_maxerr[ichan][i] = 0;
+      
+      fit_ndof[ichan][i] = (jmin - jmax) + 1 // number of points including start and end
+      fit_ndof[ichan][i] -= (fit_order + 1)   //  subtract number of parameters of the fit function
+      if (vref) fit_ndof[ichan][i] += 1 // if parameter 0 is fixed, add back one degree of freedom
 
       turnover_index[ichan][i] = jmax+1; 
 
