@@ -59,7 +59,7 @@ namespace mattak
       }
       TH2S * makeHist(int channel) const; 
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      int getNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
+      int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; } 
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; } 
       int getStationNumber() const { return station_number; }; 
