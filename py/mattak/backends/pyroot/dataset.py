@@ -2,8 +2,21 @@ import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 import typing
-import cppyy.ll
 import numpy
+
+try:  
+    import cppyy.ll
+
+#work around a weird issue that happens on some systems  
+#for some reason, in some configurations it  doesn't detect free in the global namespace. 
+#So we'll define a different function in the global namespace with a super creative name 
+#that does the same thing as free then set it equal to free. 
+except AttributeError: 
+    import cppyy 
+    cppyy.cppdef("void freee(void *p) { free(p); }") 
+    cppyy.gbl.free = cppyy.gbl.freee 
+    import cppyy.ll 
+
 
 class Dataset(mattak.Dataset.AbstractDataset): 
 
