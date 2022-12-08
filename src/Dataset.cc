@@ -291,6 +291,7 @@ mattak::Header* mattak::Dataset::header(bool force)
 {
   if (force || hd.loaded_entry != current_entry)
   {
+    if (hd.tree == nullptr) return nullptr; 
     hd.tree->GetEntry(current_entry); 
     hd.loaded_entry = current_entry; 
   }
@@ -302,6 +303,8 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
   if (force || wf.loaded_entry != current_entry)
   {
+    if (wf.tree == nullptr) return nullptr; 
+
     if (full_dataset || skip_incomplete) 
     {
       wf.tree->GetEntry(current_entry); 
