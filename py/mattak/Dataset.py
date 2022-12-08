@@ -73,7 +73,7 @@ class AbstractDataset(ABC):
         if start < 0: 
             start += self.N() 
         if start < 0 or start > self.N(): 
-            return None
+            return
 
         if stop is None: 
             stop = self.N()
@@ -82,9 +82,9 @@ class AbstractDataset(ABC):
             stop += self.N() 
 
         if stop < 0 or start > self.N(): 
-            return None
+            return 
 
-        return self._iterate(start,stop,calibrated,max_entries_in_mem) 
+        yield from self._iterate(start,stop,calibrated,max_entries_in_mem) 
 
 
 
