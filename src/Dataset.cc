@@ -273,12 +273,14 @@ if (verbose) std::cout << "about to load runinfo " << std::endl;
 }
 
 
-void mattak::Dataset::setEntry(int entry)
+bool mattak::Dataset::setEntry(int entry)
 {
   if (entry >= 0 && entry < N())
   {
     current_entry = entry;  //otherwise we're completely lazy! 
+    return true;                             
   }
+  return false; 
 }
 
 int mattak::Dataset::N() const

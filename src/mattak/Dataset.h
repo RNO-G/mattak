@@ -28,7 +28,7 @@ namespace mattak
       int loadDir(const char * dir, bool partial_skip_incomplete = true); 
       void setDataDir(const char * dir); 
 
-      void setEntry(int entry); 
+      bool setEntry(int entry); //returns true if in range 
       int N() const; 
 
       mattak::Header * header(bool force_reload = false); 
