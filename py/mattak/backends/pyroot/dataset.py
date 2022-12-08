@@ -18,6 +18,12 @@ except AttributeError:
     import cppyy.ll 
 
 
+cppyy.cppdef(" bool is_nully(void *p) { return !p; }"); 
+
+
+def isNully(p): 
+    return p is None or ROOT.AddressOf(p) == 0 or  cppyy.gbl.is_nully(p) 
+
 class Dataset(mattak.Dataset.AbstractDataset): 
 
     def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True): 
@@ -46,10 +52,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def _eventInfo(self, i : int) -> typing.Optional[mattak.Dataset.EventInfo]:
         #TODO: handle this in C++ code if it's too slow in Python
-        self.ds.setEntry(i)
+        if not self.ds.setEntry(i): 
+            return None 
         hdr = self.ds.header() 
-        if hdr is None: 
-            return None
 
         assert( hdr.station_number == self.station)
         assert (hdr.run_number == self.run) 
@@ -104,7 +109,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _wfs(self, i : int, calibrated: bool = False): 
         self.ds.setEntry(i)
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
-        if ROOT.addressof(wf) == 0: 
+        if isNully(wf): 
             return None 
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count = 24*2048).reshape(24,2048)
 
@@ -116,6 +121,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.multiple:
             return self._wfs(self.entry, calibrated) 
 
+        if (self.last - self.first  <0): 
+            return None 
         out = numpy.zeros((self.last-self.first, 24, 2048),dtype= 'float64' if calibrated else 'int16')
         for entry in range(self.first,self.last):
             this_wfs = self._wfs(entry,calibrated)
@@ -128,6 +135,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _iterate(self, start, stop, calibrated, max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
         for i in range(start,stop): 
             yield ( self._eventInfo(i), self._wfs(i,calibrated)) 
+        return 
        
 
 
