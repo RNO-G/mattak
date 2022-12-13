@@ -99,10 +99,16 @@ void  spectrographGen(int station,int run,int channel,TH2* h2SI,TH1* timeSum,con
 		double lit[litN];
 		double mag[litN];
 		double phase[litN];
+                int tbin = h2SI->GetXaxis()->FindBin(relTime); 
 		for(int a=0; a<litN;a++){
 			mag[a]=wfFFT[a].getAbs();
-			double f = a * 1600.0 / (litN);//converts y axis to frequency in MHz 
-                        h2SI->Fill(relTime,f,mag[a]);
+//			double f = a * 1600.0 / (litN);//converts y axis to frequency in MHz
+                        double f = a * 1600.0 / (litN);//converts y axis to frequency in MHz
+                        int fbin = h2SI->GetYaxis()->FindBin(f); 
+                        h2SI->SetBinContent(tbin,fbin,mag[a] + h2SI->GetBinContent(tbin,fbin));
+
+
+                       // h2SI->Fill(relTime,f,mag[a]);
 
 			timeSum->Fill(relTime);
 		}
