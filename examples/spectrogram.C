@@ -5,7 +5,7 @@ R__LOAD_LIBRARY(libRootFftwWrapper.so)
 #include <string.h>
 #include <typeinfo>
 /*
-spectrograme.C V1.0
+spectrograme.C V1.1
 This package makes a canavs with 24 spectragrams on them with incressing channel number reading from left to right 
 in increassing channel number
 
@@ -46,17 +46,14 @@ void spectGMain(const char* inputFolder,const char* inputTriggerPick,int station
 }
 TH2* spectGSelect(int stationInput,int runInput,int channelInput,double timeBinSize,const char*  inputFolderFow,const char* triggerPickInput,double histoMax){	
 	int binNumber =histoMax/timeBinSize;
-	//TH2* qh2 = new TH2F("h2", "h2 title", binNumber, 0.0, histoMax, 205, 0.0, 1600.0);
-	
-	//char title[]="spectragram "+std::to_string(channelInput);
-	//std::string title="spectragram ";
-	//title=title+std::to_string(channelInput);
-	//char* titleInput = title;
-	//int v=3;
-	//char f[]="spectragram channel:  ";
-	//f[7]=char(v);
-	//char* g=f;
-	TH2* qh2SI = new TH2F("h2", "spectragram", binNumber, 0.0, histoMax, 205, 0.0, 1600.0);
+	//nameing of histogram relatted to channel
+        char * baseName =(char*)"Spectragram Channel:";
+        char * numMod   =(char*)Form("%d",channelInput);
+        char * fullSName;
+        fullSName = (char*)malloc(strlen(baseName)+strlen(numMod));
+        sprintf(fullSName,"%s%s",baseName,numMod);
+
+	TH2* qh2SI = new TH2F("h2", fullSName, binNumber, 0.0, histoMax, 205, 0.0, 1600.0);
 	TH1* qtimeSum = new  TH1F("ts","tss", binNumber, 0.0, histoMax);
 	spectrographGen(stationInput,runInput,channelInput,qh2SI,qtimeSum,inputFolderFow,triggerPickInput);
 	return qh2SI;
