@@ -391,8 +391,10 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    if (resid) data_v[j] -= fn->Eval(data_adc[j]);
-    g->SetPoint(g->GetN(),data_adc[j],data_v[j]);
+    double adc = data_adc[j];
+    double v = data_v[j];
+    if (resid) v -= fn->Eval(adc);
+    g->SetPoint(g->GetN(),adc,v);
   }
   if (!resid)
   {
