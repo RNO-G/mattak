@@ -15,6 +15,7 @@
 #include "TFile.h" 
 #include "TTree.h" 
 #include "TRandom.h" 
+#include "TEventList.h"
 #include "TRandom3.h" 
 
 
@@ -23,35 +24,45 @@ int main (int nargs, char ** args)
 {
   if (nargs < 5) 
   {
-    std::cout << " Usage: rno-g-combine output.root waveforms.root headers.root daqstatus.root [runinfo.root=None] [fraction=1, or a filelist of events]" << std::endl; 
+    std::cout << " Usage: rno-g-combine output.root waveforms.root headers.root daqstatus.root [runinfo.root=None] [FILTER=1]" << std::endl; 
     std::cout << "If runinfo.root is None, an empty runinfo will be used" << std::endl; 
+    std::cout << "FILTER can be a number in (0,1] in which case it's interpreted as the fraction to keep, or a filename, in which case it's interpreted asd an event list, or a string like CUT:XXXXX where the part after CUT: is interpreted as a cut on the header file (e.g. CUT:trigger_info.force_trigger)." << std::endl; 
     return 1; 
   }
 
 
   bool use_file_list = false; 
+  const char * cut = NULL;
 
 
   double frac = 1; 
   if (nargs > 6)
   {
-    const char * fraction_or_filelist = args[6]; 
+    const char * filter_string = args[6]; 
     //is this a file list or a float? 
     char *endp = 0; 
-    frac = std::strtod(fraction_or_filelist,&endp); 
+    frac = std::strtod(filter_string,&endp); 
     if (*endp)
     {
-      if (access(fraction_or_filelist, R_OK))
+      if (!strncasecmp("CUT:", filter_string, 4))
       {
-        std::cerr << "ERROR: " << fraction_or_filelist <<
-        " looks like a file list but we can't read it :(" << std::endl; 
-        return 1; 
+        cut = filter_string+4; 
       }
-      use_file_list = true; 
+      
+      else
+      {
+        if (access(filter_string, R_OK))
+        {
+          std::cerr << "ERROR: " << filter_string <<
+          " looks like a file list but we can't read it :(" << std::endl; 
+          return 1; 
+        }
+        use_file_list = true; 
+      }
     }
   }
   if (frac > 1 ) frac = 1; 
-  if (frac <= 0 && !use_file_list) 
+  if (frac <= 0 && !use_file_list && !cut) 
   {
     std::cerr << "Keep fraction 0 or smaller, no output" << std::endl; 
     return 1; 
@@ -147,7 +158,28 @@ int main (int nargs, char ** args)
   }
 
 
-  if (!use_file_list && frac < 1) 
+  if (cut) 
+  {
+    TEventList evlist("evlist"); 
+    hds->Draw(">>evlist",cut); 
+    int N = evlist.GetN(); 
+
+    if (N == 0) 
+    {
+      std::cerr << "File list is empty, no output" << std::endl; 
+      return 1; 
+    }
+   
+    entries.resize(N); 
+    for (int i = 0; i < N; i++) 
+    {
+      entries[i] = evlist.GetList()[i]; 
+    }
+    //sort just in case 
+    std::sort(entries.begin(), entries.end()); 
+  }
+
+  if (!use_file_list && !cut && frac < 1) 
   {
     TRandom3 r(hd->station_number * 1e8+hd->run_number); 
     entries.reserve(frac*nevents + 3*sqrt(frac*nevents)); 
@@ -170,11 +202,11 @@ int main (int nargs, char ** args)
   }
 
 
-  int N = use_file_list || frac < 1 ? entries.size() : nevents; 
+  int N = (use_file_list || cut || frac < 1) ? entries.size() : nevents; 
 
   for (int i = 0; i < N; i++) 
   {
-    int entry = frac < 1  || use_file_list ? entries[i] : i; 
+    int entry = (frac < 1  || use_file_list || cut) ? entries[i] : i; 
 
     wfs->GetEntry(entry); 
     hds->GetEntry(entry); 
