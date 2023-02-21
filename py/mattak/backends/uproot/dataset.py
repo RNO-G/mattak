@@ -127,7 +127,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         sysclk = self._hds['sysclk'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(entry_start = self.first, entry_stop = self.last)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(entry_start = self.first, entry_stop = self.last)
-        sampleRate = 3.2 if self.run_info is None else float(self.run_info['radiant-samplerate'])/1000.
+        sampleRate = 3.2 if ( self.run_info is None  or 'radiant-samplerate' not in self.run_info)  else float(self.run_info['radiant-samplerate'])/1000 
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(entry_start = self.first, entry_stop = self.last, library='np')
