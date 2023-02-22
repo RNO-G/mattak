@@ -100,7 +100,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if self.multiple:
             infos = [] 
-            for i in range(self.first,self.last):
+            for i in range(self.first, self.last):
                 infos.append(self._eventInfo(i))
             return infos 
 
@@ -114,27 +114,34 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count = 24*2048).reshape(24,2048)
 
 
-    def wfs(self, calibrated : bool =False) -> numpy.ndarray: 
+    def wfs(self, calibrated : bool=False) -> numpy.ndarray: 
 
-            
         # the simple case first
         if not self.multiple:
             return self._wfs(self.entry, calibrated) 
 
-        if (self.last - self.first  <0): 
+        if self.last - self.first < 0: 
             return None 
-        out = numpy.zeros((self.last-self.first, 24, 2048),dtype= 'float64' if calibrated else 'int16')
-        for entry in range(self.first,self.last):
-            this_wfs = self._wfs(entry,calibrated)
+        
+        out = numpy.zeros((self.last - self.first, 24, 2048), dtype= 'float64' if calibrated else 'int16')
+        for entry in range(self.first, self.last):
+            this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None: 
-                out[entry-self.first][:][:] =this_wfs 
+                out[entry-self.first][:][:] = this_wfs 
 
         return out
 
-# ignore max_in_mem since it doesn't save much time for us... 
-    def _iterate(self, start, stop, calibrated, max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
-        for i in range(start,stop): 
-            yield ( self._eventInfo(i), self._wfs(i,calibrated)) 
+    # ignore max_in_mem since it doesn't save much time for us... 
+    def _iterate(self, start, stop, calibrated, max_in_mem, trigger=None) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+        
+        if trigger is not None:
+            for i in range(start, stop):
+                evinfo = self._eventInfo(i)
+                if evinfo.triggerType == trigger:
+                    yield evinfo, self._wfs(i, calibrated)
+        else:
+            for i in range(start, stop):
+                yield self._eventInfo(i), self._wfs(i, calibrated)
         return 
        
 

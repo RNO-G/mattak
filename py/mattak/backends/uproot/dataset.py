@@ -211,7 +211,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         return None if w is None else w[0] 
         
 
-    def _iterate(self, start, stop, calibrated,  max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+    def _iterate(self, start, stop, calibrated, max_in_mem, trigger=None) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
         current_start = -1 
         current_stop = -1
@@ -230,9 +230,13 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                 e = self.eventInfo()
                 self.setEntries(preserve_entries) # hide that we're modifying these 
 
-            rel_i = i -current_start
-            i+=1
-            yield (e[rel_i], w[rel_i])
+            rel_i = i - current_start
+            i += 1
+            if trigger is not None:
+                if e[rel_i].triggerType == trigger:
+                    yield e[rel_i], w[rel_i]
+            else:
+                yield e[rel_i], w[rel_i]
 
  
 
