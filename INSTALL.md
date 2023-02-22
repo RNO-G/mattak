@@ -4,7 +4,7 @@
 
 c++:
  - cmake3+
- - ROOT
+ - ROOT>=6.22
 
 Python:
  - dataclasses
@@ -34,6 +34,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:PATH/TO/SOURCE/install/lib
 export RNO_G_DATA="PATH/TO/DATA"
 ```
 
+It might be necessary to also add the root libdir to the PYTHONPATH..
 ```
 
 cd tests
