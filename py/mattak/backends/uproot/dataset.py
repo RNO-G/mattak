@@ -5,22 +5,23 @@ import configparser
 
 import mattak.Dataset
 import typing
-from typing import Union,List
+from typing import Union, Tuple, Optional, Callable, Sequence
 import numpy
 
 
-waveform_tree_names = ["waveforms","wfs","wf","waveform"]
-header_tree_names = ["hdr","header","hd","hds","headers"] 
+waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
+header_tree_names = ["hdr", "header", "hd", "hds", "headers"]
 
-class Dataset ( mattak.Dataset.AbstractDataset):
+class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False, skip_incomplete : bool = True): 
+    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
+                 skip_incomplete : bool = True):
 
         # special case where we load a directory instead of a station/run
         if station == 0 and run == 0: 
             self.rundir = data_dir
         else: 
-            self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+            self.rundir = "%s/station%d/run%d" % (data_dir, station, run)
 
         self.skip_incomplete = skip_incomplete 
         # this duplicates a bunch of C++ code in mattak::Dataset
@@ -116,7 +117,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
 
 
-    def eventInfo(self) -> Union[typing.Optional[mattak.Dataset.EventInfo],typing.Sequence[typing.Optional[mattak.Dataset.EventInfo]]]: 
+    def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]: 
         station = self._hds['station_number'].array(entry_start = self.first, entry_stop = self.last)
         run = self._hds['run_number'].array(entry_start = self.first, entry_stop = self.last)
         eventNumber = self._hds['event_number'].array(entry_start = self.first, entry_stop = self.last)
@@ -211,7 +212,8 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         return None if w is None else w[0] 
         
 
-    def _iterate(self, start, stop, calibrated,  max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+    def _iterate(self, start, stop, calibrated, max_in_mem,
+                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
         current_start = -1 
         current_stop = -1
@@ -230,9 +232,13 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                 e = self.eventInfo()
                 self.setEntries(preserve_entries) # hide that we're modifying these 
 
-            rel_i = i -current_start
-            i+=1
-            yield (e[rel_i], w[rel_i])
+            rel_i = i - current_start
+            i += 1
+            if selector is not None:
+                if selector(e[rel_i]):
+                    yield e[rel_i], w[rel_i]
+            else:
+                yield e[rel_i], w[rel_i]
 
  
 
