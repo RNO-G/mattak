@@ -127,6 +127,8 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
 
    if data_dir is None: 
        data_dir = os.environ['RNO_G_DATA'] 
+       if data_dir is None: 
+           data_dir = os.environ['RNO_G_ROOT_DATA'] 
 
    if backend == "auto":
         try: 
