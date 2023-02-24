@@ -18,10 +18,12 @@ The general schema for ``run-associated" data (i.e., data taken synchronously wi
 
     ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMER}/${PACKET_TYPE}.root 
 
-Config files for each run live in
+Config files for each run live in: 
+
     ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMBER}/cfg 
 
-And any auxilliary files we might generate will be under
+And any auxilliary files we might generate will be under: 
+
     ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUNNUMBER}/aux 
 
 Note that this might result in a lot of files in a directory. 
@@ -44,7 +46,8 @@ Asynchronous DAQ-related data (e.g. thresholds, scalers, etc.) recorded every on
 # Non-run associated data packets  (TODO) 
 
 
-Sensor data (not implemented yet) is stored based on the time collected, as is GNSS
+Sensor data (not implemented yet) is stored based on the time collected, as is GNSS:
+
    ${RNO_G_DATA}/station${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
    ${RNO_G_DATA}/station${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
 
