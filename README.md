@@ -16,13 +16,13 @@ All data is assumed to reside in a directory named ${RNO_G_DATA}, which in the C
 
 The general schema for ``run-associated" data (i.e., data taken synchronously with a run)  is: 
 
-${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMER}/${PACKET_TYPE}.root 
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMER}/${PACKET_TYPE}.root 
 
 Config files for each run live in
-${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMBER}/cfg 
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMBER}/cfg 
 
 And any auxilliary files we might generate will be under
-${RNO_G_DATA}/station${STATION_NUMBER}/run${RUNNUMBER}/aux 
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUNNUMBER}/aux 
 
 Note that this might result in a lot of files in a directory. 
 
@@ -43,18 +43,11 @@ Asynchronous DAQ-related data (e.g. thresholds, scalers, etc.) recorded every on
 
 # Non-run associated data packets  (TODO) 
 
-## GNSS
-
-Any data from the GNSS (not PPS data, but pseudodistances, etc.). TODO. 
-
-## Sensors
-Sensor housekeeping data, async. TODO 
 
 Sensor data (not implemented yet) is stored based on the time collected, as is GNSS
-${RNO_G_DATA}/station${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
-${RNO_G_DATA}/station${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
+   ${RNO_G_DATA}/station${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
+   ${RNO_G_DATA}/station${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
 
-## Calibration 
 Calibration data may eventually be stored under ${RNO_G_DATA}/station_${STATION_NUMBER}/calib but this is subject to change
 
 There may also be auxiliary files globally in ${RNO_G_DATA} and ${RNO_G_DATA}/station_${STATION_NUMBER} (things like mappings, who knows?)
