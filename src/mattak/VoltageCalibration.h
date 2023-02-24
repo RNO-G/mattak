@@ -6,6 +6,7 @@
 #include "TH2.h"
 #include "TTree.h"
 #include "TGraph.h"
+#include "TF1.h"
 #endif
 
 
@@ -16,6 +17,7 @@ namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
+  constexpr int nParsTriFunc = 3;
 
   // Free apply voltage calibration so we can call it without ROOT
   // @param N number of samples (must be multiple of window size!)
@@ -58,8 +60,9 @@ namespace mattak
                                        getPackedFitCoeffs(chan), getFitOrder(), getFitMin(), getFitMax());
       }
       TH2S * makeHist(int channel) const;
-      TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraph * getGraph(int channel, int samp) const { return graph[channel][samp]; }
+      TGraph * getFlippedGraphAndFit(int channel, int sample, bool resid=false) const;
+      TGraph * getSampleGraph(int channel, int sample, bool resid=false) const;
+      TGraph * getAveResidGraph(bool resid=false) const;
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -81,6 +84,10 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
+      std::array<double,mattak::nParsTriFunc> triFunc_pars;
+      const int npoints_general = 155;
+      TGraph *graph_residAve;
+      TF1 *triFunc;
       int fit_order;
       int station_number;
       double fit_vref;
