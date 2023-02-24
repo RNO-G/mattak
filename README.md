@@ -45,14 +45,6 @@ Asynchronous DAQ-related data (e.g. thresholds, scalers, etc.) recorded every on
 
 # Non-run associated data packets  (TODO) 
 
-
-Sensor data (not implemented yet) is stored based on the time collected, as is GNSS:
-
-   ${RNO_G_DATA}/station${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
-   ${RNO_G_DATA}/station${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
-
-Calibration data may eventually be stored under ${RNO_G_DATA}/station_${STATION_NUMBER}/calib but this is subject to change
-
-There may also be auxiliary files globally in ${RNO_G_DATA} and ${RNO_G_DATA}/station_${STATION_NUMBER} (things like mappings, who knows?)
+Eventually we might have sensor data, calibration data, GNSS data and who knows what else in the same file tree. That will be defined later... 
 
 
