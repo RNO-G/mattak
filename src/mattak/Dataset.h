@@ -14,18 +14,70 @@
 namespace mattak 
 {
   class VoltageCalibration; 
+
+
+    /** Options controlling reading of the dataset
+       * This can be passed to a constructor or each time you load a run or directory. 
+       * */
+      struct DatasetOptions
+      {
+        /** The voltage calibration to use. Will eventually do something sensible if nullptr (though now does nothing)*/ 
+        const VoltageCalibration * calib = nullptr; 
+
+        /** The base data directory, used when loading runs by station/run number. If empty, will use getenv */
+        std::string base_data_dir = ""; 
+
+        /** Controls behavior for skipping incomplete on partial datasets where the entire
+         * metadata is available. 
+         *
+         * If true, will only return complete events when indexing. If false, it will loop over all events, but the waveforms may not be available for all. 
+         *
+         * */
+        bool partial_skip_incomplete = true;
+
+
+        /** Controls which files get read 
+         * If empty, will prefer full datasets followed by combined.root
+         *
+         * You can e.g. set to "combined" to always go for combined.root or to some
+         * other string if you want someother file that will be treated as a combined.root 
+         *
+         * */ 
+        std::string file_preference = ""; 
+
+
+        bool verbose = false; 
+      }; 
+
+
   class Dataset
   {
 
     public:
-      //data_dir defaults to RNO_G_ROOT_DATA
-      Dataset (int station, int run, const VoltageCalibration * calib = nullptr, const char * data_dir = nullptr, bool partial_skip_incomplete = true); 
-      Dataset (const char * data_dir = nullptr); 
-      void setVerbose(bool v) { verbose = v; } 
+      Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions()); 
+      Dataset(const DatasetOptions & opt = DatasetOptions()); 
+
       virtual ~Dataset() { unload() ; }
-      /** Loads run corresponding to station/run" in the data dir, i.e. equivalent to calling loadDir(data_dir/stationS/runR) */ 
-      int loadRun(int station, int run, bool partial_skip_incomplete = true); 
-      int loadDir(const char * dir, bool partial_skip_incomplete = true); 
+
+      void setOpt(const DatasetOptions & opt = DatasetOptions()); 
+      const DatasetOptions & getOpt() const { return opt; } 
+
+      int loadRun(int station, int run, const DatasetOptions & opt) ; 
+      int loadDir(const char * dir, const DatasetOptions & opt); 
+      int loadRun(int station, int run) ; 
+      int loadDir(const char * dir); 
+
+
+      /** 
+       * Deprecated, kept for ABI compatibility
+       */
+      Dataset (int station, int run, const VoltageCalibration * calib, const char * base_data_dir = nullptr, bool partial_skip_incomplete = true); 
+      Dataset (const char * data_dir = nullptr); 
+      int loadRun(int station, int run, bool partial_skip_incomplete); 
+      int loadDir(const char * dir, bool partial_skip_incomplete ); 
+
+
+ 
       void setDataDir(const char * dir); 
 
       bool setEntry(int entry); //returns true if in range 
@@ -87,10 +139,8 @@ namespace mattak
       int current_entry = 0; 
 
       const VoltageCalibration * calib = nullptr; 
-      std::string data_dir; 
       bool full_dataset ; 
-      bool skip_incomplete;
-      bool verbose = false; 
+      DatasetOptions opt; 
 
   }; 
 }
