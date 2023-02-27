@@ -330,6 +330,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       fn->SetParameters(getFitCoeffs(ichan,i));
       fn->SetRange(data_v[0],data_v[npoints-1]);
 
+      // Sum up all the ADC(V) residuals
       if (turnover_index[ichan][i] == npoints_general)
       {
         icount++;
@@ -348,6 +349,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     if (nbroken) printf("WARNING: Channel %d seems to have %d broken samples?\n", ichan, nbroken);
   }
 
+  // Calculate the average ADC(V) residuals and make a TGraph
   double average_vol[npoints_general];
   double average_adcResid[npoints_general];
   for (int ipoint = 0; ipoint < npoints_general; ipoint++)
@@ -357,18 +359,20 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   }
   graph_residAve = new TGraph(npoints_general, average_vol, average_adcResid);
 
+  // Triangle wave function
   double omega = 2*TMath::Pi()/0.103;  // 2*pi/T where T is 0.103 voltage unit by eye
   triFunc = new TF1("triFunc", "[0]*asin(sin([1]*(x-[2])))", average_vol[0], average_vol[npoints_general-1]);
   triFunc->SetNpx(10000);
   triFunc->SetParameters(1, omega, 0);
 
+  // Fit the average ADC(V) residuals to the tiangle wave function and get 3 parameters
   std::cout << "\nFitting average ADC(V) residuals to the triangle wave function...";
   graph_residAve->Fit("triFunc","R");
   for (int ipar = 0; ipar < mattak::nParsTriFunc; ipar++) triFunc_pars[ipar] = triFunc->GetParameter(ipar);
 
+  // Formula for the combined function: polynomial + triangle wave
   TString combinedFuncFormula = "triFunc+" + formula[fit_order] + "(3)";
 
-  //calculate max deviation and chi square
   std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
@@ -382,6 +386,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         fflush(stdout); // Print a dot every 128 samples processed
       }
 
+      // Combined function: polynomial + triangle wave
       TF1 *combinedFunc = new TF1("combinedFunc", combinedFuncFormula, average_vol[0], average_vol[npoints_general-1]);
 
       for (int ipar = 0; ipar <= fit_order + mattak::nParsTriFunc; ipar++)
@@ -394,6 +399,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       double *data_adc = graph[ichan][i]->GetY();
       double *data_v = graph[ichan][i]->GetX();
 
+      // Calculate max deviation and chi squared
       for (int j = 0 ; j < npoints; j++)
       {
         double adc = data_adc[j];
