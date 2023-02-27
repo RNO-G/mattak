@@ -563,9 +563,9 @@ TGraph * mattak::VoltageCalibration::getAveResidGraph(bool resid) const
 #include <pybind11/numpy.h>
 #endif
 
-
-//SHARED
-
+          ///
+//SHARED  /// This function is not used or needs to be modified as the new fitting approach is applied!
+          ///
 
 double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window,
                                    const double * packed_fit_params, int fit_order, double fit_min, double fit_max)
