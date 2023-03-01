@@ -102,6 +102,10 @@ class AbstractDataset(ABC):
             Depending on what was passed to setEntries, this may be a single waveform or many
         """
         pass
+    
+    def get_selected_wfs(self, selector: Callable[[EventInfo], bool], calibrated : bool = False) -> Optional[numpy.ndarray]:
+        """ Convenience interface to use selector """
+        return numpy.array([wf for _, wf in self.iterate(selector=selector)])
 
 
 def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True) -> Optional[AbstractDataset]:
