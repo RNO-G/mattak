@@ -7,6 +7,7 @@ import mattak.Dataset
 import typing
 from typing import Union, Tuple, Optional, Callable, Sequence
 import numpy
+import math
 
 
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
@@ -216,7 +217,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
-        n_batches = (stop - start) // max_in_mem + 1
+        n_batches = math.ceil((stop - start) // max_in_mem)
 
         for i_batch in range(n_batches):
 
