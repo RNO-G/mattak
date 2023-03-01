@@ -7,10 +7,10 @@ import numpy
 try:
     import cppyy.ll
 
-#work around a weird issue that happens on some systems
-#for some reason, in some configurations it  doesn't detect free in the global namespace.
-#So we'll define a different function in the global namespace with a super creative name
-#that does the same thing as free then set it equal to free.
+# work around a weird issue that happens on some systems
+# for some reason, in some configurations it  doesn't detect free in the global namespace.
+# So we'll define a different function in the global namespace with a super creative name
+# that does the same thing as free then set it equal to free.
 except AttributeError:
     import cppyy
     cppyy.cppdef("void freee(void *p) { free(p); }")
@@ -32,6 +32,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if station == 0 and run == 0:
             if verbose:
                 print("Trying to load data dir!")
+                
             self.ds = ROOT.mattak.Dataset()
             self.ds.loadDir(data_dir, skip_incomplete)
             self.station = self.ds.header().station_number
@@ -44,6 +45,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete)
             self.station = station
             self.run = run
+            
         self.data_dir = data_dir
         self.setEntries(0)
 
@@ -54,6 +56,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         #TODO: handle this in C++ code if it's too slow in Python
         if not self.ds.setEntry(i):
             return None
+        
         hdr = self.ds.header()
 
         assert(hdr.station_number == self.station)
@@ -64,7 +67,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         readoutTime = hdr.readout_time
         triggerTime = hdr.trigger_time
         triggerType = "UNKNOWN"
-        if (hdr.trigger_info.radiant_trigger):
+        
+        if hdr.trigger_info.radiant_trigger:
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
                 which = "X"
@@ -78,9 +82,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         pps = hdr.pps_num
         sysclk = hdr.sysclk
-        sysclkLastPPS = ( hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
-        radiantStartWindows = numpy.frombuffer( cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24*2).reshape(24,2)
-        sampleRate = 3.2 #if ( ROOT.AddressOf(self.ds.info()) ==0 or self.ds.info().radiant_sample_rate == 0)  else self.ds.info().radiant_sample_rate/1000.
+        sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
+        radiantStartWindows = numpy.frombuffer(cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24 * 2).reshape(24, 2)
+        sampleRate = 3.2  #if ( ROOT.AddressOf(self.ds.info()) ==0 or self.ds.info().radiant_sample_rate == 0)  else self.ds.info().radiant_sample_rate/1000.
 
 
         return mattak.Dataset.EventInfo(eventNumber = eventNumber,
@@ -102,6 +106,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             infos = []
             for i in range(self.first, self.last):
                 infos.append(self._eventInfo(i))
+            
             return infos
 
         return self._eventInfo(self.entry)
@@ -111,7 +116,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
         if isNully(wf):
             return None
-        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count = 24*2048).reshape(24,2048)
+        
+        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24,2048)
 
 
     def wfs(self, calibrated : bool=False) -> numpy.ndarray:
@@ -123,7 +129,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, 24, 2048), dtype= 'float64' if calibrated else 'int16')
+        out = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
