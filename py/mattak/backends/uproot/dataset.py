@@ -217,7 +217,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
-        n_batches = math.ceil((stop - start) // max_in_mem)
+        n_batches = math.ceil((stop - start) / max_in_mem)
 
         for i_batch in range(n_batches):
 
