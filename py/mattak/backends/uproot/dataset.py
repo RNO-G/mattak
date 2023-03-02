@@ -216,6 +216,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _iterate(self, start, stop, calibrated, max_in_mem,
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
+        # cache current values given by setEntries(..)
+        original_entry = (self.first, self.last) if self.multiple else self.entry
+
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
 
@@ -231,6 +234,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             w = self.wfs(calibrated)
             e = self.eventInfo()
             
+            # we modified the internal data pointers with the prev. call of self.setEntries(...)
+            # this is intransparent for the outside world and has to be reverted
+            self.setEntries(original_entry)
+
             for idx in range(batch_stop - batch_start):
                 if selector is not None:
                     if selector(e[idx]):
