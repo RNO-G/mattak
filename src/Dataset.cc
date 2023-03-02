@@ -229,6 +229,14 @@ int mattak::Dataset::loadRun(int station, int run)
 
 
 
+int mattak::Dataset::loadCombinedFile(const char * f, const DatasetOptions & opt) 
+{
+  setOpt(opt); 
+  return loadCombinedFile(f); 
+
+}
+
+
 int mattak::Dataset::loadDir(const char * dir, const DatasetOptions & opt) 
 {
   setOpt(opt); 
@@ -240,6 +248,57 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
 {
   opt.partial_skip_incomplete = true; 
   return loadDir(dir); 
+}
+
+int mattak::Dataset::loadCombinedFile(const char * f) 
+{
+  if (opt.verbose) std::cout << "mattak::Dataset::loadCombinedFile ( " << f  << ") called" << std::endl;
+  full_dataset = false; 
+  if (! opt.partial_skip_incomplete) 
+  {
+    std::cerr << "partial_skip_incomplete is incompatible with loadCombinedFile " << std::endl; 
+    opt.partial_skip_incomplete  = true; 
+  }
+
+  if (opt.verbose) std::cout << "Opening" << f << std::endl; 
+
+
+  if (setup(&wf, f, waveform_tree_names, 0) || setup(&hd, f, header_tree_names)); 
+  {
+    std::cerr << "Could not load waveforms and headers  things from " << f << std::endl; 
+    return -1; 
+  }
+
+  if (opt.verbose) std::cout << "Found waveforms and headers in" << f << std::endl; 
+
+  // Try some optionalish things 
+  
+  if (setup(&ds, f, daqstatus_tree_names,0))
+  {
+    std:: cerr << "Could not load daqstatus from " << f << " (this is ok if you don't use them) " << std::endl; 
+  }
+  else
+  {
+    if (opt.verbose) std::cout << "Found daqstatus in" << f << std::endl; 
+  }
+
+  //we probably don't have pedetals, but we could try I guess? 
+
+  if (!setup(&pd, f, pedestal_tree_names,0))
+  {
+
+    if (opt.verbose) std::cout << "Found pedestals in" << f << std::endl; 
+  }
+   
+
+
+
+  if ( !(setup(&runinfo, f, "info") || setup(&runinfo, f,"runinfo")) )
+  {
+    if (opt.verbose) std::cout << "Found runinfo in" << f << std::endl; 
+  }
+  
+  return 0; 
 }
 
 int mattak::Dataset::loadDir(const char * dir) 
@@ -331,7 +390,7 @@ if (opt.verbose) std::cout << "about to load pedestal " << std::endl;
       Form("%s/pedestal.root", dir), 
       pedestal_tree_names) )
  {
-   std::cerr << "Failed to find pedestal.root in " <<dir << std::endl; 
+   std::cerr << "Failed to find pedestal.root in " <<dir << " (This is usually ok if you don't need them) " <<  std::endl; 
    return -1; 
  }
 if (opt.verbose) std::cout << "about to load runinfo " << std::endl; 
@@ -404,6 +463,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 
 mattak::DAQStatus * mattak::Dataset::status(bool force) 
 {
+  if (!ds.tree) return nullptr; 
   if (force || ds.loaded_entry != current_entry) 
   {
     if (full_dataset) 
@@ -470,6 +530,7 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 
 mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 {
+  if (! pd.tree) return nullptr; 
   if (entry < 0 || entry > pd.tree->GetEntries()) return nullptr; 
 
   if (force || entry != pd.loaded_entry) 

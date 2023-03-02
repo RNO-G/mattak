@@ -64,21 +64,22 @@ namespace mattak
 
       int loadRun(int station, int run, const DatasetOptions & opt) ; 
       int loadDir(const char * dir, const DatasetOptions & opt); 
+      int loadCombinedFile(const char * file, const DatasetOptions & opt) ; 
+
       int loadRun(int station, int run) ; 
       int loadDir(const char * dir); 
+      int loadCombinedFile(const char * file); 
 
 
       /** 
        * Deprecated, kept for ABI compatibility
        */
       Dataset (int station, int run, const VoltageCalibration * calib, const char * base_data_dir = nullptr, bool partial_skip_incomplete = true); 
-      Dataset (const char * data_dir = nullptr); 
+      Dataset (const char * data_dir); 
       int loadRun(int station, int run, bool partial_skip_incomplete); 
       int loadDir(const char * dir, bool partial_skip_incomplete ); 
-
-
- 
       void setDataDir(const char * dir); 
+
 
       bool setEntry(int entry); //returns true if in range 
       int N() const; 
