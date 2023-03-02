@@ -3,6 +3,7 @@ import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 import typing
 import numpy
+import os.path 
 
 try:  
     import cppyy.ll
@@ -26,32 +27,32 @@ def isNully(p):
 
 class Dataset(mattak.Dataset.AbstractDataset): 
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True): 
+    def __init__(self, station : int, run : int, data_dir : typing.Optional[str], verbose: bool = False, skip_incomplete: bool = True, preferred_file : str = None): 
 
-        #special case where we load a directory instead of a station/run 
-        if station == 0 and run == 0: 
-            if verbose:
-                print("Trying to load data dir!") 
-            opt = ROOT.mattak.DatasetOptions() 
-            opt.partial_skip_incomplete = skip_incomplete;
-            self.ds = ROOT.mattak.Dataset(opt) 
-            self.ds.loadDir(data_dir) 
-            self.station = self.ds.header().station_number
-            self.run = self.ds.header().run_number
 
-            if verbose: 
-                print("We think we found station %d run %d" % (self.station,self.run))
+        opt = ROOT.mattak.DatasetOptions() 
 
+        opt.partial_skip_incomplete = skip_incomplete;
+        if preferred_file is not None or preferred_file != "": 
+            opt.file_preference = preferred_file;
+        self.ds = ROOT.mattak.Dataset(opt) 
+
+        if data_dir is not None and os.path.isfile(data_dir):
+             self.ds.loadCombinedFile(data_dir) 
+
+        elif (station == 0 and run == 0): 
+             self.ds.loadDir(data_dir) 
         else: 
+             self.ds.loadRun(station,run)
 
-            opt = ROOT.mattak.DatasetOptions() 
-            opt.partial_skip_incomplete = skip_incomplete;
-            opt.base_data_dir = data_dir 
-            self.ds = ROOT.mattak.Dataset(station, run, opt) 
-            self.station = station
-            self.run = run 
+
         self.data_dir = data_dir
         self.setEntries(0) 
+        self.station = self.ds.header().station_number
+        self.run = self.ds.header().run_number
+
+        if verbose: 
+            print("We think we found station %d run %d" % (self.station,self.run))
 
     def N(self) -> int: 
         return self.ds.N() 
@@ -120,7 +121,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count = 24*2048).reshape(24,2048)
 
 
-    def wfs(self, calibrated : bool =False) -> numpy.ndarray: 
+    def wfs(self, calibrated : bool =False) -> typing.Optional[numpy.ndarray]: 
 
             
         # the simple case first
@@ -138,7 +139,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return out
 
 # ignore max_in_mem since it doesn't save much time for us... 
-    def _iterate(self, start, stop, calibrated, max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+    def _iterate(self, start, stop, calibrated, max_in_mem) -> typing.Generator[typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray],None,None]:
         for i in range(start,stop): 
             yield ( self._eventInfo(i), self._wfs(i,calibrated)) 
         return 

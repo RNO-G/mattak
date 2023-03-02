@@ -62,7 +62,7 @@ class AbstractDataset(ABC):
 
 
     @abstractmethod
-    def _iterate(self, start: int , stop : Union[int,None] , calibrated: bool, max_entries_in_mem: int)-> Generator[Tuple[EventInfo, numpy.ndarray],None,None]:
+    def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int) -> Generator[Tuple[EventInfo, numpy.ndarray],None,None]:
         """ implementation-defined part of iterator"""
         pass
 
@@ -103,17 +103,21 @@ class AbstractDataset(ABC):
         pass
 
 
-def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True) -> Optional[AbstractDataset]: 
+def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True, preferred_file : str = None) -> Optional[AbstractDataset]: 
    """
    This is not a class, but a factory method! 
+
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-   use the best one (PyROOT if available, otherwise will rever tto uproot). 
+   use the best one (PyROOT if available, otherwie will rever tto uproot). 
 
    There is a special case of setting station = 0 and run = 0 and data_dir will
    be interpreted as a directory containing ROOT files, useful if you don't
    have the full directory hierarchy setup or want to look at data taken with
    the fakedaq.
+
+   Alternatively, if data_dir is not a directory but a file, then we attempt to
+   load that file as if it is a combined.root file
    
    verbose prints out things mostly useful for debugging.
 
@@ -122,6 +126,15 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
    will be indexed by full dataset, but untelemetered events will have
    waveforms of None type (if requested singly) or be all 0's (if requested
    via the bulk interface, as numpy doesn't support jagged ararys). 
+
+   preferred_file, if not None or "", and data_dir is not a file, will change
+   the loading behavior. By default,  we will try to load full waveforms
+   falling back to loading combined.root. But if preferred_file is set, it will
+   prefer loading ${preferred_file}.root if possible, treating it as a file in
+   the same format as combined.root.  For example, you can set it to combined
+   to load combined.root even if full waveforms are available. Or, if you have
+   your own subselection in the same format (e.g. forced triggers) you can use
+   that. 
 
    """
 
@@ -149,10 +162,10 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
                 
    if backend == "uproot": 
         import mattak.backends.uproot.dataset 
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete)
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, preferred_file)
    elif backend == "pyroot": 
         import mattak.backends.pyroot.dataset 
-        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete) 
+        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, preferred_file) 
    else: 
        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
        return None 

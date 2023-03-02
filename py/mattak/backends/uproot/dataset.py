@@ -1,11 +1,11 @@
 import os 
 import uproot
+import errno 
 import os.path
 import configparser
-
 import mattak.Dataset
 import typing
-from typing import Union,List
+from typing import Union,List,Optional,Tuple,Generator
 import numpy
 
 
@@ -14,58 +14,106 @@ header_tree_names = ["hdr","header","hd","hds","headers"]
 
 class Dataset ( mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False, skip_incomplete : bool = True): 
+    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False, skip_incomplete : bool = True, file_preference : str = None): 
 
-        # special case where we load a directory instead of a station/run
-        if station == 0 and run == 0: 
-            self.rundir = data_dir
+        #special case where data_dir is a file
+
+        if os.path.isfile(data_dir): 
+            self.data_dir_is_file = True
+            self.rundir = data_dir 
         else: 
-            self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+            self.data_dir_is_file = False
+            # special case where we load a directory instead of a station/run
+            if station == 0 and run == 0: 
+                self.rundir = data_dir
+            else: 
+                self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+
+
+
+        if (skip_incomplete == False  and self.data_dir_is_file):
+            print("skip_incomplete = false is incompatible with data_dir as file"); 
+            skip_incomplete = True 
 
         self.skip_incomplete = skip_incomplete 
         # this duplicates a bunch of C++ code in mattak::Dataset
         # check for full or partial run by looking for waveforms.root
 
 
-        try: 
-            self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-            if verbose: 
-                print ("Found full file")
-            self.combined_tree = None
-            for wf_tree_name in waveform_tree_names:
-                if wf_tree_name in self.wf_file:
-                    self.wf_tree = self.wf_file[wf_tree_name] 
-                    self.wf_branch = wf_tree_name
-                    self._wfs = self.wf_tree[self.wf_branch]
-                    break 
-            self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
-            for hd_tree_name in header_tree_names:
-                if hd_tree_name in self.hd_file:
-                    self.hd_tree = self.hd_file[hd_tree_name] 
-                    self.hd_branch = hd_tree_name
-                    self._hds = self.hd_tree[self.hd_branch]
-                    break 
- 
-            self.full = True
+        self.combined_tree = None 
 
-        except: 
-            self.full = False
+        # check for a preference
+        if file_preference is not None or file_preference != "" or self.data_dir_is_file: 
+            preferred_file = "%s:combined" % (self.rundir) if self.data_dir_is_file  else "%s/%s.root:combined" %(self.rundir, file_preference) 
+            try: 
+                self.combined_tree = uproot.open(preferred_file)
+                if verbose: 
+                    print ("Found preferred file %s" % (preferred_file))
+                    print (self.combined_tree)
+                self.full = False
 
-            self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+            except: 
+                # can't recovber from this 
+                if self.data_dir_is_file: 
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.rundir)
+                print ("Could not find preferred file %s. Falling back to normal behavior" % (preferred_file))
 
-            if not skip_incomplete: 
-                # get the full head tree
-                self.full_head_file = uproot.open("%s/headers.root" % (self.rundir))
-                for hd_tree_name in header_tree_names: 
-                    if hd_tree_name in self.full_head_file: 
-                        self.full_head_tree = self.full_head_file[hd_tree_name]
+
+        
+
+        #if we didn't load the combined_tree already , try to load full tree 
+        
+        if self.combined_tree is None: 
+            try: 
+                self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
+                if verbose: 
+                    print ("Found full file")
+                self.combined_tree = None
+                for wf_tree_name in waveform_tree_names:
+                    if wf_tree_name in self.wf_file:
+                        self.wf_tree = self.wf_file[wf_tree_name] 
+                        self.wf_branch = wf_tree_name
+                        self._wfs = self.wf_tree[self.wf_branch]
                         break 
+                self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
+                for hd_tree_name in header_tree_names:
+                    if hd_tree_name in self.hd_file:
+                        self.hd_tree = self.hd_file[hd_tree_name] 
+                        self.hd_branch = hd_tree_name
+                        self._hds = self.hd_tree[self.hd_branch]
+                        break 
+     
+                self.full = True
+
+            except: 
+                self.full = False
 
 
-            if verbose: 
-                print ("Found combined file")
-                print (self.combined_tree)
-            # get the right branch names
+        # we haven't already loaded the full tree
+        if not self.full:   
+
+            # we haven't already loaded the preferred tree 
+            if self.combined_tree is None: # we didn't already load our preference
+                self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+                if verbose: 
+                    print ("Found combined file")
+                    print (self.combined_tree)
+ 
+            if not skip_incomplete: 
+                # attempt to get the full head tree
+                header_path = "%s/headers.root" % (self.rundir)
+                if os.path.isfile(header_path):  
+                    self.full_head_file = uproot.open(header_path)
+                    for hd_tree_name in header_tree_names: 
+                        if hd_tree_name in self.full_head_file: 
+                            self.full_head_tree = self.full_head_file[hd_tree_name]
+                            break 
+                else: 
+                    print("We didn't want to skip incomplete, but couldn't find the header file where we expected it. Sorry.") 
+                    self.skip_incomplete = True
+
+
+           # get the right branch names
             for wf_branch_name in waveform_tree_names:
                 if wf_branch_name in self.combined_tree:
                     self.wf_branch = wf_branch_name
@@ -73,7 +121,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
                     break 
 
             for hd_branch_name in header_tree_names:
-                t = self.combined_tree if skip_incomplete else self.full_head_tree
+                t = self.combined_tree if self.skip_incomplete else self.full_head_tree
                 if hd_branch_name in t:
                     self.hd_branch = hd_branch_name
                     self._hds = t[self.hd_branch]
@@ -81,7 +129,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
 
 
             # build an index of the waveforms we do have
-            if not skip_incomplete: 
+            if not self.skip_incomplete: 
                 wfs_included = self._wfs['event_number'].array() 
                 self._wf_dict = { ev : idx for idx,ev in enumerate(wfs_included) }
 
@@ -172,7 +220,7 @@ class Dataset ( mattak.Dataset.AbstractDataset):
     def N(self) -> int: 
         return self._hds.num_entries
 
-    def wfs(self, calibrated : bool =False) -> numpy.ndarray: 
+    def wfs(self, calibrated : bool =False) -> Optional[numpy.ndarray]: 
 #        assert(not calibrated) # not implemented yet 
 
         w = None 
@@ -211,14 +259,14 @@ class Dataset ( mattak.Dataset.AbstractDataset):
         return None if w is None else w[0] 
         
 
-    def _iterate(self, start, stop, calibrated,  max_in_mem) -> typing.Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+    def _iterate(self, start : int , stop : int , calibrated: bool,  max_in_mem : int) -> Generator[Tuple[mattak.Dataset.EventInfo, numpy.ndarray],None,None]:
 
         current_start = -1 
         current_stop = -1
         w = None
         e = None
         i = start 
-        preserve_entries = self.entry
+        preserve_entries : Union[int,Tuple[int,int]]= self.entry
         if self.multiple:
             preserve_entries = (self.first, self.last) 
         while i < stop: 
