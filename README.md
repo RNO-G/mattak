@@ -16,23 +16,18 @@ All data is assumed to reside in a directory named ${RNO_G_DATA}, which in the C
 
 The general schema for ``run-associated" data (i.e., data taken synchronously with a run)  is: 
 
-${RNO_G_DATA}/station_${STATION_NUMBER}/runs/run_${RUN_NUMBER_%05d}/${PACKET_TYPE}.root 
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMER}/${PACKET_TYPE}.root 
 
-Config files for each run live in
-${RNO_G_DATA}/station_${STATION_NUMBER}/runs/run_${RUN_NUMBER_%05d}/cfg 
+Config files for each run live in: 
 
-And any auxilliary files we might generate will be under
-${RNO_G_DATA}/station_${STATION_NUMBER}/runs/run_${RUN_NUMBER_%05d}/aux 
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUN_NUMBER}/cfg 
+
+And any auxilliary files we might generate will be under: 
+
+    ${RNO_G_DATA}/station${STATION_NUMBER}/run${RUNNUMBER}/aux 
 
 Note that this might result in a lot of files in a directory. 
 
-Sensor data (not implemented yet) is stored based on the time collected, as is GNSS
-${RNO_G_DATA}/station_${STATION_NUMBER}/sensor/${YEAR}/${MONTH}/${DAY} 
-${RNO_G_DATA}/station_${STATION_NUMBER}/gnss/${YEAR}/${MONTH}/${DAY} 
-
-Calibration data is stored under ${RNO_G_DATA}/station_${STATION_NUMBER}/calib but the rest of this has yet to be defined. 
-
-There may also be auxiliary files globally in ${RNO_G_DATA} and ${RNO_G_DATA}/station_${STATION_NUMBER} (things like mappings, who knows?)
 
 # Run-associated Data packets
 
@@ -48,17 +43,8 @@ These are all waveforms associated with each event.
 
 Asynchronous DAQ-related data (e.g. thresholds, scalers, etc.) recorded every once in a while asynchronous to events but still as part of a run. 
 
-# Non-run associated data packets 
+# Non-run associated data packets  (TODO) 
 
-## Calib 
-
-Any data related to digitizer calibration. TODO. 
-
-## GNSS
-
-Any data from the GNSS (not PPS data, but pseudodistances, etc.). TODO. 
-
-## Sensors
-Sensor housekeeping data, async. TODO 
+Eventually we might have sensor data, calibration data, GNSS data and who knows what else in the same file tree. That will be defined later... 
 
 
