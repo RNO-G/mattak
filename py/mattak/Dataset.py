@@ -29,7 +29,7 @@ class EventInfo:
 class AbstractDataset(ABC):
     """ Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT"""
 
-    def setEntries( self, i : Union[int, Tuple[int, int]]):
+    def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
         Select entries to read out with wfs or eventInfo. Can either be a
         single entry or a tuple representating start and end entries, exclusive.
@@ -37,7 +37,7 @@ class AbstractDataset(ABC):
         """
 
         if isinstance(i, tuple):
-            self.multiple  = True
+            self.multiple = True
             self.first = i[0]
             self.last = i[1]
             if self.last is None:
@@ -53,7 +53,7 @@ class AbstractDataset(ABC):
             self.multiple = False
             self.entry = i
             self.first = i
-            self.last = i+1
+            self.last = i + 1
 
 
     def N(self) -> int:
@@ -89,8 +89,6 @@ class AbstractDataset(ABC):
 
         yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selector)
 
-
-
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
         """Get selected event info(s)
@@ -111,7 +109,7 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
    This is not a class, but a factory method!
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-   use the best one (PyROOT if available, otherwise will rever tto uproot).
+   use the best one (PyROOT if available, otherwise will rever to uproot).
 
    There is a special case of setting station = 0 and run = 0 and data_dir will
    be interpreted as a directory containing ROOT files, useful if you don't

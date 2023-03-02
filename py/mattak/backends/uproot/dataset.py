@@ -31,7 +31,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         try: 
             self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
             if verbose: 
-                print ("Found full file")
+                print("Found full file")
+            
             self.combined_tree = None
             for wf_tree_name in waveform_tree_names:
                 if wf_tree_name in self.wf_file:
@@ -39,6 +40,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.wf_branch = wf_tree_name
                     self._wfs = self.wf_tree[self.wf_branch]
                     break 
+            
             self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
             for hd_tree_name in header_tree_names:
                 if hd_tree_name in self.hd_file:
@@ -64,8 +66,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
             if verbose: 
-                print ("Found combined file")
-                print (self.combined_tree)
+                print("Found combined file")
+                print(self.combined_tree)
+            
             # get the right branch names
             for wf_branch_name in waveform_tree_names:
                 if wf_branch_name in self.combined_tree:
@@ -80,11 +83,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self._hds = t[self.hd_branch]
                     break 
 
-
             # build an index of the waveforms we do have
             if not skip_incomplete: 
                 wfs_included = self._wfs['event_number'].array() 
-                self._wf_dict = { ev : idx for idx,ev in enumerate(wfs_included) }
+                self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
 
         if station == 0 and run == 0: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
@@ -100,12 +102,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.run_info = None
         # try to get the run info, if we're using combined tree, try looking in there 
         # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
-###        if self.combined_tree is not None: 
-###            self.run_info = uproot.open("%s/combined.root:info" %(self.rundir))
-###       else:
-###            self.run_info = uproot.open("%s/runinfo.root:info" %(self.rundir))
+        # if self.combined_tree is not None: 
+        #     self.run_info = uproot.open("%s/combined.root:info" %(self.rundir))
+        # else:
+        #     self.run_info = uproot.open("%s/runinfo.root:info" %(self.rundir))
         
-
         if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)): 
             with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo: 
                 # we'll abuse configparser to read the runinfo, but we have to add a dummy section to properly abuse it 
@@ -165,53 +166,49 @@ class Dataset(mattak.Dataset.AbstractDataset):
             infos.append(info) 
 
         return infos if self.multiple else None 
-
-
-
     
-
     def N(self) -> int: 
         return self._hds.num_entries
 
-    def wfs(self, calibrated : bool =False) -> numpy.ndarray: 
-#        assert(not calibrated) # not implemented yet 
+    def wfs(self, calibrated : bool = False) -> numpy.ndarray: 
+        # assert(not calibrated) # not implemented yet 
 
         w = None 
         if self.full or self.skip_incomplete: 
-            w = self._wfs['radiant_data[24][2048]'].array(entry_start = self.first, entry_stop = self.last, library='np')
+            w = self._wfs['radiant_data[24][2048]'].array(entry_start=self.first, entry_stop=self.last, library='np')
         elif not self.multiple: 
-            if self.first in self._wf_dict: 
-                idx = self._wf_dict[self.first]
-                w = self._wfs['radiant_data[24][2048]'].array(entry_start =idx, entry_stop = idx+1, library='np')
+            if self.first in self.events_with_waveforms: 
+                idx = self.events_with_waveforms[self.first]
+                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np')
         else: 
-            # so ... we need to loop through and find wich things we have actually have waveforms
+            # so ... we need to loop through and find which things we have actually have waveforms
             # start by allocating the output
-            w = numpy.zeros((self.last-self.first, 24,2048), dtype='float64' if calibrated else 'int16')
+            w = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
 
             # now figure out how much of the data array we need 
             wf_start = None
             wf_end = None
 
-            #store the indices that will be non-zero
+            # store the indices that will be non-zero
             wf_idxs = [] 
             for i in range(self.first, self.last): 
-                if i in self._wf_dict: 
-                    wf_idxs.append(i-self.first) 
+                if i in self.events_with_waveforms: 
+                    wf_idxs.append(i - self.first) 
                     # these are the start and stop of our array we need to load
                     if wf_start is None: 
-                        wf_start = self._wf_dict[i]
-                    wf_end = self._wf_dict[i]+1 
+                        wf_start = self.events_with_waveforms[i]
+                    wf_end = self.events_with_waveforms[i] + 1 
             
             if len(wf_idxs): 
-                w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop = wf_end, library='np')
+                w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop=wf_end, library='np')
 
         # here we'd eventually handle calibration I think? 
-
         if self.multiple: 
             return w
-        return None if w is None else w[0] 
         
-
+        return None if w is None else w[0] 
+    
+    
     def _iterate(self, start, stop, calibrated, max_in_mem,
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
