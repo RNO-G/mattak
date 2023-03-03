@@ -7,6 +7,7 @@ import mattak.Dataset
 import typing
 from typing import Union, Tuple, Optional, Callable, Sequence
 import numpy
+import math
 
 
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
@@ -212,33 +213,35 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _iterate(self, start, stop, calibrated, max_in_mem,
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
-        current_start = -1 
-        current_stop = -1
-        w = None
-        e = None
-        i = start 
-        preserve_entries = self.entry
-        if self.multiple:
-            preserve_entries = (self.first, self.last) 
-        while i < stop: 
-            if i >= current_stop:
-                current_start = i
-                current_stop = min(i+max_in_mem, stop)
-                self.setEntries((current_start, current_stop)) 
-                w = self.wfs(calibrated)
-                e = self.eventInfo()
-                self.setEntries(preserve_entries) # hide that we're modifying these 
+        # cache current values given by setEntries(..)
+        original_entry = (self.first, self.last) if self.multiple else self.entry
 
-            rel_i = i - current_start
-            i += 1
-            if selector is not None:
-                if selector(e[rel_i]):
-                    yield e[rel_i], w[rel_i]
-            else:
-                yield e[rel_i], w[rel_i]
+        # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
+        n_batches = math.ceil((stop - start) / max_in_mem)
 
- 
+        for i_batch in range(n_batches):
 
+            # looping over the batches defining the start and stop index
+            batch_start = start + i_batch * max_in_mem
+            batch_stop = min(stop, batch_start + max_in_mem)
+            
+            self.setEntries((batch_start, batch_stop))
+            
+            # load events from file 
+            w = self.wfs(calibrated)
+            e = self.eventInfo()
+            
+            # we modified the internal data pointers with the prev. call of self.setEntries(...)
+            # this is intransparent for the outside world and has to be reverted
+            self.setEntries(original_entry)
+
+            for idx in range(batch_stop - batch_start):
+                if selector is not None:
+                    if selector(e[idx]):
+                        yield e[idx], w[idx]
+                else:
+                    yield e[idx], w[idx]
+            
 
 
 
