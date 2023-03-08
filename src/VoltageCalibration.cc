@@ -317,8 +317,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 //
 //
 //
-      fit_chisq[ichan][i] = 0;
-      fit_maxerr[ichan][i] = 0;
+
 
       fit_ndof[ichan][i] = npoints;  // number of points including start and end
       fit_ndof[ichan][i] -= (fit_order + 1 + mattak::nParsTriFunc);   //  subtract number of parameters of the fit function
@@ -386,18 +385,22 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         fflush(stdout); // Print a dot every 128 samples processed
       }
 
+      fit_chisq[ichan][i] = 0;
+      fit_maxerr[ichan][i] = 0;
+
+      int npoints = graph[ichan][i]->GetN();
+      double *data_adc = graph[ichan][i]->GetY();
+      double *data_v = graph[ichan][i]->GetX();
+
       // Combined function: polynomial + triangle wave
-      TF1 *combinedFunc = new TF1("combinedFunc", combinedFuncFormula, average_vol[0], average_vol[npoints_general-1]);
+      TF1 *combinedFunc = new TF1("combinedFunc", combinedFuncFormula);
+      combinedFunc->SetRange(data_v[0],data_v[npoints-1]);
 
       for (int ipar = 0; ipar <= fit_order + mattak::nParsTriFunc; ipar++)
       {
         if (ipar < mattak::nParsTriFunc) combinedFunc->SetParameter(ipar, triFunc_pars[ipar]);
         else combinedFunc->SetParameter(ipar, getFitCoeff(ichan, i, ipar-mattak::nParsTriFunc));
       }
-
-      int npoints = graph[ichan][i]->GetN();
-      double *data_adc = graph[ichan][i]->GetY();
-      double *data_v = graph[ichan][i]->GetX();
 
       // Calculate max deviation and chi squared
       for (int j = 0 ; j < npoints; j++)
@@ -406,8 +409,12 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         double v_meas = data_v[j];
         double v_pred = combinedFunc->GetX(adc);
         double delta = fabs(v_meas-v_pred);
-        if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-        fit_chisq[ichan][i] += delta*delta / (0.010*0.010);  // estimate 10 mV equivalent RMS?
+        if (isnan(delta)) continue;
+        else
+        {
+          if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
+          fit_chisq[ichan][i] += ( delta*delta/(0.010*0.010) );  // estimate 10 mV equivalent RMS?
+        }
       }
     }
   }
@@ -458,6 +465,43 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   h->SetDirectory(0);
 
   return h;
+}
+
+TGraph * mattak::VoltageCalibration::justPolFit(int chan, int samp, bool resid) const
+{
+  int npoints = graph[chan][samp]->GetN();
+  double *data_adc = graph[chan][samp]->GetY();
+  double *data_v = graph[chan][samp]->GetX();
+
+  TGraph *g = new TGraph();
+  g->SetName(Form("gsample_flipped_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
+  g->GetXaxis()->SetTitle("VBias");
+  g->GetYaxis()->SetTitle(resid ? "ADC - Predicted ADC" : "ADC");
+
+  TString fitFuncFormula = formula[fit_order];
+  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), fitFuncFormula, fit_min, fit_max, TF1::EAddToList::kNo);
+  fn->SetRange(data_v[0],data_v[npoints-1]);
+
+  for (int ipar = 0; ipar <= fit_order; ipar++) fn->SetParameter(ipar, getFitCoeff(chan, samp, ipar));
+
+  fn->SetLineColor(2);
+
+  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
+  {
+    double adc = data_adc[j];
+    double v = data_v[j];
+    if (resid) adc -= fn->Eval(v);
+    g->SetPoint(g->GetN(),v,adc);
+  }
+  if (!resid)
+  {
+    g->GetListOfFunctions()->Add(fn);
+    fn->SetParent(g);
+    fn->Save(data_v[0],data_v[npoints-1],0,0,0,0);
+  }
+
+  return g;
 }
 
 TGraph * mattak::VoltageCalibration::getFlippedGraphAndFit(int chan, int samp, bool resid) const
@@ -527,8 +571,12 @@ TGraph * mattak::VoltageCalibration::getSampleGraph(int chan, int samp, bool res
   {
     double adc = data_adc[j];
     double v = data_v[j];
-    if (resid) v -= fn->GetX(adc);
-    g->SetPoint(g->GetN(),adc,v);
+    if (isnan(fn->GetX(adc))) continue;
+    else
+    {
+      if (resid) v -= fn->GetX(adc);
+      g->SetPoint(g->GetN(),adc,v);
+    }
   }
 
   return g;
