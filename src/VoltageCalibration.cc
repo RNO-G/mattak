@@ -30,9 +30,9 @@ static double evalPars(double x, int order, const double * p)
 #include "mattak/Pedestals.h"
 
 #include "TLinearFitter.h"
+#include "TF1.h"
 #include "TList.h"
 #include "TString.h"
-#include "TMath.h"
 
 ClassImp(mattak::VoltageCalibration);
 
@@ -447,7 +447,7 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   return h;
 }
 
-TGraph * mattak::VoltageCalibration::getAdjustedInverseGraph(int chan, int samp, bool resid) const
+TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp, bool resid) const
 {
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
@@ -482,7 +482,7 @@ TGraph * mattak::VoltageCalibration::getAdjustedInverseGraph(int chan, int samp,
   return g;
 }
 
-TGraph * mattak::VoltageCalibration::getAdjustedSampleGraph(int chan, int samp, bool resid) const
+TGraph * mattak::VoltageCalibration::makeAdjustedSampleGraph(int chan, int samp, bool resid) const
 {
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
@@ -513,7 +513,7 @@ TGraph * mattak::VoltageCalibration::getAdjustedSampleGraph(int chan, int samp, 
   return g;
 }
 
-TGraph * mattak::VoltageCalibration::getOriginalSampleGraph(int chan, int samp) const
+TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp) const
 {
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
