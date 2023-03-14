@@ -58,9 +58,9 @@ namespace mattak
                                        getPackedFitCoeffs(chan), getFitOrder(), getFitMin(), getFitMax());
       }
       TH2S * makeHist(int channel) const;
-      TGraph * getAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
-      TGraph * getAdjustedSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraph * getOriginalSampleGraph(int channel, int sample) const;
+      TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
+      TGraph * makeAdjustedSampleGraph(int channel, int sample, bool resid=false) const;
+      TGraph * makeOriginalSampleGraph(int channel, int sample) const;
       TGraph * getAveResidGraph() const { return graph_residAve; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
