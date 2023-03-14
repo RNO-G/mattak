@@ -30,9 +30,9 @@ static double evalPars(double x, int order, const double * p)
 #include "mattak/Pedestals.h"
 
 #include "TLinearFitter.h"
+#include "TF1.h"
 #include "TList.h"
 #include "TString.h"
-#include "TMath.h"
 
 ClassImp(mattak::VoltageCalibration);
 
@@ -320,7 +320,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 
       fit_ndof[ichan][i] = npoints;  // number of points including start and end
-      fit_ndof[ichan][i] -= (fit_order + 1 + mattak::nParsTriFunc);   //  subtract number of parameters of the fit function
+      fit_ndof[ichan][i] -= (fit_order + 1);   //  subtract number of parameters of the fit function
       if (vref) fit_ndof[ichan][i] += 1;  // if parameter 0 is fixed, add back one degree of freedom
 
       turnover_index[ichan][i] = npoints;
@@ -358,20 +358,6 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   }
   graph_residAve = new TGraph(npoints_general, average_vol, average_adcResid);
 
-  // Triangle wave function
-  double omega = 2*TMath::Pi()/0.103;  // 2*pi/T where T is 0.103 voltage unit by eye
-  triFunc = new TF1("triFunc", "[0]*asin(sin([1]*(x-[2])))", average_vol[0], average_vol[npoints_general-1]);
-  triFunc->SetNpx(10000);
-  triFunc->SetParameters(1, omega, 0);
-
-  // Fit the average ADC(V) residuals to the tiangle wave function and get 3 parameters
-  std::cout << "\nFitting average ADC(V) residuals to the triangle wave function...";
-  graph_residAve->Fit("triFunc","R");
-  for (int ipar = 0; ipar < mattak::nParsTriFunc; ipar++) triFunc_pars[ipar] = triFunc->GetParameter(ipar);
-
-  // Formula for the combined function: polynomial + triangle wave
-  TString combinedFuncFormula = "triFunc+" + formula[fit_order] + "(3)";
-
   std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
@@ -392,28 +378,22 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       double *data_adc = graph[ichan][i]->GetY();
       double *data_v = graph[ichan][i]->GetX();
 
-      // Combined function: polynomial + triangle wave
-      TF1 *combinedFunc = new TF1("combinedFunc", combinedFuncFormula);
-      combinedFunc->SetRange(data_v[0],data_v[npoints-1]);
-
-      for (int ipar = 0; ipar <= fit_order + mattak::nParsTriFunc; ipar++)
-      {
-        if (ipar < mattak::nParsTriFunc) combinedFunc->SetParameter(ipar, triFunc_pars[ipar]);
-        else combinedFunc->SetParameter(ipar, getFitCoeff(ichan, i, ipar-mattak::nParsTriFunc));
-      }
+      TF1 * fn = new TF1("polFit", formula[fit_order]);
+      fn->SetParameters(getFitCoeffs(ichan,i));
+      fn->SetRange(data_v[0],data_v[npoints-1]);
 
       // Calculate max deviation and chi squared
       for (int j = 0 ; j < npoints; j++)
       {
-        double adc = data_adc[j];
+        double adc_adjusted = data_adc[j] - graph_residAve->GetPointY(j);
         double v_meas = data_v[j];
-        double v_pred = combinedFunc->GetX(adc);
+        double v_pred = fn->GetX(adc_adjusted);
         double delta = fabs(v_meas-v_pred);
         if (isnan(delta)) continue;
         else
         {
           if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-          fit_chisq[ichan][i] += ( delta*delta/(0.010*0.010) );  // estimate 10 mV equivalent RMS?
+          fit_chisq[ichan][i] += ( delta*delta/(0.001*0.001) );
         }
       }
     }
@@ -467,33 +447,31 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
   return h;
 }
 
-TGraph * mattak::VoltageCalibration::justPolFit(int chan, int samp, bool resid) const
+TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp, bool resid) const
 {
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
 
   TGraph *g = new TGraph();
-  g->SetName(Form("gsample_flipped_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("VBias");
   g->GetYaxis()->SetTitle(resid ? "ADC - Predicted ADC" : "ADC");
 
-  TString fitFuncFormula = formula[fit_order];
-  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), fitFuncFormula, fit_min, fit_max, TF1::EAddToList::kNo);
+  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
+  fn->SetParameters(getFitCoeffs(chan,samp));
   fn->SetRange(data_v[0],data_v[npoints-1]);
-
-  for (int ipar = 0; ipar <= fit_order; ipar++) fn->SetParameter(ipar, getFitCoeff(chan, samp, ipar));
-
   fn->SetLineColor(2);
 
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    double adc = data_adc[j];
+    double adc_adjusted = data_adc[j] - graph_residAve->GetPointY(j);
     double v = data_v[j];
-    if (resid) adc -= fn->Eval(v);
-    g->SetPoint(g->GetN(),v,adc);
+    if (resid) adc_adjusted -= fn->Eval(v);
+    g->SetPoint(g->GetN(),v,adc_adjusted);
   }
+
   if (!resid)
   {
     g->GetListOfFunctions()->Add(fn);
@@ -504,107 +482,53 @@ TGraph * mattak::VoltageCalibration::justPolFit(int chan, int samp, bool resid) 
   return g;
 }
 
-TGraph * mattak::VoltageCalibration::getFlippedGraphAndFit(int chan, int samp, bool resid) const
+TGraph * mattak::VoltageCalibration::makeAdjustedSampleGraph(int chan, int samp, bool resid) const
 {
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
 
   TGraph *g = new TGraph();
-  g->SetName(Form("gsample_flipped_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
-  g->GetXaxis()->SetTitle("VBias");
-  g->GetYaxis()->SetTitle(resid ? "ADC - Predicted ADC" : "ADC");
-
-  TString combinedFuncFormula = "triFunc+" + formula[fit_order] + "(3)";
-  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), combinedFuncFormula, fit_min, fit_max, TF1::EAddToList::kNo);
-  fn->SetRange(data_v[0],data_v[npoints-1]);
-
-  for (int ipar = 0; ipar <= fit_order + mattak::nParsTriFunc; ipar++)
-  {
-    if (ipar < mattak::nParsTriFunc) fn->SetParameter(ipar, triFunc_pars[ipar]);
-    else fn->SetParameter(ipar, getFitCoeff(chan, samp, ipar-mattak::nParsTriFunc));
-  }
-
-  fn->SetLineColor(2);
-
-  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
-  {
-    double adc = data_adc[j];
-    double v = data_v[j];
-    if (resid) adc -= fn->Eval(v);
-    g->SetPoint(g->GetN(),v,adc);
-  }
-  if (!resid)
-  {
-    g->GetListOfFunctions()->Add(fn);
-    fn->SetParent(g);
-    fn->Save(data_v[0],data_v[npoints-1],0,0,0,0);
-  }
-
-  return g;
-}
-
-TGraph * mattak::VoltageCalibration::getSampleGraph(int chan, int samp, bool resid) const
-{
-  int npoints = graph[chan][samp]->GetN();
-  double *data_adc = graph[chan][samp]->GetY();
-  double *data_v = graph[chan][samp]->GetX();
-
-  TGraph *g = new TGraph();
-  g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetName(Form("gsample_adjusted_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g  %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "VBias - Predicted VBias" : "VBias");
 
-  TString combinedFuncFormula = "triFunc+" + formula[fit_order] + "(3)";
-  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), combinedFuncFormula, fit_min, fit_max, TF1::EAddToList::kNo);
+  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
+  fn->SetParameters(getFitCoeffs(chan,samp));
   fn->SetRange(data_v[0],data_v[npoints-1]);
-
-  for (int ipar = 0; ipar <= fit_order + mattak::nParsTriFunc; ipar++)
-  {
-    if (ipar < mattak::nParsTriFunc) fn->SetParameter(ipar, triFunc_pars[ipar]);
-    else fn->SetParameter(ipar, getFitCoeff(chan, samp, ipar-mattak::nParsTriFunc));
-  }
 
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    double adc = data_adc[j];
+    double adc_adjusted = data_adc[j] - graph_residAve->GetPointY(j);
     double v = data_v[j];
-    if (isnan(fn->GetX(adc))) continue;
+    if (isnan(fn->GetX(adc_adjusted))) continue;
     else
     {
-      if (resid) v -= fn->GetX(adc);
-      g->SetPoint(g->GetN(),adc,v);
+      if (resid) v -= fn->GetX(adc_adjusted);
+      g->SetPoint(g->GetN(),adc_adjusted,v);
     }
   }
 
   return g;
 }
 
-TGraph * mattak::VoltageCalibration::getAveResidGraph(bool resid) const
+TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp) const
 {
-  double *data_v = graph_residAve->GetX();
-  double *data_adcResid = graph_residAve->GetY();
+  double *data_adc = graph[chan][samp]->GetY();
+  double *data_v = graph[chan][samp]->GetX();
 
   TGraph *g = new TGraph();
-  g->GetXaxis()->SetTitle("VBias");
-  g->GetYaxis()->SetTitle(resid ? "ADC_resid - Predicted ADC_resid" : "ADC_resid");
+  g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]", station_number, chan, samp, start_time, end_time));
+  g->GetXaxis()->SetTitle("ADC");
+  g->GetYaxis()->SetTitle("VBias");
 
-  triFunc->SetLineColor(2);
-
-  for (unsigned j = 0; j < npoints_general; j++)
+  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    double adcResid = data_adcResid[j];
+    double adc = data_adc[j];
     double v = data_v[j];
-    if (resid) adcResid -= triFunc->Eval(v);
-    g->SetPoint(j,v,adcResid);
-  }
-  if (!resid)
-  {
-    g->GetListOfFunctions()->Add(triFunc);
-    triFunc->SetParent(g);
-    triFunc->Save(data_v[0],data_v[npoints_general-1],0,0,0,0);
+    g->SetPoint(g->GetN(),adc,v);
   }
 
   return g;
