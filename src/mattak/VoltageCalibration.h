@@ -73,7 +73,7 @@ namespace mattak
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
-
+      TGraph * justPolFit(int chan, int samp, bool resid) const; 
     private:
       std::array<std::vector<double>,2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result;
