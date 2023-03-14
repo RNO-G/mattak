@@ -6,7 +6,6 @@
 #include "TH2.h"
 #include "TTree.h"
 #include "TGraph.h"
-#include "TF1.h"
 #endif
 
 
