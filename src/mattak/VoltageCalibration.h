@@ -6,7 +6,6 @@
 #include "TH2.h"
 #include "TTree.h"
 #include "TGraph.h"
-#include "TF1.h"
 #endif
 
 
@@ -17,7 +16,6 @@ namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
-  constexpr int nParsTriFunc = 3;
 
   // Free apply voltage calibration so we can call it without ROOT
   // @param N number of samples (must be multiple of window size!)
@@ -60,9 +58,10 @@ namespace mattak
                                        getPackedFitCoeffs(chan), getFitOrder(), getFitMin(), getFitMax());
       }
       TH2S * makeHist(int channel) const;
-      TGraph * getFlippedGraphAndFit(int channel, int sample, bool resid=false) const;
-      TGraph * getSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraph * getAveResidGraph(bool resid=false) const;
+      TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
+      TGraph * makeAdjustedSampleGraph(int channel, int sample, bool resid=false) const;
+      TGraph * makeOriginalSampleGraph(int channel, int sample) const;
+      TGraph * getAveResidGraph() const { return graph_residAve; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -73,7 +72,7 @@ namespace mattak
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
-      TGraph * justPolFit(int chan, int samp, bool resid) const; 
+
     private:
       std::array<std::vector<double>,2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result;
@@ -84,10 +83,8 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
-      std::array<double,mattak::nParsTriFunc> triFunc_pars;
       const int npoints_general = 155;
       TGraph *graph_residAve;
-      TF1 *triFunc;
       int fit_order;
       int station_number;
       double fit_vref;
