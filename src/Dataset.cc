@@ -339,7 +339,7 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   {
     if (full_dataset) 
     {
-      int ds_entry = wf.tree->GetEntryNumberWithBestIndex(header(force)->readout_time); 
+      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(header(force)->readout_time); 
       if (ds_entry < 0) 
       {
         ds.missing_entry = true; 
