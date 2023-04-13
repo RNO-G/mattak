@@ -273,12 +273,14 @@ if (verbose) std::cout << "about to load runinfo " << std::endl;
 }
 
 
-void mattak::Dataset::setEntry(int entry)
+bool mattak::Dataset::setEntry(int entry)
 {
   if (entry >= 0 && entry < N())
   {
     current_entry = entry;  //otherwise we're completely lazy! 
+    return true;                             
   }
+  return false; 
 }
 
 int mattak::Dataset::N() const
@@ -291,6 +293,7 @@ mattak::Header* mattak::Dataset::header(bool force)
 {
   if (force || hd.loaded_entry != current_entry)
   {
+    if (hd.tree == nullptr) return nullptr; 
     hd.tree->GetEntry(current_entry); 
     hd.loaded_entry = current_entry; 
   }
@@ -302,6 +305,8 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
   if (force || wf.loaded_entry != current_entry)
   {
+    if (wf.tree == nullptr) return nullptr; 
+
     if (full_dataset || skip_incomplete) 
     {
       wf.tree->GetEntry(current_entry); 
