@@ -88,7 +88,8 @@ namespace mattak
       uint8_t station_number = 0; 
       RadiantVoltages radiant_voltages; 
       CalpulserInfo calinfo; 
-    ClassDef(DAQStatus,4); 
+    
+    ClassDef(DAQStatus, 4); 
   }; 
 
 }

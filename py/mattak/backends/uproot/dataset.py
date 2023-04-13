@@ -17,6 +17,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
                  skip_incomplete : bool = True):
+        
+        self.backend = "uproot"
 
         # special case where we load a directory instead of a station/run
         if station == 0 and run == 0: 

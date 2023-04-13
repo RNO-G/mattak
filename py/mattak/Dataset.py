@@ -24,6 +24,8 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: float  # Sample rate, in GSa/s
+    radiantThrs: numpy.ndarray
+    lowTrigThrs: numpy.ndarray
 
 ##
 class AbstractDataset(ABC):

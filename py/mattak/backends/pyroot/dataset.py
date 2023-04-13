@@ -27,6 +27,8 @@ def isNully(p):
 class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True):
+        
+        self.backend = "pyroot"
 
         #special case where we load a directory instead of a station/run
         if station == 0 and run == 0:
@@ -34,6 +36,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 print("Trying to load data dir!")
                 
             self.ds = ROOT.mattak.Dataset()
+            self.ds.setVerbose(verbose)
+
             self.ds.loadDir(data_dir, skip_incomplete)
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
@@ -42,10 +46,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 print("We think we found station %d run %d" % (self.station,self.run))
 
         else:
-            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete)
+            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete, verbose)
             self.station = station
             self.run = run
-            
+                    
         self.data_dir = data_dir
         self.setEntries(0)
 
@@ -58,6 +62,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
         
         hdr = self.ds.header()
+        
+        daq_status = self.ds.status()
+        radiantThrs = numpy.array(daq_status.radiant_thresholds)
+        lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
@@ -97,7 +105,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                         sysclkLastPPS=sysclkLastPPS,
                                         pps=pps,
                                         radiantStartWindows = radiantStartWindows,
-                                        sampleRate = sampleRate)
+                                        sampleRate = sampleRate,
+                                        radiantThrs=radiantThrs,
+                                        lowTrigThrs=lowTrigThrs)
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
