@@ -26,9 +26,11 @@ def isNully(p):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True):
+    def __init__(self, station : int, run : int, data_dir : str, 
+                 verbose : bool = False, skip_incomplete : bool = True, read_daq_status : bool = True):
         
         self.backend = "pyroot"
+        self.__read_daq_status = read_daq_status
 
         #special case where we load a directory instead of a station/run
         if station == 0 and run == 0:
@@ -63,12 +65,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
         
         hdr = self.ds.header()
         
-        daq_status = self.ds.status()
-        radiantThrs = numpy.array(daq_status.radiant_thresholds)
-        lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+        if self.__read_daq_status:
+            daq_status = self.ds.status()
+            radiantThrs = numpy.array(daq_status.radiant_thresholds)
+            lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+        else:
+            radiantThrs = None
+            lowTrigThrs = None   
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
+        
         station = hdr.station_number
         run = hdr.run_number
         eventNumber = hdr.event_number
