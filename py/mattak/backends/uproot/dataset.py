@@ -14,7 +14,6 @@ waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
 header_tree_names = ["hdr", "header", "hd", "hds", "headers"]
 daqstatus_tree_names = ["daqstatus", "ds", "status"]
 
-
 def read_tree(ur_file, tree_names):
     """
     Parameters
@@ -34,18 +33,20 @@ def read_tree(ur_file, tree_names):
     
     for tree_name in tree_names:
         if tree_name in ur_file:
-            tree = ur_file[tree_name] 
+            tree = ur_file[tree_name]
             return tree, tree_name
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
-                 skip_incomplete : bool = True, read_daq_status : bool = True):
+                 skip_incomplete : bool = True, read_daq_status : bool = True,
+                 read_run_info : bool = True):
         
         self.backend = "uproot"
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
+        self.__read_run_info = read_run_info
 
         # special case where we load a directory instead of a station/run
         if station == 0 and run == 0: 
@@ -78,7 +79,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
                 self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
                 self._dss = self.ds_tree[self.ds_branch]
-                      
+
         except: 
             self.full = False
 
@@ -122,19 +123,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.setEntries(0) 
 
         self.run_info = None
-        # try to get the run info, if we're using combined tree, try looking in there 
-        # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
-        # if self.combined_tree is not None: 
-        #     self.run_info = uproot.open("%s/combined.root:info" %(self.rundir))
-        # else:
-        #     self.run_info = uproot.open("%s/runinfo.root:info" %(self.rundir))
-        
-        if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)): 
-            with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo: 
-                # we'll abuse configparser to read the runinfo, but we have to add a dummy section to properly abuse it 
-                config = configparser.ConfigParser() 
-                config.read_string('[dummy]\n' + fruninfo.read())
-                self.run_info = config['dummy'] 
+        if self.__read_run_info:
+            # try to get the run info, if we're using combined tree, try looking in there 
+            # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
+            
+            if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)): 
+                with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo: 
+                    # we'll abuse configparser to read the runinfo, but we have to add a dummy 
+                    # section to properly abuse it 
+                    config = configparser.ConfigParser() 
+                    config.read_string('[dummy]\n' + fruninfo.read())
+                    self.run_info = config['dummy']
                 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]: 
@@ -155,12 +154,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs = numpy.array(self._dss['radiant_thresholds[24]'])
             lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
         
-        if self.run_info is None  or 'radiant-samplerate' not in self.run_info:
-            sampleRate = 3.2 
-            if self.__verbose:
-                print("Use hard-coded sample rate")
-        else:
+        if self.run_info is not None:
             sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+        else:
+            sampleRate = None
 
         # um... yeah, that's obvious 
         radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw, library='np')
