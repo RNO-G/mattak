@@ -129,11 +129,12 @@ void mattak::Dataset::unload()
 }
 
 
-mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib, const char * data_dir, bool partial_skip) 
+mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib, const char * data_dir, bool partial_skip, bool v) 
 {
+  setVerbose(v);  // should be first
   setDataDir(data_dir); 
   setCalibration(calib); 
-  loadRun(station,run,partial_skip); 
+  loadRun(station,run,partial_skip);
 }
 
 mattak::Dataset::Dataset(const char* data_dir) 
@@ -225,51 +226,56 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
   }
 
 
-if (verbose) std::cout << "about to load headers " << std::endl; 
- //now load the header files 
- if ( setup(&hd, 
+  if (verbose) std::cout << "about to load headers ..."; 
+  //now load the header files 
+  if ( setup(&hd, 
       Form("%s/%s.root", dir, (full_dataset || !partial_skip) ? "headers" : "combined"), 
       header_tree_names) )
- {
-   std::cerr << "Failed to find headers.root or combined.root in " << dir << std::endl; 
-   return -1; 
- }
+  {
+    std::cerr << "Failed to find headers.root or combined.root in " << dir << std::endl; 
+    return -1; 
+  } 
+  if (verbose) std::cout << " success" << std::endl; 
 
- if (!full_dataset && !partial_skip)
- {
-   //set up an index on event number the events
-   wf.tree->BuildIndex("event_number"); 
- }
+  if (!full_dataset && !partial_skip)
+  {
+    //set up an index on event number the events
+    wf.tree->BuildIndex("event_number"); 
+  }
 
-if (verbose) std::cout << "about to load daqstatus " << std::endl; 
- //and the status files
- if ( setup(&ds, 
+  if (verbose) std::cout << "about to load daqstatus ..."; 
+  //and the status files
+  if ( setup(&ds, 
       Form("%s/%s.root", dir, full_dataset || !partial_skip ? "daqstatus" : "combined"), 
       daqstatus_tree_names) )
- {
-   std::cerr << "Failed to find daqstatus.root or combined.root in " << dir << std::endl; 
-   return -1; 
- }
+  {
+    std::cerr << "Failed to find daqstatus.root or combined.root in " << dir << std::endl; 
+    return -1; 
+  }
+  if (verbose) std::cout << " success" << std::endl; 
 
- if (full_dataset) 
- {
-   ds.tree->BuildIndex("readout_time_radiant"); 
- }
+  if (full_dataset) 
+  {
+    ds.tree->BuildIndex("readout_time_radiant"); 
+  }
 
-if (verbose) std::cout << "about to load pedestal " << std::endl; 
-//and the pedestal files
- if ( setup(&pd, 
+  if (verbose) std::cout << "about to load pedestal ..."; 
+  //and the pedestal files
+  if ( setup(&pd, 
       Form("%s/pedestal.root", dir), 
       pedestal_tree_names) )
- {
-   std::cerr << "Failed to find pedestal.root in " <<dir << std::endl; 
-   return -1; 
- }
-if (verbose) std::cout << "about to load runinfo " << std::endl; 
+  {
+    std::cerr << "Failed to find pedestal.root in " <<dir << std::endl; 
+    return -1; 
+  } 
+  if (verbose) std::cout << " success" << std::endl; 
 
- //and try the runinfo file 
- setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
- return 0; 
+  if (verbose) std::cout << "about to load runinfo ..."; 
+  //and try the runinfo file 
+  setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
+
+  if (verbose) std::cout << " success" << std::endl; 
+  return 0; 
 }
 
 

@@ -24,6 +24,8 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: float  # Sample rate, in GSa/s
+    radiantThrs: numpy.ndarray
+    lowTrigThrs: numpy.ndarray
 
 ##
 class AbstractDataset(ABC):
@@ -108,7 +110,9 @@ class AbstractDataset(ABC):
         return numpy.array([wf for _, wf in self.iterate(start=self.start, stop=self.stop, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True) -> Optional[AbstractDataset]:
+def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", 
+            verbose : bool = False, skip_incomplete : bool = True,
+            read_daq_status : bool = True, read_run_info : bool = True) -> Optional[AbstractDataset]:
    """
    This is not a class, but a factory method!
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
@@ -152,10 +156,12 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
 
    if backend == "uproot":
         import mattak.backends.uproot.dataset
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete)
+        return mattak.backends.uproot.dataset.Dataset(
+            station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info)
    elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
-        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete)
+        return mattak.backends.pyroot.dataset.Dataset(
+            station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info)
    else:
        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
        return None

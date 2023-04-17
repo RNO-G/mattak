@@ -26,7 +26,13 @@ def isNully(p):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose: bool = False, skip_incomplete: bool = True):
+    def __init__(self, station : int, run : int, data_dir : str, 
+                 verbose : bool = False, skip_incomplete : bool = True, 
+                 read_daq_status : bool = True, read_run_info : bool = True):
+        
+        self.backend = "pyroot"
+        self.__read_daq_status = read_daq_status
+        self.__read_run_info = read_run_info
 
         #special case where we load a directory instead of a station/run
         if station == 0 and run == 0:
@@ -34,6 +40,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 print("Trying to load data dir!")
                 
             self.ds = ROOT.mattak.Dataset()
+            self.ds.setVerbose(verbose)
+
             self.ds.loadDir(data_dir, skip_incomplete)
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
@@ -42,10 +50,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 print("We think we found station %d run %d" % (self.station,self.run))
 
         else:
-            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete)
+            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete, verbose)
             self.station = station
             self.run = run
-            
+                    
         self.data_dir = data_dir
         self.setEntries(0)
 
@@ -58,9 +66,24 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
         
         hdr = self.ds.header()
+        
+        if self.__read_daq_status:
+            daq_status = self.ds.status()
+            radiantThrs = numpy.array(daq_status.radiant_thresholds)
+            lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+        else:
+            radiantThrs = None
+            lowTrigThrs = None
+            
+        if self.__read_run_info:
+            runinfo = self.ds.info()
+            sampleRate = runinfo.radiant_sample_rate / 1000
+        else:
+            sampleRate = None
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
+        
         station = hdr.station_number
         run = hdr.run_number
         eventNumber = hdr.event_number
@@ -84,8 +107,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk = hdr.sysclk
         sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
         radiantStartWindows = numpy.frombuffer(cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24 * 2).reshape(24, 2)
-        sampleRate = 3.2  #if ( ROOT.AddressOf(self.ds.info()) ==0 or self.ds.info().radiant_sample_rate == 0)  else self.ds.info().radiant_sample_rate/1000.
-
 
         return mattak.Dataset.EventInfo(eventNumber = eventNumber,
                                         station = station,
@@ -97,7 +118,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                         sysclkLastPPS=sysclkLastPPS,
                                         pps=pps,
                                         radiantStartWindows = radiantStartWindows,
-                                        sampleRate = sampleRate)
+                                        sampleRate = sampleRate,
+                                        radiantThrs=radiantThrs,
+                                        lowTrigThrs=lowTrigThrs)
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
