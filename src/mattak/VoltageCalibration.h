@@ -61,7 +61,8 @@ namespace mattak
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeAdjustedSampleGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeOriginalSampleGraph(int channel, int sample) const;
-      TGraph * getAveResidGraph() const { return graph_residAve; }
+      TGraph * getAveResidGraph_dac1() const { return graph_residAve[0]; }
+      TGraph * getAveResidGraph_dac2() const { return graph_residAve[1]; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -84,7 +85,7 @@ namespace mattak
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
       const int npoints_general = 155;
-      TGraph *graph_residAve;
+      TGraph *graph_residAve[2];
       int fit_order;
       int station_number;
       double fit_vref;
