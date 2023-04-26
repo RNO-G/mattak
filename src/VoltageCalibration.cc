@@ -1,5 +1,4 @@
 #include "mattak/VoltageCalibration.h"
-#include "TFile.h"
 #include <iostream>
 #include <stdio.h>
 
@@ -28,7 +27,7 @@ static double evalPars(double x, int order, const double * p)
 #ifndef MATTAK_NOROOT
 
 #include "mattak/Pedestals.h"
-
+#include "TFile.h"
 #include "TLinearFitter.h"
 #include "TF1.h"
 #include "TList.h"
