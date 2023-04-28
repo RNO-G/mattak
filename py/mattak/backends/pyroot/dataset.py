@@ -77,7 +77,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             
         if self.__read_run_info:
             runinfo = self.ds.info()
-            sampleRate = runinfo.radiant_sample_rate / 1000
+            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2 
         else:
             sampleRate = None
 
