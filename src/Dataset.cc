@@ -94,7 +94,8 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
     RedirectHandle_t rh; 
     if (!branch_name[0]) gSystem->RedirectOutput(BITBUCKET,"a",&rh); 
 
-    field->tree->GetBranch(branch_name)->SetAddress(&field->ptr); 
+    field->branch = field->tree->GetBranch(branch_name); 
+    field->branch->SetAddress(&field->ptr); 
 
     if (!branch_name[0]) gSystem->RedirectOutput(0,"a",&rh); 
 
@@ -300,7 +301,7 @@ mattak::Header* mattak::Dataset::header(bool force)
   if (force || hd.loaded_entry != current_entry)
   {
     if (hd.tree == nullptr) return nullptr; 
-    hd.tree->GetEntry(current_entry); 
+    hd.branch->GetEntry(current_entry); 
     hd.loaded_entry = current_entry; 
   }
 
@@ -315,7 +316,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 
     if (full_dataset || skip_incomplete) 
     {
-      wf.tree->GetEntry(current_entry); 
+      wf.branch->GetEntry(current_entry); 
     }
     else
     {
@@ -327,7 +328,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
       else
       {
         wf.missing_entry = false; 
-        wf.tree->GetEntry(wf_entry); 
+        wf.branch->GetEntry(wf_entry); 
       }
 
     }
@@ -352,14 +353,14 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
       }
       else
       {
-        ds.tree->GetEntry(ds_entry); 
+        ds.branch->GetEntry(ds_entry); 
         ds.missing_entry = false; 
 
       }
     }
     else
     {
-      ds.tree->GetEntry(current_entry); 
+      ds.branch->GetEntry(current_entry); 
       ds.missing_entry = false; 
     }
 
@@ -411,7 +412,7 @@ mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 
   if (force || entry != pd.loaded_entry) 
   {
-    pd.tree->GetEntry(entry); 
+    pd.branch->GetEntry(entry); 
     pd.loaded_entry = entry; 
   }
   return pd.ptr; 

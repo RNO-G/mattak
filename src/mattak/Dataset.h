@@ -60,6 +60,7 @@ namespace mattak
       {
         TFile * file = nullptr; 
         TTree * tree = nullptr; 
+        TBranch * branch = nullptr; 
       };
 
       template <typename D> 
