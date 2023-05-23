@@ -43,7 +43,7 @@ namespace mattak
       VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2);
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2);
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff, int turnover_threshold = 20);
-
+      void saveFitCoeffsInFile();
 
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
@@ -73,6 +73,7 @@ namespace mattak
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
+      int getGeneralNumberOfPoints() { return npoints_general; }
 
     private:
       std::array<std::vector<double>,2> vbias;  //Left, Right
@@ -85,6 +86,8 @@ namespace mattak
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
       const int npoints_general = 155;
+      const double vi = -1.3;
+      const double vf = 0.7;
       TGraph *graph_residAve[2];
       int fit_order;
       int station_number;
