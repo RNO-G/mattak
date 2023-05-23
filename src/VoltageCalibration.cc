@@ -1,4 +1,5 @@
 #include "mattak/VoltageCalibration.h"
+#include "TFile.h"
 #include <iostream>
 #include <stdio.h>
 
@@ -27,7 +28,7 @@ static double evalPars(double x, int order, const double * p)
 #ifndef MATTAK_NOROOT
 
 #include "mattak/Pedestals.h"
-#include "TFile.h"
+
 #include "TLinearFitter.h"
 #include "TF1.h"
 #include "TList.h"
@@ -174,6 +175,8 @@ static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","p
 
 void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, uint32_t mask, int turnover_threshold)
 {
+  gErrorIgnoreLevel = kFatal;
+
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order;
   order = fit_order;
   fit_min = min;
@@ -338,31 +341,27 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       // Sum up all the ADC(V) residuals
       if (turnover_index[ichan][i] == npoints_general)
       {
-        if (ichan < 12)
+        if (ichan < 12) icount_dac1++;
+        else icount_dac2++;
+
+        for (int j = 0 ; j < npoints; j++)
         {
-          icount_dac1++;
-          for (int j = 0 ; j < npoints; j++)
+          double adc = data_adc[j];
+          double v = data_v[j];
+          double adcResid = adc - fn->Eval(v);
+          if (ichan < 12)
           {
-            double adc = data_adc[j];
-            double v = data_v[j];
-            double adcResid = adc - fn->Eval(v);
             sum_vol_dac1[j] = sum_vol_dac1[j] + v;
             sum_adcResid_dac1[j] = sum_adcResid_dac1[j] + adcResid;
           }
-        }
-        else
-        {
-          icount_dac2++;
-          for (int j = 0 ; j < npoints; j++)
+          else
           {
-            double adc = data_adc[j];
-            double v = data_v[j];
-            double adcResid = adc - fn->Eval(v);
             sum_vol_dac2[j] = sum_vol_dac2[j] + v;
             sum_adcResid_dac2[j] = sum_adcResid_dac2[j] + adcResid;
           }
         }
       }
+      else std::cout << "WARNING: Number of data points is not " << npoints_general << "!!! / Channel" << ichan << " Sample" << i << std::endl;
 
     }
 
@@ -406,22 +405,30 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
       TF1 * fn = new TF1("polFit", formula[fit_order]);
       fn->SetParameters(getFitCoeffs(ichan,i));
-      fn->SetRange(data_v[0],data_v[npoints-1]);
+      fn->SetRange(vi,vf);
+
+      if (npoints != npoints_general) std::cout << "\nWARNING: Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!! / Sample" << i << std::endl;
 
       // Calculate max deviation and chi squared
       for (int j = 0 ; j < npoints; j++)
       {
-        double adc_adjusted;
-        if (ichan < 12) { adc_adjusted = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-        else { adc_adjusted = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+        double adc;
+        if (npoints == npoints_general)
+        {
+          if (ichan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
+          else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+        }
+        else adc = data_adc[j];
+
         double v_meas = data_v[j];
-        double v_pred = fn->GetX(adc_adjusted);
+        double v_pred = fn->GetX(adc);
         double delta = fabs(v_meas-v_pred);
+
         if (isnan(delta)) continue;
         else
         {
           if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-          fit_chisq[ichan][i] += ( delta*delta/(0.001*0.001) );
+          fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
         }
       }
     }
@@ -432,7 +439,6 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
-
   int nV = scanSize();
   if (nV < 2) return 0; //makes no sense!
 
@@ -492,14 +498,22 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
   fn->SetRange(data_v[0],data_v[npoints-1]);
   fn->SetLineColor(2);
 
+  if (turnover_index[chan][samp] != npoints_general) std::cout << "WARNING: This sample is unadjusted!!! Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!!" << std::endl;
+
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    double adc_adjusted;
-    if (chan < 12) { adc_adjusted = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-    else { adc_adjusted = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+    double adc;
+    if (turnover_index[chan][samp] == npoints_general)
+    {
+      if (chan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
+      else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+    }
+    else adc = data_adc[j];
+
     double v = data_v[j];
-    if (resid) adc_adjusted -= fn->Eval(v);
-    g->SetPoint(g->GetN(),v,adc_adjusted);
+
+    if (resid) adc -= fn->Eval(v);
+    g->SetPoint(g->GetN(),v,adc);
   }
 
   if (!resid)
@@ -526,19 +540,27 @@ TGraph * mattak::VoltageCalibration::makeAdjustedSampleGraph(int chan, int samp,
 
   TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
   fn->SetParameters(getFitCoeffs(chan,samp));
-  fn->SetRange(data_v[0],data_v[npoints-1]);
+  fn->SetRange(vi,vf);
+
+  if (turnover_index[chan][samp] != npoints_general) std::cout << "WARNING: This sample is unadjusted!!! Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!!" << std::endl;
 
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
-    double adc_adjusted;
-    if (chan < 12) { adc_adjusted = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-    else { adc_adjusted = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+    double adc;
+    if (turnover_index[chan][samp] == npoints_general)
+    {
+      if (chan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
+      else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+    }
+    else adc = data_adc[j];
+
     double v = data_v[j];
-    if (isnan(fn->GetX(adc_adjusted))) continue;
+
+    if (isnan(fn->GetX(adc))) continue;
     else
     {
-      if (resid) v -= fn->GetX(adc_adjusted);
-      g->SetPoint(g->GetN(),adc_adjusted,v);
+      if (resid) v -= fn->GetX(adc);
+      g->SetPoint(g->GetN(),adc,v);
     }
   }
 
@@ -564,6 +586,48 @@ TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp)
   }
 
   return g;
+}
+
+void mattak::VoltageCalibration::saveFitCoeffsInFile()
+{
+  const TString outFileName = TString::Format("fitCoeffs_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
+  TFile f(outFileName, "RECREATE");
+
+  int npoints = npoints_general;
+  TTree *general_tree = new TTree("general_tree", "general_tree");
+  general_tree->Branch("fitOrder", &fit_order, "fitOrder/I");
+  general_tree->Branch("nDataPointsPerSample", &npoints, "nDataPointsPerSample/I");
+  general_tree->SetDirectory(&f);
+  general_tree->Fill();
+  general_tree->Write();
+
+  TTree fitCoeffs_tree("coeffs_tree", "coeffs_tree");
+  std::vector<double> coeff(fit_order+1);
+  std::vector<double> *p_coeff = &coeff;
+  fitCoeffs_tree.Branch("coeff", "std::vector<double>", &p_coeff);
+  fitCoeffs_tree.SetDirectory(&f);
+
+  for(int iChan = 0; iChan < mattak::k::num_radiant_channels; iChan++)
+  {
+    for(int iSamp = 0; iSamp < mattak::k::num_lab4_samples; iSamp++)
+    {
+      for(int iOrder = 0; iOrder <= fit_order; iOrder++)
+      {
+        coeff[iOrder] = getFitCoeff(iChan, iSamp, iOrder);
+      }
+      fitCoeffs_tree.Fill();
+    }
+  }
+
+  fitCoeffs_tree.Write();
+
+  getAveResidGraph_dac1()->SetNameTitle("aveResid_dac1");
+  getAveResidGraph_dac1()->Write();
+  getAveResidGraph_dac2()->SetNameTitle("aveResid_dac2");
+  getAveResidGraph_dac2()->Write();
+
+  std::cout << "\nAll fit coefficients saved in file: " << outFileName << std::endl;
+  f.Close();
 }
 
 
