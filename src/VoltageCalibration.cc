@@ -593,25 +593,26 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   const TString outFileName = TString::Format("fitCoeffs_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
   TFile f(outFileName, "RECREATE");
 
-  int npoints = npoints_general;
   TTree *general_tree = new TTree("general_tree", "general_tree");
   general_tree->Branch("fitOrder", &fit_order, "fitOrder/I");
-  general_tree->Branch("nDataPointsPerSample", &npoints, "nDataPointsPerSample/I");
+  general_tree->Branch("stationNumber", &station_number, "stationNumber/I");
+  general_tree->Branch("startTime", &start_time, "startTime/I");
+  general_tree->Branch("endTime", &end_time, "endTime/I");
   general_tree->SetDirectory(&f);
   general_tree->Fill();
   general_tree->Write();
 
   TTree fitCoeffs_tree("coeffs_tree", "coeffs_tree");
-  std::vector<double> coeff(fit_order+1);
-  std::vector<double> *p_coeff = &coeff;
-  fitCoeffs_tree.Branch("coeff", "std::vector<double>", &p_coeff);
+  std::vector<float> coeff(fit_order+1);
+  std::vector<float> *p_coeff = &coeff;
+  fitCoeffs_tree.Branch("coeff", "std::vector<float>", &p_coeff);
   fitCoeffs_tree.SetDirectory(&f);
 
-  for(int iChan = 0; iChan < mattak::k::num_radiant_channels; iChan++)
+  for (int iChan = 0; iChan < mattak::k::num_radiant_channels; iChan++)
   {
-    for(int iSamp = 0; iSamp < mattak::k::num_lab4_samples; iSamp++)
+    for (int iSamp = 0; iSamp < mattak::k::num_lab4_samples; iSamp++)
     {
-      for(int iOrder = 0; iOrder <= fit_order; iOrder++)
+      for (int iOrder = 0; iOrder <= fit_order; iOrder++)
       {
         coeff[iOrder] = getFitCoeff(iChan, iSamp, iOrder);
       }
