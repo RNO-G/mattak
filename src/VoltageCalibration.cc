@@ -42,14 +42,14 @@ ClassImp(mattak::VoltageCalibration);
 
 
 
-mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max)
+mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
 {
-  setupFromTree(tree,branch_name,vref,fit_order,min,max);
+  setupFromTree(tree,branch_name,vref,fit_order,min,max,getMaxErrAndChi2);
 
 
 }
 //almost copy-pasted from raw file reader...
-void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max)
+void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
 {
 
   mattak::Pedestals * ped = 0;
@@ -77,10 +77,10 @@ void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch
   delete ped;
   ped = 0;
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref);
+  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
 }
 
-mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max)
+mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
 {
   const char * suffix = strrchr(bias_scan_file,'.');
 
@@ -93,7 +93,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
       std::cerr << "Could not open tree pedestals in " << bias_scan_file << std::endl;
       return;
     }
-    setupFromTree(t,"pedestals", vref, fit_order, min, max);
+    setupFromTree(t,"pedestals", vref, fit_order, min, max, getMaxErrAndChi2);
     return;
   }
 #ifndef LIBRNO_G_SUPPORT
@@ -131,7 +131,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals));
   }
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref);
+  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
   rno_g_close_handle(&h);
 #endif
 
@@ -173,7 +173,7 @@ static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","p
 //}
 
 
-void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, uint32_t mask, int turnover_threshold)
+void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, bool getMaxErrAndChi2, uint32_t mask, int turnover_threshold)
 {
   gErrorIgnoreLevel = kFatal;
 
@@ -183,6 +183,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   this->turnover_threshold = turnover_threshold;
   fit_max = max;
   fit_vref = vref;
+  fit_getMaxErrAndChi2 = getMaxErrAndChi2;
+
 
   if ( min > max)
   {
@@ -383,57 +385,60 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   graph_residAve[0] = new TGraph(npoints_general, average_vol_dac1, average_adcResid_dac1);
   graph_residAve[1] = new TGraph(npoints_general, average_vol_dac2, average_adcResid_dac2);
 
-  std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
-  for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
+  if (fit_getMaxErrAndChi2)
   {
-    std::cout << "Channel " << ichan;
-    if ( (mask & (1 << ichan))  == 0) continue;
-    for (int i = 0; i < mattak::k::num_lab4_samples; i++)
+    std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
+    for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
     {
-      if (!(i%128))
+      std::cout << "Channel " << ichan;
+      if ( (mask & (1 << ichan))  == 0) continue;
+      for (int i = 0; i < mattak::k::num_lab4_samples; i++)
       {
-        printf(".");
-        fflush(stdout); // Print a dot every 128 samples processed
-      }
-
-      fit_chisq[ichan][i] = 0;
-      fit_maxerr[ichan][i] = 0;
-
-      int npoints = graph[ichan][i]->GetN();
-      double *data_adc = graph[ichan][i]->GetY();
-      double *data_v = graph[ichan][i]->GetX();
-
-      TF1 * fn = new TF1("polFit", formula[fit_order]);
-      fn->SetParameters(getFitCoeffs(ichan,i));
-      fn->SetRange(vi,vf);
-
-      if (npoints != npoints_general) std::cout << "\nWARNING: Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!! / Sample" << i << std::endl;
-
-      // Calculate max deviation and chi squared
-      for (int j = 0 ; j < npoints; j++)
-      {
-        double adc;
-        if (npoints == npoints_general)
+        if (!(i%128))
         {
-          if (ichan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-          else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+          printf(".");
+          fflush(stdout); // Print a dot every 128 samples processed
         }
-        else adc = data_adc[j];
 
-        double v_meas = data_v[j];
-        double v_pred = fn->GetX(adc);
-        double delta = fabs(v_meas-v_pred);
+        fit_chisq[ichan][i] = 0;
+        fit_maxerr[ichan][i] = 0;
 
-        if (isnan(delta)) continue;
-        else
+        int npoints = graph[ichan][i]->GetN();
+        double *data_adc = graph[ichan][i]->GetY();
+        double *data_v = graph[ichan][i]->GetX();
+
+        TF1 * fn = new TF1("polFit", formula[fit_order]);
+        fn->SetParameters(getFitCoeffs(ichan,i));
+        fn->SetRange(vi,vf);
+
+        if (npoints != npoints_general) std::cout << "\nWARNING: Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!! / Sample" << i << std::endl;
+
+        // Calculate max deviation and chi squared
+        for (int j = 0 ; j < npoints; j++)
         {
-          if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-          fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
+          double adc;
+          if (npoints == npoints_general)
+          {
+            if (ichan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
+            else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+          }
+          else adc = data_adc[j];
+
+          double v_meas = data_v[j];
+          double v_pred = fn->GetX(adc);
+          double delta = fabs(v_meas-v_pred);
+
+          if (isnan(delta)) continue;
+          else
+          {
+            if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
+            fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
+          }
         }
       }
     }
   }
-
+  
 }
 
 
@@ -591,7 +596,7 @@ TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp)
 void mattak::VoltageCalibration::saveFitCoeffsInFile()
 {
   const TString outFileName = TString::Format("fitCoeffs_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
-  TFile f(outFileName, "RECREATE");
+  TFile f(outFileName, "RECREATE", "", ROOT::RCompressionSetting::EDefaults::kUseSmallest);
 
   TTree *general_tree = new TTree("general_tree", "general_tree");
   general_tree->Branch("fitOrder", &fit_order, "fitOrder/I");
