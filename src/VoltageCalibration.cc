@@ -384,6 +384,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   }
   graph_residAve[0] = new TGraph(npoints_general, average_vol_dac1, average_adcResid_dac1);
   graph_residAve[1] = new TGraph(npoints_general, average_vol_dac2, average_adcResid_dac2);
+  graph_residAve[0]->SetNameTitle("aveResid_dac1");
+  graph_residAve[1]->SetNameTitle("aveResid_dac2");
+  for (int i = 0; i < 2; i++)
+  {
+    graph_residAve[i]->GetXaxis()->SetTitle("VBias [Volt]");
+    graph_residAve[i]->GetYaxis()->SetTitle("ADC Residual");
+  }
 
   if (fit_getMaxErrAndChi2)
   {
@@ -438,7 +445,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       }
     }
   }
-  
+
 }
 
 
@@ -465,7 +472,7 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 
 
   TH2S * h = new TH2S(Form("hbias_s%d_c%d_%d_%d", station_number, chan, start_time,end_time),
-                      Form("Bias Scan, Station %d, Channel %d, Time [%d-%d], VRef=%g ; Sample ; Vbias [V] ; adu", station_number, chan, start_time, end_time,fit_vref),
+                      Form("Bias Scan, Station %d, Channel %d, Time [%d-%d], VRef=%g ; Sample ; Vbias [Volt] ; adu", station_number, chan, start_time, end_time,fit_vref),
                       mattak::k::num_lab4_samples, 0, mattak::k::num_lab4_samples,
                       nV, min_V, max_V
                       );
@@ -495,8 +502,8 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
-  g->GetXaxis()->SetTitle("VBias");
-  g->GetYaxis()->SetTitle(resid ? "ADC - Predicted ADC" : "ADC");
+  g->GetXaxis()->SetTitle("VBias [Volt]");
+  g->GetYaxis()->SetTitle(resid ? "ADC Residual" : "ADC");
 
   TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
   fn->SetParameters(getFitCoeffs(chan,samp));
@@ -541,7 +548,7 @@ TGraph * mattak::VoltageCalibration::makeAdjustedSampleGraph(int chan, int samp,
   g->SetName(Form("gsample_adjusted_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g  %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
-  g->GetYaxis()->SetTitle(resid ? "VBias - Predicted VBias" : "VBias");
+  g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
 
   TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
   fn->SetParameters(getFitCoeffs(chan,samp));
@@ -581,7 +588,7 @@ TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp)
   g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]", station_number, chan, samp, start_time, end_time));
   g->GetXaxis()->SetTitle("ADC");
-  g->GetYaxis()->SetTitle("VBias");
+  g->GetYaxis()->SetTitle("VBias [Volt]");
 
   for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
   {
@@ -627,9 +634,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
 
   fitCoeffs_tree.Write();
 
-  getAveResidGraph_dac1()->SetNameTitle("aveResid_dac1");
   getAveResidGraph_dac1()->Write();
-  getAveResidGraph_dac2()->SetNameTitle("aveResid_dac2");
   getAveResidGraph_dac2()->Write();
 
   std::cout << "\nAll fit coefficients saved in file: " << outFileName << std::endl;
