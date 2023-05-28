@@ -608,6 +608,8 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   TTree *general_tree = new TTree("general_tree", "general_tree");
   general_tree->Branch("fitOrder", &fit_order, "fitOrder/I");
   general_tree->Branch("stationNumber", &station_number, "stationNumber/I");
+  general_tree->Branch("fitMin", &fit_min, "fitMin/D");
+  general_tree->Branch("fitMax", &fit_max, "fitMax/D");
   general_tree->Branch("startTime", &start_time, "startTime/i");
   general_tree->Branch("endTime", &end_time, "endTime/i");
   general_tree->SetDirectory(&f);
