@@ -46,7 +46,7 @@ namespace mattak
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool getMaxErrAndChi2 = false, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
-      
+
       const double * getPackedAveResid_volt(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_volt[dac][0]; }
       const double * getPackedAveResid_adc(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_adc[dac][0]; }
       int getFitOrder() const { return fit_order; }
@@ -63,8 +63,7 @@ namespace mattak
       }
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
-      TGraph * makeAdjustedSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraph * makeOriginalSampleGraph(int channel, int sample) const;
+      TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
       TGraph * getAveResidGraph_dac1() const { return graph_residAve[0]; }
       TGraph * getAveResidGraph_dac2() const { return graph_residAve[1]; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
@@ -92,8 +91,6 @@ namespace mattak
       std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_volt;
       std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_adc;
       const int npoints_general = 155;
-      const double vi = -1.3;
-      const double vf = 0.7;
       TGraph *graph_residAve[2];
       int fit_order;
       int station_number;
