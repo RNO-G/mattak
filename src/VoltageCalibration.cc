@@ -13,6 +13,47 @@
 #endif
 
 
+static double evalPars(double x, int order, const double * p)
+{
+  double ans = p[order];
+  int i = order -1;
+  while (i>=0)
+  {
+    ans = x * ans + p[i--];
+  }
+  return ans;
+}
+
+static double adcToVolt(double in_adc, int order, const double * par, const double * resid_volt, const double * resid_adc)
+{
+  double out_volt;
+  double adc_array[mattak::npoints_interpolatedAveResid];
+  double volt_array[mattak::npoints_interpolatedAveResid];
+
+  for (int i = 0; i < mattak::npoints_interpolatedAveResid; i++)
+  {
+    volt_array[i] = resid_volt[i];
+    adc_array[i] = evalPars(volt_array[i], order, par) + resid_adc[i];
+
+    if (in_adc == adc_array[i]) out_volt = volt_array[i]; // Lucky if this happens...
+  }
+
+  // Most likely we will get out_volt from interpolation
+  for (int i = 0; i < mattak::npoints_interpolatedAveResid-1; i++)
+  {
+    if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
+    out_volt = volt_array[i] + (in_adc - adc_array[i])*(volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
+  }
+
+  return out_volt;
+}
+
+static bool inRange(unsigned low, unsigned high, unsigned x)
+{
+  return (low <= x && x <= high);
+}
+
+
 #ifndef MATTAK_NOROOT
 
 #include "mattak/Pedestals.h"
@@ -700,53 +741,15 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   inputFile->Close();
 }
 
-double mattak::VoltageCalibration::adcToVolt(int chan, double in_adc, int order, const double * par)
-{
-  double out_volt;
-
-  TString pol = TString::Format("pol%d", order);
-  TF1 *f = new TF1(pol, pol);
-  f->SetParameters(par);
-  f->SetRange(vi,vf);
-
-  double adc_array[npoints_interpolated];
-  double volt_array[npoints_interpolated];
-  int dacType;
-
-  for (int i = 0; i < npoints_interpolated; i++)
-  {
-    if (chan < 12) dacType = 0;
-    else dacType = 1;
-
-    volt_array[i] = resid_volt[dacType][i];
-    adc_array[i] = f->Eval(volt_array[i]) + resid_adc[dacType][i];
-
-    if (in_adc == adc_array[i]) out_volt = volt_array[i]; // Lucky if this happens...
-  }
-
-  // Most likely we will get out_volt from interpolation
-  for (int i = 0; i < npoints_interpolated-1; i++)
-  {
-    if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
-    out_volt = volt_array[i] + (in_adc - adc_array[i])*(volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
-  }
-
-  return out_volt;
-}
-
-static bool inRange(unsigned low, unsigned high, unsigned x)
-{
-  return (low <= x && x <= high);
-}
-
 
 #else
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #endif
 
-double * mattak::applyVoltageCalibration (int chan, int N, const int16_t * in, double * out, int start_window, bool is2ndBoard,
-                                   bool isOldFirmware, const double * packed_fit_params, int fit_order)
+double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
+                            int fit_order, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
+
 {
   if (!out) out = new double[N];
 
@@ -761,8 +764,6 @@ double * mattak::applyVoltageCalibration (int chan, int N, const int16_t * in, d
     std::cerr << "Fit Order Too Large!" << std::endl;
     return 0;
   }
-
-  mattak::VoltageCalibration vc;
 
   int nwindows = N / mattak::k::radiant_window_size;
 
@@ -797,7 +798,7 @@ double * mattak::applyVoltageCalibration (int chan, int N, const int16_t * in, d
       const double * params = packed_fit_params + isamp * (fit_order+1);
 
       double adc = in[i];
-      out[i] = vc.adcToVolt(chan, adc, fit_order, params);
+      out[i] = adcToVolt(adc, fit_order, params, packed_aveResid_volt, packed_aveResid_adc);
 
       isamp++;
       i++;
@@ -860,7 +861,7 @@ double * mattak::applyVoltageCalibration (int chan, int N, const int16_t * in, d
 
 namespace py = pybind11;
 
-static py::array_t<double> apply_voltage_calibration(int chan, py::buffer in, int start_window, bool is2ndBoard, bool isOldFirmware, py::buffer packed_coeffs, int order)
+static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_window, bool is2ndBoard, bool isOldFirmware, int order, py::buffer packed_coeffs, py::buffer packed_aveResid_volt, py::buffer packed_aveResid_adc)
 {
   //make sure in is int16_t, get n
 
@@ -889,7 +890,7 @@ static py::array_t<double> apply_voltage_calibration(int chan, py::buffer in, in
 
   auto ret = py::array_t<double>(N);
 
-  if (!mattak::applyVoltageCalibration(chan, N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, (double*) packed_coeffs.ptr(), order));
+  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, order, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()));
   {
     return py::none();
   }
