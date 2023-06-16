@@ -16,13 +16,14 @@ namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
+  constexpr int npoints_interpolatedAveResid = 309;
 
   // Free apply voltage calibration so we can call it without ROOT
   // @param N number of samples (must be multiple of window size!)
   // @param in the input (raw samples, pedestal subtracted)
   //
-  double * applyVoltageCalibration(int chan, int N, const int16_t * in, double * out, int start_window, bool is2ndBoard,
-                                   bool isOldFirmware, const double * packed_fit_params, int fit_order);
+  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
+                        int fit_order, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
 #ifndef MATTAK_NOROOT
@@ -45,19 +46,20 @@ namespace mattak
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool getMaxErrAndChi2 = false, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
-
+      
+      const double * getPackedAveResid_volt(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_volt[dac][0]; }
+      const double * getPackedAveResid_adc(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_adc[dac][0]; }
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
       double getFitMax() const { return fit_max; }
       double getFitVref() const { return fit_vref; }
-      const double* getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
+      const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
       double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
-      const double * getPackedFitCoeffs(int chan) const  { return &fit_coeffs[chan][0]; }
-      double adcToVolt(int chan, double in_adc, int order, const double * par);
+      const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
       double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool is2ndBoard = false, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(chan, N, in, out, start_window, is2ndBoard, isOldFirmware,
-                                       getPackedFitCoeffs(chan), getFitOrder());
+        return applyVoltageCalibration(N, in, out, start_window, is2ndBoard, isOldFirmware, getFitOrder(),
+                                       getPackedFitCoeffs(chan), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
       }
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
@@ -87,10 +89,9 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
-      std::array<std::array<double, 309>, 2> resid_volt;
-      std::array<std::array<double, 309>, 2> resid_adc;
+      std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_volt;
+      std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_adc;
       const int npoints_general = 155;
-      const int npoints_interpolated = 309;  // 155 * 2 - 1
       const double vi = -1.3;
       const double vf = 0.7;
       TGraph *graph_residAve[2];
