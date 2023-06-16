@@ -352,19 +352,14 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 //
 //
 
-
       fit_ndof[ichan][i] = npoints;  // number of points including start and end
       fit_ndof[ichan][i] -= (fit_order + 1);   //  subtract number of parameters of the fit function
       if (vref) fit_ndof[ichan][i] += 1;  // if parameter 0 is fixed, add back one degree of freedom
 
-      turnover_index[ichan][i] = npoints;
-
-      TF1 * fn = new TF1("polFit", formula[fit_order]);
-      fn->SetParameters(getFitCoeffs(ichan,i));
-      fn->SetRange(data_v[0],data_v[npoints-1]);
+      turnover_index[ichan][i] = jmax+1;
 
       // Sum up all the ADC(V) residuals
-      if (turnover_index[ichan][i] == npoints_general)
+      if (npoints == npoints_general)
       {
         if (ichan < 12) icount_dac1++;
         else icount_dac2++;
@@ -373,7 +368,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         {
           double adc = data_adc[j];
           double v = data_v[j];
-          double adcResid = adc - fn->Eval(v);
+          double adcResid = adc - evalPars(v, fit_order, &fit_coeffs[ichan][i * (order+1)]);
           if (ichan < 12)
           {
             sum_vol_dac1[j] = sum_vol_dac1[j] + v;
@@ -435,10 +430,16 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   if (fit_getMaxErrAndChi2)
   {
     std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
+    int dacType;
+
     for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
     {
       std::cout << "Channel " << ichan;
       if ( (mask & (1 << ichan))  == 0) continue;
+
+      if (ichan < 12) dacType = 0;
+      else dacType = 1;
+
       for (int i = 0; i < mattak::k::num_lab4_samples; i++)
       {
         if (!(i%128))
@@ -454,33 +455,15 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         double *data_adc = graph[ichan][i]->GetY();
         double *data_v = graph[ichan][i]->GetX();
 
-        TF1 * fn = new TF1("polFit", formula[fit_order]);
-        fn->SetParameters(getFitCoeffs(ichan,i));
-        fn->SetRange(vi,vf);
-
-        if (npoints != npoints_general) std::cout << "\nWARNING: Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!! / Sample" << i << std::endl;
-
         // Calculate max deviation and chi squared
         for (int j = 0 ; j < npoints; j++)
         {
-          double adc;
-          if (npoints == npoints_general)
-          {
-            if (ichan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-            else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
-          }
-          else adc = data_adc[j];
-
+          double adc = data_adc[j];
           double v_meas = data_v[j];
-          double v_pred = fn->GetX(adc);
+          double v_pred = adcToVolt(adc, fit_order, &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
           double delta = fabs(v_meas-v_pred);
-
-          if (isnan(delta)) continue;
-          else
-          {
-            if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-            fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
-          }
+          if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
+          fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
         }
       }
     }
@@ -550,90 +533,55 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
   fn->SetRange(data_v[0],data_v[npoints-1]);
   fn->SetLineColor(2);
 
-  if (turnover_index[chan][samp] != npoints_general) std::cout << "WARNING: This sample is unadjusted!!! Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!!" << std::endl;
+  int dacType;
+  if (chan < 12) dacType = 0;
+  else dacType = 1;
 
-  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
+  if (npoints != npoints_general) std::cout << "WARNING: Number of data points in this sample is not " << npoints_general << "!!! No adjusted plot!!!" << std::endl;
+  else
   {
-    double adc;
-    if (turnover_index[chan][samp] == npoints_general)
+    for (int j = 0; j < npoints; j++)
     {
-      if (chan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-      else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
+      double v = data_v[j];
+      double adc = data_adc[j] - graph_residAve[dacType]->GetPointY(j);
+
+      if (resid) adc -= fn->Eval(v);
+      g->SetPoint(g->GetN(),v,adc);
     }
-    else adc = data_adc[j];
 
-    double v = data_v[j];
-
-    if (resid) adc -= fn->Eval(v);
-    g->SetPoint(g->GetN(),v,adc);
-  }
-
-  if (!resid)
-  {
-    g->GetListOfFunctions()->Add(fn);
-    fn->SetParent(g);
-    fn->Save(data_v[0],data_v[npoints-1],0,0,0,0);
+    if (!resid)
+    {
+      g->GetListOfFunctions()->Add(fn);
+      fn->SetParent(g);
+      fn->Save(data_v[0],data_v[npoints-1],0,0,0,0);
+    }
   }
 
   return g;
 }
 
-TGraph * mattak::VoltageCalibration::makeAdjustedSampleGraph(int chan, int samp, bool resid) const
+TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool resid) const
 {
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
 
   TGraph *g = new TGraph();
-  g->SetName(Form("gsample_adjusted_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g  %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
 
-  TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
-  fn->SetParameters(getFitCoeffs(chan,samp));
-  fn->SetRange(vi,vf);
+  int dacType;
+  if (chan < 12) dacType = 0;
+  else dacType = 1;
 
-  if (turnover_index[chan][samp] != npoints_general) std::cout << "WARNING: This sample is unadjusted!!! Number of data points is not 155, so voltage calibration cannot be optimized by applying subtraction of the average residuals!!!" << std::endl;
-
-  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
+  for (int j = 0; j < npoints; j++)
   {
-    double adc;
-    if (turnover_index[chan][samp] == npoints_general)
-    {
-      if (chan < 12) { adc = data_adc[j] - graph_residAve[0]->GetPointY(j); }
-      else { adc = data_adc[j] - graph_residAve[1]->GetPointY(j); }
-    }
-    else adc = data_adc[j];
-
     double v = data_v[j];
-
-    if (isnan(fn->GetX(adc))) continue;
-    else
-    {
-      if (resid) v -= fn->GetX(adc);
-      g->SetPoint(g->GetN(),adc,v);
-    }
-  }
-
-  return g;
-}
-
-TGraph * mattak::VoltageCalibration::makeOriginalSampleGraph(int chan, int samp) const
-{
-  double *data_adc = graph[chan][samp]->GetY();
-  double *data_v = graph[chan][samp]->GetX();
-
-  TGraph *g = new TGraph();
-  g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]", station_number, chan, samp, start_time, end_time));
-  g->GetXaxis()->SetTitle("ADC");
-  g->GetYaxis()->SetTitle("VBias [Volt]");
-
-  for (unsigned j = 0; j < turnover_index[chan][samp]; j++)
-  {
     double adc = data_adc[j];
-    double v = data_v[j];
+
+    if (resid) v -= adcToVolt(adc, fit_order, getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
     g->SetPoint(g->GetN(),adc,v);
   }
 
@@ -890,7 +838,7 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
 
   auto ret = py::array_t<double>(N);
 
-  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, order, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()));
+  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, order, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()))
   {
     return py::none();
   }
