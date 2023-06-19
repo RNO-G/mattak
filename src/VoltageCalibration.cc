@@ -724,6 +724,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
   {
     if (isOldFirmware)
     {
+      // Old Firmware
       // Wrap around if j % 16 = 0
       if (j % mattak::k::radiant_windows_per_buffer == 0) j = 0;
       if (inRange(0,4,j) || inRange(8,12,j)) isamp = (j+3) * mattak::k::radiant_window_size;
@@ -731,9 +732,11 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     }
     else
     {
-      // Wrap around if (j+3) % 16 = 0
-      if ((j+3) % mattak::k::radiant_windows_per_buffer == 0) j = -3;
-      isamp = (j+3) * mattak::k::radiant_window_size;
+      // New Firmware
+      // Wrap around if j % 16 = 0
+      if (j % mattak::k::radiant_windows_per_buffer == 0) j = 0;
+      if (inRange(0,12,j)) isamp = (j+3) * mattak::k::radiant_window_size;
+      if (inRange(13,15,j)) isamp = (j-13) * mattak::k::radiant_window_size;
     }
 
     if (is2ndBoard) isamp += mattak::k::num_radiant_samples;
