@@ -35,17 +35,23 @@ static double adcToVolt(double in_adc, int order, const double * par, const doub
     volt_array[i] = resid_volt[i];
     adc_array[i] = evalPars(volt_array[i], order, par) + resid_adc[i];
 
-    if (in_adc == adc_array[i]) out_volt = volt_array[i]; // Lucky if this happens...
+    if (in_adc == adc_array[i])
+    {
+      out_volt = volt_array[i]; // Lucky if this happens...
+      return out_volt;
+    }
   }
 
   // Most likely we will get out_volt from interpolation
   for (int i = 0; i < mattak::npoints_interpolatedAveResid-1; i++)
   {
     if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
-    out_volt = volt_array[i] + (in_adc - adc_array[i])*(volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
+    {
+      out_volt = volt_array[i] + (in_adc - adc_array[i])*(volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
+      return out_volt;
+    }
   }
 
-  return out_volt;
 }
 
 static bool inRange(unsigned low, unsigned high, unsigned x)
