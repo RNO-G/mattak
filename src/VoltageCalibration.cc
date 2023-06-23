@@ -26,24 +26,24 @@ static double evalPars(double x, int order, const double * p)
 
 static double adcToVolt(double in_adc, int order, const double * par, const double * resid_volt, const double * resid_adc)
 {
-  double out_volt;
-  double adc_array[mattak::npoints_interpolatedAveResid];
-  double volt_array[mattak::npoints_interpolatedAveResid];
+  double out_volt = 0;
+  double adc_array[mattak::npoints_aveResid];
+  double volt_array[mattak::npoints_aveResid];
 
-  for (int i = 0; i < mattak::npoints_interpolatedAveResid; i++)
+  for (int i = 0; i < mattak::npoints_aveResid; i++)
   {
     volt_array[i] = resid_volt[i];
     adc_array[i] = evalPars(volt_array[i], order, par) + resid_adc[i];
 
     if (in_adc == adc_array[i])
     {
-      out_volt = volt_array[i]; // Lucky if this happens...
+      out_volt = volt_array[i]; // Lucky if this happens!
       return out_volt;
     }
   }
 
   // Most likely we will get out_volt from interpolation
-  for (int i = 0; i < mattak::npoints_interpolatedAveResid-1; i++)
+  for (int i = 0; i < mattak::npoints_aveResid-1; i++)
   {
     if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
     {
@@ -52,6 +52,14 @@ static double adcToVolt(double in_adc, int order, const double * par, const doub
     }
   }
 
+  // If in_adc is out of range...
+  if (!out_volt)
+  {
+    if (in_adc < adc_array[0]) out_volt = volt_array[0];
+    if (in_adc > adc_array[mattak::npoints_aveResid-1]) out_volt = volt_array[mattak::npoints_aveResid-1];
+  }
+
+  return out_volt;
 }
 
 static bool inRange(unsigned low, unsigned high, unsigned x)
@@ -410,17 +418,15 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   graph_residAve[1] = new TGraph(npoints_general, average_vol_dac2, average_adcResid_dac2);
   graph_residAve[0]->SetNameTitle("aveResid_dac1");
   graph_residAve[1]->SetNameTitle("aveResid_dac2");
-  for (int i = 0; i < 2; i++)
-  {
-    graph_residAve[i]->GetXaxis()->SetTitle("VBias [Volt]");
-    graph_residAve[i]->GetYaxis()->SetTitle("ADC Residual");
-  }
 
-  //
-  // Interpolating the average residuals
-  //
   for (int j = 0; j < 2; j++)
   {
+    graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
+    graph_residAve[j]->GetYaxis()->SetTitle("ADC Residual");
+
+    //
+    // Interpolating the average residuals
+    //
     for (int i = 0; i < npoints_general; i++)
     {
       resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
@@ -433,6 +439,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     }
   }
 
+  //
+  // Calculate max deviation and chi squared
+  //
   if (fit_getMaxErrAndChi2)
   {
     std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
@@ -674,11 +683,11 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   graph_residAve[0] = (TGraph*)inputFile->Get("aveResid_dac1");
   graph_residAve[1] = (TGraph*)inputFile->Get("aveResid_dac2");
 
-  //
-  // Interpolating the average residuals
-  //
   for (int j = 0; j < 2; j++)
   {
+    //
+    // Interpolating the average residuals
+    //
     for (int i = 0; i < npoints_general; i++)
     {
       resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
