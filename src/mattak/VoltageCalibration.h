@@ -16,7 +16,7 @@ namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
-  constexpr int npoints_interpolatedAveResid = 309;
+  constexpr int npoints_aveResid = 309;
 
   // Free apply voltage calibration so we can call it without ROOT
   // @param N number of samples (must be multiple of window size!)
@@ -41,8 +41,8 @@ namespace mattak
        *
        *
        */
-      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
-      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 1, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
+      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
+      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool getMaxErrAndChi2 = false, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
@@ -88,8 +88,8 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
-      std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_volt;
-      std::array<std::array<double, mattak::npoints_interpolatedAveResid>, 2> resid_adc;
+      std::array<std::array<double, mattak::npoints_aveResid>, 2> resid_volt;
+      std::array<std::array<double, mattak::npoints_aveResid>, 2> resid_adc;
       const int npoints_general = 155;
       TGraph *graph_residAve[2];
       int fit_order;
