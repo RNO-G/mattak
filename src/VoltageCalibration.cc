@@ -58,12 +58,12 @@ static double adcToVolt(double in_adc, int order, const double * par, const doub
     if (in_adc < adc_array[0])
     {
       double m = (volt_array[1] - volt_array[0])/(adc_array[1] - adc_array[0]);
-      out_volt = volt_array[0] + (in_adc - adc_array[0])*m;
+      out_volt = volt_array[0] + (in_adc - adc_array[0]) * m;
     }
     if (in_adc > adc_array[mattak::npoints_aveResid-1])
     {
       double m = (volt_array[mattak::npoints_aveResid-1] - volt_array[mattak::npoints_aveResid-2])/(adc_array[mattak::npoints_aveResid-1] - adc_array[mattak::npoints_aveResid-2]);
-      out_volt = volt_array[mattak::npoints_aveResid-1] + (in_adc - adc_array[mattak::npoints_aveResid-1])*m;
+      out_volt = volt_array[mattak::npoints_aveResid-1] + (in_adc - adc_array[mattak::npoints_aveResid-1]) * m;
     }
   }
 
