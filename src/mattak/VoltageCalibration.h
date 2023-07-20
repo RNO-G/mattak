@@ -16,14 +16,13 @@ namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
-  constexpr int npoints_aveResid = 309;
 
   // Free apply voltage calibration so we can call it without ROOT
   // @param N number of samples (must be multiple of window size!)
   // @param in the input (raw samples, pedestal subtracted)
   //
   double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
-                        int fit_order, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
+                        int fit_order, int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
 #ifndef MATTAK_NOROOT
@@ -47,8 +46,9 @@ namespace mattak
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
 
-      const double * getPackedAveResid_volt(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_volt[dac][0]; }
-      const double * getPackedAveResid_adc(int chan) const {int dac; if(chan<12)dac=0; else dac=1; return &resid_adc[dac][0]; }
+      int getResidArrayN(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
       double getFitMax() const { return fit_max; }
@@ -58,7 +58,7 @@ namespace mattak
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
       double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool is2ndBoard = false, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(N, in, out, start_window, is2ndBoard, isOldFirmware, getFitOrder(),
+        return applyVoltageCalibration(N, in, out, start_window, is2ndBoard, isOldFirmware, getFitOrder(), getResidArrayN(chan),
                                        getPackedFitCoeffs(chan), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
       }
       TH2S * makeHist(int channel) const;
@@ -74,12 +74,11 @@ namespace mattak
       uint32_t getEndTime() const { return end_time; }
       int scanSize() const { return vbias[0].size() ; }
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
-      const double * scanBias(int chan) const  {return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * scanBias(int chan) const  { return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
-      int getGeneralNumberOfPoints() { return npoints_general; }
 
     private:
-      std::array<std::vector<double>,2> vbias;  //Left, Right
+      std::array<std::vector<double>, 2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result;
       std::array<std::vector<double>, mattak::k::num_radiant_channels> fit_coeffs;  //packed format, per channel
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_ndof; //number of degree of freedom
@@ -88,10 +87,10 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double,mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
-      std::array<std::array<double, mattak::npoints_aveResid>, 2> resid_volt;
-      std::array<std::array<double, mattak::npoints_aveResid>, 2> resid_adc;
-      const int npoints_general = 155;
-      TGraph *graph_residAve[2];
+      std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
+      std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
+      std::array<TGraph*, 2> graph_residAve; // 2 DACs
+      std::array<int, 2> nResidPoints; // 2 DACs
       int fit_order;
       int station_number;
       double fit_vref;
