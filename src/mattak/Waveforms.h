@@ -22,6 +22,13 @@ typedef int rno_g_waveform_t;
 namespace mattak
 {
 
+  struct radiant_readout_delays_st
+  {
+    float rf0_delay_ns=0.;
+    float rf1_delay_ns=0.;
+    bool is_channel_rf0_delayed[24]={};
+    bool is_channel_rf1_delayed[24]={};
+  };
 
   struct WaveformPlotOptions
   {
@@ -52,7 +59,13 @@ namespace mattak
      uint32_t run_number = 0; 
      uint32_t event_number = 0; 
      uint16_t station_number = 0; 
-     uint16_t buffer_length = 0; 
+     uint16_t buffer_length = 0;
+     uint32_t radiant_sampling_rate = 3200;
+     radiant_readout_delays_st radiant_readout_delays;
+     float rf0_delay_ns = 0;
+     float rf1_delay_ns = 0; 
+     bool is_channel_readout_delayed_on_rf0[mattak::k::num_radiant_channels]={};
+     bool is_channel_readout_delayed_on_rf1[mattak::k::num_radiant_channels]={};
      virtual TGraph * makeGraph(int chan, bool ns = true) const = 0; 
      virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0; 
      ClassDef(IWaveforms, 1); 
