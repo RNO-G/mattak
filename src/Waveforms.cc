@@ -24,13 +24,13 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
   this->station_number = wf->station;
 
   this->radiant_sampling_rate = wf->radiant_sampling_rate;
-  this->radiant_readout_delays.rf0_delay_ns = wf->radiant_readout_delays.rf0_delay*128/wf->radiant_sampling_rate;
-  this->radiant_readout_delays.rf1_delay_ns = wf->radiant_readout_delays.rf1_delay*128/wf->radiant_sampling_rate;
+  this->rf_readout_delay_ns[0] = float(wf->radiant_readout_delays.rf0_delay)*128./float(wf->radiant_sampling_rate)*1000.;
+  this->rf_readout_delay_ns[1] = float(wf->radiant_readout_delays.rf1_delay)*128./float(wf->radiant_sampling_rate)*1000.;
 
   for (unsigned i = 0; i < mattak::k::num_radiant_channels; i++) 
   {
-    if(wf->radiant_readout_delays.rf0_delay_mask&(1<<i)) this->radiant_readout_delays.is_channel_rf0_delayed[i]=true;
-    if(wf->radiant_readout_delays.rf1_delay_mask&(1<<i)) this->radiant_readout_delays.is_channel_rf1_delayed[i]=true;
+    if(wf->radiant_readout_delays.rf0_delay_mask&(1<<i)) this->is_channel_readout_delayed[0][i]=true;
+    if(wf->radiant_readout_delays.rf1_delay_mask&(1<<i)) this->is_channel_readout_delayed[1][i]=true;
     memcpy(this->radiant_data[i], wf->radiant_waveforms[i], sizeof(int16_t) * mattak::k::num_radiant_samples); 
   }
 
