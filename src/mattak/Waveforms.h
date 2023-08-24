@@ -51,9 +51,9 @@ namespace mattak
      uint32_t event_number = 0; 
      uint16_t station_number = 0; 
      uint16_t buffer_length = 0;
-     uint32_t radiant_sampling_rate = 3200;
-     float rf_readout_delay_ns[2]={};
-     bool is_channel_readout_delayed[2][24]={};
+     uint32_t radiant_sampling_rate = 2400;
+     float digitizer_readout_delay_ns[24]={};
+
      virtual TGraph * makeGraph(int chan, bool ns = true) const = 0; 
      virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0; 
      ClassDef(IWaveforms, 1); 
