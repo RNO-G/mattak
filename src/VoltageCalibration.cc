@@ -573,7 +573,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g  %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], %s %g  %s", station_number, chan, samp, start_time, end_time, fit_getMaxErrAndChi2 ? "#chi^{2}=" : "#chi^{2} calculation mode: ", fit_getMaxErrAndChi2 ? fit_chisq[chan][samp] : 0, resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
 
@@ -697,8 +697,8 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 #include <pybind11/numpy.h>
 #endif
 
-double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
-                            int fit_order, int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
+double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+                            int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
 
 {
   if (!out) out = new double[N];
@@ -715,12 +715,23 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
+  bool is2ndHalfWindows;
   int nwindows = N / mattak::k::radiant_window_size;
-
   int isamp;
-  start_window = start_window % mattak::k::radiant_windows_per_buffer;
   int i = 0;
-  int j = start_window;
+  int j;
+
+  if (start_window > 15)
+  {
+    is2ndHalfWindows = true;
+    j = start_window - mattak::k::radiant_windows_per_buffer;
+  }
+  else
+  {
+    is2ndHalfWindows = false;
+    j = start_window;
+  }
+
 
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
   {
@@ -741,7 +752,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
       if (inRange(13,15,j)) isamp = (j-13) * mattak::k::radiant_window_size;
     }
 
-    if (is2ndBoard) isamp += mattak::k::num_radiant_samples;
+    if (is2ndHalfWindows) isamp += mattak::k::num_radiant_samples;
 
     j++;
 
@@ -814,7 +825,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
 namespace py = pybind11;
 
-static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_window, bool is2ndBoard, bool isOldFirmware, int order, int nResidPoints, py::buffer packed_coeffs, py::buffer packed_aveResid_volt, py::buffer packed_aveResid_adc)
+static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_window, bool isOldFirmware, int order, int nResidPoints, py::buffer packed_coeffs, py::buffer packed_aveResid_volt, py::buffer packed_aveResid_adc)
 {
   //make sure in is int16_t, get n
 
@@ -843,7 +854,7 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
 
   auto ret = py::array_t<double>(N);
 
-  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, order, nResidPoints, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()))
+  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, isOldFirmware, order, nResidPoints, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()))
   {
     return py::none();
   }
