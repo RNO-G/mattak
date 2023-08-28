@@ -21,8 +21,8 @@ namespace mattak
   // @param N number of samples (must be multiple of window size!)
   // @param in the input (raw samples, pedestal subtracted)
   //
-  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
-                        int fit_order, int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
+  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+                        int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
 #ifndef MATTAK_NOROOT
@@ -46,7 +46,7 @@ namespace mattak
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
 
-      int getResidArrayN(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
       const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
       const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
@@ -56,9 +56,9 @@ namespace mattak
       const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
       double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
-      double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool is2ndBoard = false, bool isOldFirmware = false) const
+      double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(N, in, out, start_window, is2ndBoard, isOldFirmware, getFitOrder(), getResidArrayN(chan),
+        return applyVoltageCalibration(N, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
                                        getPackedFitCoeffs(chan), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
       }
       TH2S * makeHist(int channel) const;
