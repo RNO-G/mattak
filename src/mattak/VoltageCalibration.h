@@ -47,6 +47,7 @@ namespace mattak
       void readFitCoeffsFromFile(const char * inFile);
 
       int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      const double convertADCtoVolt(int chan, int samp, double adc) const;
       const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
       const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
@@ -100,6 +101,7 @@ namespace mattak
       int turnover_threshold;
       void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool getMaxErrAndChi2);
       uint32_t end_time;
+      bool getBiasScanData;
       bool left_equals_right;
       bool fit_getMaxErrAndChi2;
     ClassDef(VoltageCalibration, 1);
