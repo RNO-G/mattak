@@ -224,6 +224,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 {
   gErrorIgnoreLevel = kFatal;
 
+  getBiasScanData = true;
+
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order;
   order = fit_order;
   fit_min = min;
@@ -486,6 +488,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
+  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to plot histograms!\n"); return 0; }
+
   int nV = scanSize();
   if (nV < 2) return 0; //makes no sense!
 
@@ -530,6 +534,8 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 
 TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp, bool resid) const
 {
+  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
+
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
@@ -567,6 +573,8 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
 
 TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool resid) const
 {
+  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
+
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
@@ -588,6 +596,15 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
   }
 
   return g;
+}
+
+const double mattak::VoltageCalibration::convertADCtoVolt(int chan, int samp, double adc) const
+{
+  int dacType = chan >= mattak::k::num_radiant_channels / 2;
+
+  double volt = adcToVolt(adc, fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+
+  return volt;
 }
 
 void mattak::VoltageCalibration::saveFitCoeffsInFile()
@@ -636,6 +653,8 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   //
   // Get information about the bias scan and fit coefficients from the input root file
   //
+  getBiasScanData = false;
+  
   TFile *inputFile = new TFile(inFile);
 
   TTree *general_tree = (TTree*)inputFile->Get("general_tree");
