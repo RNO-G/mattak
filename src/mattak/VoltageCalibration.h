@@ -40,9 +40,9 @@ namespace mattak
        *
        *
        */
-      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
-      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
-      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool getMaxErrAndChi2 = false, uint32_t mask = 0xffffff, int turnover_threshold = 20);
+      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2);
+      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2);
+      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
 
@@ -99,11 +99,10 @@ namespace mattak
       double fit_max;
       uint32_t start_time;
       int turnover_threshold;
-      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool getMaxErrAndChi2);
+      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max);
       uint32_t end_time;
-      bool getBiasScanData;
+      bool hasBiasScanData;
       bool left_equals_right;
-      bool fit_getMaxErrAndChi2;
     ClassDef(VoltageCalibration, 1);
   };
 #endif

@@ -90,13 +90,13 @@ static bool inRange(unsigned low, unsigned high, unsigned x)
 ClassImp(mattak::VoltageCalibration);
 
 
-mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max)
 {
-  setupFromTree(tree,branch_name,vref,fit_order,min,max,getMaxErrAndChi2);
+  setupFromTree(tree,branch_name,vref,fit_order,min,max);
 }
 
 //almost copy-pasted from raw file reader...
-void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max)
 {
 
   mattak::Pedestals * ped = 0;
@@ -124,17 +124,17 @@ void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch
   delete ped;
   ped = 0;
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
+  recalculateFits(fit_order, min, max, vref);
 }
 
-mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max)
 {
 
   /*
-    Work out the extension of the file bias_scan_file.
-    If the extension after the last period ('.') is '.root',
-    assume the bias scan file has been loaded in ROOT format.
-    Otherwise they must be in a file format that required librno-g to read.
+     Work out the extension of the file bias_scan_file.
+     If the extension after the last period ('.') is '.root',
+     assume the bias scan file has been loaded in ROOT format.
+     Otherwise they must be in a file format that required librno-g to read.
   */
 
   const char * suffix = strrchr(bias_scan_file,'.');
@@ -148,7 +148,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
       std::cerr << "Could not open tree pedestals in " << bias_scan_file << std::endl;
       return;
     }
-    setupFromTree(t,"pedestals", vref, fit_order, min, max, getMaxErrAndChi2);
+    setupFromTree(t,"pedestals", vref, fit_order, min, max);
     return;
   }
 #ifndef LIBRNO_G_SUPPORT
@@ -192,7 +192,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals));
   }
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
+  recalculateFits(fit_order, min, max, vref);
   rno_g_close_handle(&h);
 #endif
 
@@ -234,22 +234,26 @@ static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","p
 //}
 
 
-void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, bool getMaxErrAndChi2, uint32_t mask, int turnover_threshold)
+void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, uint32_t mask, int turnover_threshold)
 {
   gErrorIgnoreLevel = kFatal;
 
-  getBiasScanData = true;
+  hasBiasScanData = true;
 
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order;
   order = fit_order;
+  if (order < max_voltage_calibration_fit_order)
+  {
+    std::cout << "\nYou are using " << order << "-degree polynomials for the fitting..." << std::endl;
+    std::cout << "SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results!!!" << std::endl;
+  }
   fit_min = min;
   this->turnover_threshold = turnover_threshold;
   fit_max = max;
   fit_vref = vref;
-  fit_getMaxErrAndChi2 = getMaxErrAndChi2;
 
 
-  if ( min > max)
+  if (min > max)
   {
     fit_min = max;
     fit_max = min;
@@ -454,47 +458,55 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     }
   }
 
+
   //
   // Calculate max deviation and chi squared
   //
-  if (fit_getMaxErrAndChi2)
+  std::cout << "\nCalculating max deviation and chi squared for fit quality validation..." << std::endl;
+
+  std::vector<double> aveChisq;
+  aveChisq.resize(mattak::k::num_radiant_channels);
+
+  for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
-    std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
+    std::cout << "Channel " << ichan;
+    if ( (mask & (1 << ichan))  == 0) continue;
 
-    for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
+    aveChisq[ichan] = 0;
+
+    int dacType = ichan >= mattak::k::num_radiant_channels / 2;
+
+    for (int i = 0; i < mattak::k::num_lab4_samples; i++)
     {
-      std::cout << "Channel " << ichan;
-      if ( (mask & (1 << ichan))  == 0) continue;
-
-      int dacType = ichan >= mattak::k::num_radiant_channels / 2;
-
-      for (int i = 0; i < mattak::k::num_lab4_samples; i++)
+      if (!(i%128))
       {
-        if (!(i%128))
-        {
-          printf(".");
-          fflush(stdout); // Print a dot every 128 samples processed
-        }
-
-        fit_chisq[ichan][i] = 0;
-        fit_maxerr[ichan][i] = 0;
-
-        int npoints = graph[ichan][i]->GetN();
-        double *data_adc = graph[ichan][i]->GetY();
-        double *data_v = graph[ichan][i]->GetX();
-
-        // Calculate max deviation and chi squared
-        for (int j = 0 ; j < npoints; j++)
-        {
-          double adc = data_adc[j];
-          double v_meas = data_v[j];
-          double v_pred = adcToVolt(adc, fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
-          double delta = fabs(v_meas-v_pred);
-          if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-          fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
-        }
+        printf(".");
+        fflush(stdout); // Print a dot every 128 samples processed
       }
+
+      fit_chisq[ichan][i] = 0;
+      fit_maxerr[ichan][i] = 0;
+
+      int npoints = graph[ichan][i]->GetN();
+      double *data_adc = graph[ichan][i]->GetY();
+      double *data_v = graph[ichan][i]->GetX();
+
+      // Calculate max deviation and chi squared
+      for (int j = 0 ; j < npoints; j++)
+      {
+        double adc = data_adc[j];
+        double v_meas = data_v[j];
+        double v_pred = adcToVolt(adc, fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
+        double delta = fabs(v_meas-v_pred);
+        if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
+        fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
+      }
+
+      aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
     }
+
+    aveChisq[ichan] /= mattak::k::num_lab4_samples;
+    if (aveChisq[ichan] > 6.0) printf("\nBAD FITTING WARNING: The average (chi squared/DOF) over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
   }
 
 }
@@ -502,7 +514,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
-  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to plot histograms!\n"); return 0; }
+  if (!hasBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to plot histograms!\n"); return 0; }
 
   int nV = scanSize();
   if (nV < 2) return 0; //makes no sense!
@@ -548,7 +560,7 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 
 TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp, bool resid) const
 {
-  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
+  if (!hasBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
 
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
@@ -556,7 +568,7 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
 
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]   %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("VBias [Volt]");
   g->GetYaxis()->SetTitle(resid ? "ADC Residual" : "ADC");
 
@@ -587,7 +599,7 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
 
 TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool resid) const
 {
-  if (!getBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
+  if (!hasBiasScanData) { printf("WARNING: Need to get data from a bias scan file in order to make graphs!\n"); return 0; }
 
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
@@ -595,7 +607,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], %s %g  %s", station_number, chan, samp, start_time, end_time, fit_getMaxErrAndChi2 ? "#chi^{2}=" : "#chi^{2} calculation mode: ", fit_getMaxErrAndChi2 ? fit_chisq[chan][samp] : 0, resid ? "(residuals)" : ""));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g   %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
 
@@ -623,7 +635,7 @@ const double mattak::VoltageCalibration::convertADCtoVolt(int chan, int samp, do
 
 void mattak::VoltageCalibration::saveFitCoeffsInFile()
 {
-  const TString outFileName = TString::Format("fitCoeffs_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
+  const TString outFileName = TString::Format("volCalibConsts_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
   TFile f(outFileName, "RECREATE", "", ROOT::RCompressionSetting::EDefaults::kUseSmallest);
 
   TTree *general_tree = new TTree("general_tree", "general_tree");
@@ -667,8 +679,8 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   //
   // Get information about the bias scan and fit coefficients from the input root file
   //
-  getBiasScanData = false;
-  
+  hasBiasScanData = false;
+
   TFile *inputFile = new TFile(inFile);
 
   TTree *general_tree = (TTree*)inputFile->Get("general_tree");
