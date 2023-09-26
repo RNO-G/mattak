@@ -129,6 +129,14 @@ void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch
 
 mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
 {
+
+  /*
+    Work out the extension of the file bias_scan_file.
+    If the extension after the last period ('.') is '.root',
+    assume the bias scan file has been loaded in ROOT format.
+    Otherwise they must be in a file format that required librno-g to read.
+  */
+
   const char * suffix = strrchr(bias_scan_file,'.');
 
   if (!strcmp(suffix,".root") && !(*(suffix + sizeof(".root")-1)))
