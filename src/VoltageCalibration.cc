@@ -153,8 +153,14 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
   }
 #ifndef LIBRNO_G_SUPPORT
 
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
   (void) bias_scan_file;
+  throw std::runtime_error(
+    "Bias Scan File has not been loaded in ROOT format.\n"
+    "In order to read raw bias scan data, librno-g support is required in mattak.\n"
+    "But librno-g support is not detected. "
+    "Likely LIBRNO_G_SUPPORT = OFF in the mattak CMakeLists.txt."
+  );
+
 #else
 
 
