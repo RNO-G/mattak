@@ -21,8 +21,8 @@ namespace mattak
   // @param N number of samples (must be multiple of window size!)
   // @param in the input (raw samples, pedestal subtracted)
   //
-  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
-                        int fit_order, int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
+  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+                        int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
 #ifndef MATTAK_NOROOT
@@ -40,13 +40,14 @@ namespace mattak
        *
        *
        */
-      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
-      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool getMaxErrAndChi2 = false);
-      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool getMaxErrAndChi2 = false, uint32_t mask = 0xffffff, int turnover_threshold = 20);
+      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
+      VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
+      void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool isUsingResid = true, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
 
-      int getResidArrayN(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      const double convertADCtoVolt(int chan, int samp, double adc) const;
       const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
       const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
@@ -56,10 +57,10 @@ namespace mattak
       const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
       double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
-      double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool is2ndBoard = false, bool isOldFirmware = false) const
+      double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(N, in, out, start_window, is2ndBoard, isOldFirmware, getFitOrder(), getResidArrayN(chan),
-                                       getPackedFitCoeffs(chan), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+        return applyVoltageCalibration(N, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
+                                       getPackedFitCoeffs(chan), isResid(), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
       }
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
@@ -76,6 +77,7 @@ namespace mattak
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  { return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
+      bool isResid() const { return fit_isUsingResid; }
 
     private:
       std::array<std::vector<double>, 2> vbias;  //Left, Right
@@ -98,10 +100,11 @@ namespace mattak
       double fit_max;
       uint32_t start_time;
       int turnover_threshold;
-      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool getMaxErrAndChi2);
+      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
       uint32_t end_time;
+      bool hasBiasScanData;
+      bool fit_isUsingResid;
       bool left_equals_right;
-      bool fit_getMaxErrAndChi2;
     ClassDef(VoltageCalibration, 1);
   };
 #endif

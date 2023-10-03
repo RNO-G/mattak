@@ -34,7 +34,7 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
 }
 
 
-mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Header & hdr,  const VoltageCalibration & vc) 
+mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Header & hdr,  const VoltageCalibration & vc, bool isOldFirmware) 
 {
   run_number = wf.run_number; 
   event_number = wf.event_number; 
@@ -48,7 +48,7 @@ mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Hea
 
   for (int i = 0; i < mattak::k::num_radiant_channels; i++) 
   {
-    vc.apply( i, buffer_length, wf.radiant_data[i], hdr.trigger_info.radiant_info.start_windows[i][0], radiant_data[i]); 
+    vc.apply( i, buffer_length, wf.radiant_data[i], hdr.trigger_info.radiant_info.start_windows[i][0], radiant_data[i], isOldFirmware); 
   }
 }
 

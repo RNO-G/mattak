@@ -16,7 +16,7 @@
 static double evalPars(double x, int order, const double * p)
 {
   double ans = p[order];
-  int i = order -1;
+  int i = order - 1;
   while (i>=0)
   {
     ans = x * ans + p[i--];
@@ -90,13 +90,13 @@ static bool inRange(unsigned low, unsigned high, unsigned x)
 ClassImp(mattak::VoltageCalibration);
 
 
-mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
-  setupFromTree(tree,branch_name,vref,fit_order,min,max,getMaxErrAndChi2);
+  setupFromTree(tree,branch_name,vref,fit_order,min,max,isUsingResid);
 }
 
 //almost copy-pasted from raw file reader...
-void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
 
   mattak::Pedestals * ped = 0;
@@ -124,11 +124,19 @@ void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch
   delete ped;
   ped = 0;
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
+  recalculateFits(fit_order, min, max, vref, isUsingResid);
 }
 
-mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool getMaxErrAndChi2)
+mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
+
+  /*
+     Work out the extension of the file bias_scan_file.
+     If the extension after the last period ('.') is '.root',
+     assume the bias scan file has been loaded in ROOT format.
+     Otherwise they must be in a file format that required librno-g to read.
+  */
+
   const char * suffix = strrchr(bias_scan_file,'.');
 
   if (!strcmp(suffix,".root") && !(*(suffix + sizeof(".root")-1)))
@@ -140,13 +148,19 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
       std::cerr << "Could not open tree pedestals in " << bias_scan_file << std::endl;
       return;
     }
-    setupFromTree(t,"pedestals", vref, fit_order, min, max, getMaxErrAndChi2);
+    setupFromTree(t,"pedestals", vref, fit_order, min, max, isUsingResid);
     return;
   }
 #ifndef LIBRNO_G_SUPPORT
 
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
   (void) bias_scan_file;
+  throw std::runtime_error(
+    "Bias Scan File has not been loaded in ROOT format.\n"
+    "In order to read raw bias scan data, librno-g support is required in mattak.\n"
+    "But librno-g support is not detected. "
+    "Likely LIBRNO_G_SUPPORT = OFF in the mattak CMakeLists.txt."
+  );
+
 #else
 
 
@@ -178,7 +192,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     memcpy(&scan_result.back()[0][0], ped.pedestals, sizeof(ped.pedestals));
   }
   scan_result.shrink_to_fit();
-  recalculateFits(fit_order, min, max, vref, getMaxErrAndChi2);
+  recalculateFits(fit_order, min, max, vref, isUsingResid);
   rno_g_close_handle(&h);
 #endif
 
@@ -220,20 +234,31 @@ static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","p
 //}
 
 
-void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, bool getMaxErrAndChi2, uint32_t mask, int turnover_threshold)
+void mattak::VoltageCalibration::recalculateFits(int order, double min, double max, double vref, bool isUsingResid, uint32_t mask, int turnover_threshold)
 {
   gErrorIgnoreLevel = kFatal;
 
+  hasBiasScanData = true;
+
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order;
   order = fit_order;
+
+  fit_isUsingResid = isUsingResid;
+
+  if (order < max_voltage_calibration_fit_order)
+  {
+    std::cout << "\nYou are using " << order << "-degree polynomials for the fitting..." << std::endl;
+    std::cout << "SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results." << std::endl;
+  }
+
+  if (!fit_isUsingResid) std::cout << "\nSUGGESTION: Extra term the residual function is NOT USED, you may turn it on to improve voltage calibration." << std::endl;
+
   fit_min = min;
   this->turnover_threshold = turnover_threshold;
   fit_max = max;
   fit_vref = vref;
-  fit_getMaxErrAndChi2 = getMaxErrAndChi2;
 
-
-  if ( min > max)
+  if (min > max)
   {
     fit_min = max;
     fit_max = min;
@@ -252,6 +277,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       residAve_adc[j].push_back(0);
     }
   }
+
 
   TLinearFitter fit(1, formula[order]);
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
@@ -315,7 +341,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           //don't include if it turns over
           if (!jmin ||  adc  > last_adc - turnover_threshold)
           {
-            graph[ichan][i]->SetPoint(graph[ichan][i]->GetN(),v,adc);
+            if (fit_isUsingResid) graph[ichan][i]->SetPoint(graph[ichan][i]->GetN(),v,adc);
+            else graph[ichan][i]->SetPoint(graph[ichan][i]->GetN(),adc,v);
             jmax = j;
           }
           last_adc = adc;
@@ -325,27 +352,30 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       }
 
       int npoints = graph[ichan][i]->GetN();
-      double *data_adc = graph[ichan][i]->GetY();
-      double *data_v = graph[ichan][i]->GetX();
+      double *data_adc;
+      double *data_v;
 
-      for (int i = 0; i < npoints; i++)
+      if (fit_isUsingResid)
       {
-        fit.AddPoint(&data_v[i], data_adc[i]);
-      }
-
-      if (vref)
-      {
-        fit.FixParameter(0, 0);
-      }
-      if (nzero > 1)
-      {
-        nbroken++;
+        data_adc = graph[ichan][i]->GetY();
+        data_v = graph[ichan][i]->GetX();
       }
       else
       {
-        fit.Eval();
+        data_adc = graph[ichan][i]->GetX();
+        data_v = graph[ichan][i]->GetY();
       }
 
+      for (int i = 0; i < npoints; i++)
+      {
+        if (fit_isUsingResid) fit.AddPoint(&data_v[i], data_adc[i]);
+        else fit.AddPoint(&data_adc[i], data_v[i]);
+      }
+
+      if (vref) fit.FixParameter(0, 0);
+
+      if (nzero > 1) nbroken++;
+      else fit.Eval();
 
       if (vref) fit.ReleaseParameter(0);
 
@@ -378,29 +408,32 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
       turnover_index[ichan][i] = jmax+1;
 
-
-      // Sum up all the ADC(V) residuals
-      dacType = ichan >= mattak::k::num_radiant_channels / 2;
-      nResidSets[dacType] ++;
-
-      if (residAve_volt[dacType].size() == scanSize() || residAve_adc[dacType].size() == scanSize())
+      if (fit_isUsingResid)
       {
-        residAve_volt[dacType].resize(npoints);
-        residAve_adc[dacType].resize(npoints);
-      }
+        // Sum up all the ADC(V) residuals
+        dacType = ichan >= mattak::k::num_radiant_channels / 2;
+        nResidSets[dacType] ++;
 
-      for (int j = 0 ; j < npoints; j++)
-      {
-        double adc = data_adc[j];
-        double v = data_v[j];
-        double adcResid = adc - evalPars(v, fit_order, &fit_coeffs[ichan][i * (order+1)]);
-        residAve_volt[dacType][j] += v;
-        residAve_adc[dacType][j] += adcResid;
+        if (residAve_volt[dacType].size() == scanSize() || residAve_adc[dacType].size() == scanSize())
+        {
+          residAve_volt[dacType].resize(npoints);
+          residAve_adc[dacType].resize(npoints);
+        }
+
+        for (int j = 0 ; j < npoints; j++)
+        {
+          double adc = data_adc[j];
+          double v = data_v[j];
+          double adcResid = adc - evalPars(v, fit_order, &fit_coeffs[ichan][i * (order+1)]);
+          residAve_volt[dacType][j] += v;
+          residAve_adc[dacType][j] += adcResid;
+        }
       }
 
     }
     if (nbroken) printf("WARNING: Channel %d seems to have %d broken samples?\n", ichan, nbroken);
   }
+
 
   // Calculate the average ADC(V) residuals and make a TGraph for each DAC
   for (int j = 0; j < 2; j++)
@@ -411,74 +444,101 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
     graph_residAve[j]->GetYaxis()->SetTitle("ADC Residual");
 
-    int npoints_residGraph = residAve_volt[j].size();
-    for (int ipoint = 0; ipoint < npoints_residGraph; ipoint++)
+    if (fit_isUsingResid)
     {
-      residAve_volt[j][ipoint] /= nResidSets[j];
-      residAve_adc[j][ipoint] /= nResidSets[j];
-      graph_residAve[j]->SetPoint(graph_residAve[j]->GetN(), residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+      int npoints_residGraph = residAve_volt[j].size();
+      for (int ipoint = 0; ipoint < npoints_residGraph; ipoint++)
+      {
+        residAve_volt[j][ipoint] /= nResidSets[j];
+        residAve_adc[j][ipoint] /= nResidSets[j];
+        graph_residAve[j]->SetPoint(graph_residAve[j]->GetN(), residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+      }
+
+      resid_volt[j].resize(npoints_residGraph*2-1);
+      resid_adc[j].resize(npoints_residGraph*2-1);
+      nResidPoints[j] = resid_volt[j].size();
+
+      //
+      // Interpolating the average residuals
+      //
+      for (int i = 0; i < npoints_residGraph; i++)
+      {
+        resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
+        resid_adc[j][i*2] = graph_residAve[j]->GetPointY(i);
+      }
+      for (int i = 0; i < npoints_residGraph-1; i++)
+      {
+        resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
+        resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
+      }
     }
 
-    resid_volt[j].resize(npoints_residGraph*2-1);
-    resid_adc[j].resize(npoints_residGraph*2-1);
-    nResidPoints[j] = resid_volt[j].size();
-
-    //
-    // Interpolating the average residuals
-    //
-    for (int i = 0; i < npoints_residGraph; i++)
-    {
-      resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
-      resid_adc[j][i*2] = graph_residAve[j]->GetPointY(i);
-    }
-    for (int i = 0; i < npoints_residGraph-1; i++)
-    {
-      resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
-      resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
-    }
   }
+
 
   //
   // Calculate max deviation and chi squared
   //
-  if (fit_getMaxErrAndChi2)
+  std::cout << "\nCalculating max deviation and chi squared for fit quality validation..." << std::endl;
+
+  std::vector<double> aveChisq;
+  aveChisq.resize(mattak::k::num_radiant_channels);
+
+  for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
-    std::cout << "\nCalculating max deviation and chi squared..." << std::endl;
+    std::cout << "Channel " << ichan;
+    if ( (mask & (1 << ichan))  == 0) continue;
 
-    for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
+    aveChisq[ichan] = 0;
+
+    int dacType = ichan >= mattak::k::num_radiant_channels / 2;
+
+    for (int i = 0; i < mattak::k::num_lab4_samples; i++)
     {
-      std::cout << "Channel " << ichan;
-      if ( (mask & (1 << ichan))  == 0) continue;
-
-      int dacType = ichan >= mattak::k::num_radiant_channels / 2;
-
-      for (int i = 0; i < mattak::k::num_lab4_samples; i++)
+      if (!(i%128))
       {
-        if (!(i%128))
-        {
-          printf(".");
-          fflush(stdout); // Print a dot every 128 samples processed
-        }
-
-        fit_chisq[ichan][i] = 0;
-        fit_maxerr[ichan][i] = 0;
-
-        int npoints = graph[ichan][i]->GetN();
-        double *data_adc = graph[ichan][i]->GetY();
-        double *data_v = graph[ichan][i]->GetX();
-
-        // Calculate max deviation and chi squared
-        for (int j = 0 ; j < npoints; j++)
-        {
-          double adc = data_adc[j];
-          double v_meas = data_v[j];
-          double v_pred = adcToVolt(adc, fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
-          double delta = fabs(v_meas-v_pred);
-          if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
-          fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
-        }
+        printf(".");
+        fflush(stdout); // Print a dot every 128 samples processed
       }
+
+      fit_chisq[ichan][i] = 0;
+      fit_maxerr[ichan][i] = 0;
+
+      int npoints = graph[ichan][i]->GetN();
+      double *data_adc;
+      double *data_v;
+
+      if (fit_isUsingResid)
+      {
+        data_adc = graph[ichan][i]->GetY();
+        data_v = graph[ichan][i]->GetX();
+      }
+      else
+      {
+        data_adc = graph[ichan][i]->GetX();
+        data_v = graph[ichan][i]->GetY();
+      }
+
+      // Calculate max deviation and chi squared
+      for (int j = 0 ; j < npoints; j++)
+      {
+        double adc = data_adc[j];
+        double v_meas = data_v[j];
+        double v_pred;
+
+        if (fit_isUsingResid) v_pred = adcToVolt(adc, fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
+        else v_pred = evalPars(adc, fit_order, &fit_coeffs[ichan][i * (order+1)]);
+
+        double delta = fabs(v_meas-v_pred);
+        if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
+        fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
+      }
+
+      aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
     }
+
+    aveChisq[ichan] /= mattak::k::num_lab4_samples;
+    if (aveChisq[ichan] > 6.0) printf("\nBAD FITTING WARNING: The average (chi squared/DOF) over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
   }
 
 }
@@ -486,6 +546,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
+  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to plot histograms!\n"); return 0; }
+
   int nV = scanSize();
   if (nV < 2) return 0; //makes no sense!
 
@@ -530,22 +592,27 @@ TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 
 TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp, bool resid) const
 {
+  TGraph *g = new TGraph();
+  g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]   %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
+  g->GetXaxis()->SetTitle("VBias [Volt]");
+  g->GetYaxis()->SetTitle(resid ? "ADC Residual" : "ADC");
+
+  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n"); return g; }
+
+  if (!fit_isUsingResid) { printf("\nWARNING: Plots can only be made with function 'makeAdjustedInverseGraph()' when 'fit_isUsingResid' is TRUE!\n"); return g; }
+
+  int dacType = chan >= mattak::k::num_radiant_channels / 2;
+
   int npoints = graph[chan][samp]->GetN();
   double *data_adc = graph[chan][samp]->GetY();
   double *data_v = graph[chan][samp]->GetX();
-
-  TGraph *g = new TGraph();
-  g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]  %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
-  g->GetXaxis()->SetTitle("VBias [Volt]");
-  g->GetYaxis()->SetTitle(resid ? "ADC Residual" : "ADC");
 
   TF1 * fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
   fn->SetParameters(getFitCoeffs(chan,samp));
   fn->SetRange(data_v[0],data_v[npoints-1]);
   fn->SetLineColor(2);
 
-  int dacType = chan >= mattak::k::num_radiant_channels / 2;
   for (int j = 0; j < npoints; j++)
   {
     double v = data_v[j];
@@ -567,32 +634,78 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
 
 TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool resid) const
 {
-  int npoints = graph[chan][samp]->GetN();
-  double *data_adc = graph[chan][samp]->GetY();
-  double *data_v = graph[chan][samp]->GetX();
-
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
-  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g  %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
+  g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g   %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
 
+  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n"); return g; }
+
   int dacType = chan >= mattak::k::num_radiant_channels / 2;
+
+  int npoints = graph[chan][samp]->GetN();
+  double *data_adc;
+  double *data_v;
+
+  TF1 *fn;
+
+  if (fit_isUsingResid)
+  {
+    data_adc = graph[chan][samp]->GetY();
+    data_v = graph[chan][samp]->GetX();
+  }
+  else
+  {
+    data_adc = graph[chan][samp]->GetX();
+    data_v = graph[chan][samp]->GetY();
+
+    fn = new TF1(Form("fsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time), formula[fit_order], fit_min, fit_max, TF1::EAddToList::kNo);
+    fn->SetParameters(getFitCoeffs(chan,samp));
+    fn->SetRange(data_adc[0],data_adc[npoints-1]);
+    fn->SetLineColor(2);
+  }
+
   for (int j = 0; j < npoints; j++)
   {
     double v = data_v[j];
     double adc = data_adc[j];
 
-    if (resid) v -= adcToVolt(adc, fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+    if (resid)
+    {
+      if (fit_isUsingResid) v -= adcToVolt(adc, fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+      else v -= fn->Eval(adc);
+    }
+
     g->SetPoint(g->GetN(),adc,v);
+  }
+
+  if (!resid && !fit_isUsingResid)
+  {
+    g->GetListOfFunctions()->Add(fn);
+    fn->SetParent(g);
+    fn->Save(data_adc[0],data_adc[npoints-1],0,0,0,0);
   }
 
   return g;
 }
 
+const double mattak::VoltageCalibration::convertADCtoVolt(int chan, int samp, double adc) const
+{
+  int dacType = chan >= mattak::k::num_radiant_channels / 2;
+
+  double volt;
+  if (fit_isUsingResid) volt = adcToVolt(adc, fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+  else volt = evalPars(adc, fit_order, getFitCoeffs(chan,samp));
+
+  return volt;
+}
+
 void mattak::VoltageCalibration::saveFitCoeffsInFile()
 {
-  const TString outFileName = TString::Format("fitCoeffs_s%d_%d-%d.root", station_number, getStartTime(), getEndTime());
+  TString outFileName;
+  if (fit_isUsingResid) outFileName = TString::Format("volCalConsts_pol%d_s%d_%d-%d.root", getFitOrder(), getStationNumber(), getStartTime(), getEndTime());
+  else outFileName = TString::Format("volCalConsts_pol%d_noResid_s%d_%d-%d.root", getFitOrder(), getStationNumber(), getStartTime(), getEndTime());
   TFile f(outFileName, "RECREATE", "", ROOT::RCompressionSetting::EDefaults::kUseSmallest);
 
   TTree *general_tree = new TTree("general_tree", "general_tree");
@@ -600,6 +713,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   general_tree->Branch("stationNumber", &station_number, "stationNumber/I");
   general_tree->Branch("startTime", &start_time, "startTime/i");
   general_tree->Branch("endTime", &end_time, "endTime/i");
+  general_tree->Branch("fit_isUsingResid", &fit_isUsingResid, "fit_isUsingResid/O");
   general_tree->SetDirectory(&f);
   general_tree->Fill();
   general_tree->Write();
@@ -621,13 +735,12 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
       fitCoeffs_tree.Fill();
     }
   }
-
   fitCoeffs_tree.Write();
 
   getAveResidGraph_dac1()->Write();
   getAveResidGraph_dac2()->Write();
 
-  std::cout << "\nAll fit coefficients saved in file: " << outFileName << std::endl;
+  std::cout << "\n\nAll voltage calibration constants saved in file: " << outFileName << std::endl;
   f.Close();
 }
 
@@ -636,6 +749,8 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   //
   // Get information about the bias scan and fit coefficients from the input root file
   //
+  hasBiasScanData = false;
+
   TFile *inputFile = new TFile(inFile);
 
   TTree *general_tree = (TTree*)inputFile->Get("general_tree");
@@ -643,6 +758,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   general_tree->SetBranchAddress("stationNumber", &station_number);
   general_tree->SetBranchAddress("startTime", &start_time);
   general_tree->SetBranchAddress("endTime", &end_time);
+  general_tree->SetBranchAddress("fit_isUsingResid", &fit_isUsingResid);
   general_tree->GetEntry(0);
 
   TTree *fitCoeffs_tree = (TTree*)inputFile->Get("coeffs_tree");
@@ -670,23 +786,28 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
     TString graphNameTitle = TString::Format("aveResid_dac%d", j);
     graph_residAve[j] = (TGraph*)inputFile->Get(graphNameTitle);
 
-    // Interpolating the average residuals
-    int npoints_residGraph = graph_residAve[j]->GetN();
-    resid_volt[j].resize(npoints_residGraph*2-1);
-    resid_adc[j].resize(npoints_residGraph*2-1);
-    nResidPoints[j] = resid_volt[j].size();
+    if (fit_isUsingResid)
+    {
+      // Interpolating the average residuals
+      int npoints_residGraph = graph_residAve[j]->GetN();
+      resid_volt[j].resize(npoints_residGraph*2-1);
+      resid_adc[j].resize(npoints_residGraph*2-1);
+      nResidPoints[j] = resid_volt[j].size();
 
-    for (int i = 0; i < npoints_residGraph; i++)
-    {
-      resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
-      resid_adc[j][i*2] = graph_residAve[j]->GetPointY(i);
-    }
-    for (int i = 0; i < npoints_residGraph-1; i++)
-    {
-      resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
-      resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
+      for (int i = 0; i < npoints_residGraph; i++)
+      {
+        resid_volt[j][i*2] = graph_residAve[j]->GetPointX(i);
+        resid_adc[j][i*2] = graph_residAve[j]->GetPointY(i);
+      }
+      for (int i = 0; i < npoints_residGraph-1; i++)
+      {
+        resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
+        resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
+      }
     }
   }
+
+  if (!fit_isUsingResid) printf("\nNOTICE: 'fit_isUsingResid' is FALSE => The extra term residual function is not used!\n");
 
   inputFile->Close();
 }
@@ -697,8 +818,8 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 #include <pybind11/numpy.h>
 #endif
 
-double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool is2ndBoard, bool isOldFirmware,
-                            int fit_order, int nResidPoints, const double * packed_fit_params, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
+double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+                            int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
 
 {
   if (!out) out = new double[N];
@@ -715,12 +836,23 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
+  bool is2ndHalfWindows;
   int nwindows = N / mattak::k::radiant_window_size;
-
   int isamp;
-  start_window = start_window % mattak::k::radiant_windows_per_buffer;
   int i = 0;
-  int j = start_window;
+  int j;
+
+  if (start_window > 15)
+  {
+    is2ndHalfWindows = true;
+    j = start_window - mattak::k::radiant_windows_per_buffer;
+  }
+  else
+  {
+    is2ndHalfWindows = false;
+    j = start_window;
+  }
+
 
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
   {
@@ -741,7 +873,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
       if (inRange(13,15,j)) isamp = (j-13) * mattak::k::radiant_window_size;
     }
 
-    if (is2ndBoard) isamp += mattak::k::num_radiant_samples;
+    if (is2ndHalfWindows) isamp += mattak::k::num_radiant_samples;
 
     j++;
 
@@ -751,7 +883,8 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
       const double * params = packed_fit_params + isamp * (fit_order+1);
 
       double adc = in[i];
-      out[i] = adcToVolt(adc, fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
+      if (isUsingResid) out[i] = adcToVolt(adc, fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
+      else out[i] = evalPars(adc, fit_order, params);
 
       isamp++;
       i++;
@@ -814,7 +947,7 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
 namespace py = pybind11;
 
-static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_window, bool is2ndBoard, bool isOldFirmware, int order, int nResidPoints, py::buffer packed_coeffs, py::buffer packed_aveResid_volt, py::buffer packed_aveResid_adc)
+static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_window, bool isOldFirmware, int order, int nResidPoints, py::buffer packed_coeffs, bool isUsingResid, py::buffer packed_aveResid_volt, py::buffer packed_aveResid_adc)
 {
   //make sure in is int16_t, get n
 
@@ -843,7 +976,7 @@ static py::array_t<double> apply_voltage_calibration(py::buffer in, int start_wi
 
   auto ret = py::array_t<double>(N);
 
-  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, is2ndBoard, isOldFirmware, order, nResidPoints, (double*) packed_coeffs.ptr(), (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()))
+  if (!mattak::applyVoltageCalibration(N, (int16_t*) in.ptr(), (double*) ret.ptr(), start_window, isOldFirmware, order, nResidPoints, (double*) packed_coeffs.ptr(), isUsingResid, (double*) packed_aveResid_volt.ptr(), (double*) packed_aveResid_adc.ptr()))
   {
     return py::none();
   }
