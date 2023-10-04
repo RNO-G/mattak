@@ -56,7 +56,7 @@ namespace mattak
 
      virtual TGraph * makeGraph(int chan, bool ns = true) const = 0; 
      virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0; 
-     ClassDef(IWaveforms, 1); 
+     ClassDef(IWaveforms, 2); 
   }; 
 
 
