@@ -96,6 +96,7 @@ static bool inRange(unsigned low, unsigned high, unsigned x)
 #include "TF1.h"
 #include "TList.h"
 #include "TString.h"
+#include "TBox.h"
 
 ClassImp(mattak::VoltageCalibration);
 
@@ -444,11 +445,18 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     if (nbroken) printf("WARNING: Channel %d seems to have %d broken samples?\n", ichan, nbroken);
   }
 
+  // Constants for the residual histograms
+  const int nBinsY = 22;
+  const int histLowY = -55;
+  const int histHighY = 55;
+  int nBinsX;
+  double histLowX;
+  double histHighX;
 
   // Calculate the average ADC(V) residuals and make a TGraph for each DAC
   for (int j = 0; j < 2; j++)
   {
-    TString graphNameTitle = TString::Format("aveResid_dac%d", j);
+    TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
     graph_residAve[j] = new TGraph();
     graph_residAve[j]->SetNameTitle(graphNameTitle);
     graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
@@ -481,6 +489,16 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
         resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
       }
+
+      // Residual histograms for the 2 DACs
+      TString histNameTitle = TString::Format("residHist_dac%d", j+1);
+      nBinsX = npoints_residGraph;
+      histLowX = graph_residAve[j]->GetPointX(0);
+      histHighX = graph_residAve[j]->GetPointX(npoints_residGraph-1);
+
+      hist_resid[j] = new TH2S(histNameTitle, histNameTitle, nBinsX, histLowX, histHighX, nBinsY, histLowY, histHighY);
+      hist_resid[j]->GetXaxis()->SetTitle("VBias [Volt]");
+      hist_resid[j]->GetYaxis()->SetTitle("ADC Residual");
     }
 
   }
@@ -548,6 +566,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         double delta = fabs(v_meas-v_pred);
         if (delta > fit_maxerr[ichan][i]) fit_maxerr[ichan][i] = delta;
         fit_chisq[ichan][i] += ( delta*delta/(0.002*0.002) );
+
+        if (fit_isUsingResid)
+        {
+          double histX = v_meas;
+          double histY = adc - (evalPars(v_meas, fit_order, &fit_coeffs[ichan][i * (order+1)]) + graph_residAve[dacType]->GetPointY(j));
+          hist_resid[dacType]->Fill(histX, histY);
+        }
       }
 
       if (fit_chisq[ichan][i]/fit_ndof[ichan][i] > 30.0)
@@ -559,6 +584,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
     }
 
+    // chi2 check for fit quality validation
     aveChisq[ichan] /= mattak::k::num_lab4_samples;
     if (aveChisq[ichan] > 6.0) printf("\nBAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
 
@@ -569,6 +595,88 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         int bad = badFit[samp];
         printf("\nBAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
+    }
+
+  }
+
+
+  // Residual histograms and the box frame check for fit quality validation
+  if (fit_isUsingResid)
+  {
+    TBox *smallBox[2];
+    TBox *bigBox[2];
+
+    for (int i = 0; i < 2; i++)
+    {
+      nBinsX = hist_resid[i]->GetNbinsX();
+      histLowX = hist_resid[i]->GetXaxis()->GetXmin();
+      histHighX = hist_resid[i]->GetXaxis()->GetXmax();
+
+      int smallBoxBinX1 = (int) nBinsX*0.55;
+      int smallBoxBinX2 = (int) nBinsX*0.75;
+      int smallBoxBinY1 = (int) nBinsY*0.25 + 1;
+      int smallBoxBinY2 = (int) nBinsY*0.75 + 1;
+
+      double smallBoxX1 = histLowX + (histHighX - histLowX)*smallBoxBinX1/nBinsX;
+      double smallBoxX2 = histLowX + (histHighX - histLowX)*smallBoxBinX2/nBinsX;
+      double smallBoxY1 = histLowY + (histHighY - histLowY)*smallBoxBinY1/nBinsY;
+      double smallBoxY2 = histLowY + (histHighY - histLowY)*(smallBoxBinY2-1)/nBinsY;
+
+      double bigBoxX1 = histLowX;
+      double bigBoxX2 = histHighX;
+      double bigBoxY1 = histLowY + (histHighY - histLowY)/nBinsY;
+      double bigBoxY2 = histHighY - (histHighY - histLowY)/nBinsY;
+
+      smallBox[i] = new TBox(smallBoxX1, smallBoxY1, smallBoxX2, smallBoxY2);
+      smallBox[i]->SetFillStyle(0);
+      smallBox[i]->SetLineStyle(9);
+      smallBox[i]->SetLineWidth(3);
+      smallBox[i]->SetLineColor(2);
+      bigBox[i] = new TBox(bigBoxX1, bigBoxY1, bigBoxX2, bigBoxY2);
+      bigBox[i]->SetFillStyle(0);
+      bigBox[i]->SetLineStyle(9);
+      bigBox[i]->SetLineWidth(3);
+      bigBox[i]->SetLineColor(2);
+
+      bool aboveSmallBoxY2 = false;
+      bool belowSmallBoxY1 = false;
+      bool aboveBigBoxY2 = false;
+      bool belowBigBoxY1 = false;
+
+      for (int binNumberX = 1; binNumberX <= graph_residAve[i]->GetN(); binNumberX++)
+      {
+        // Small Box Check
+        if (binNumberX > smallBoxBinX1 && binNumberX <= smallBoxBinX2)
+        {
+          if (hist_resid[i]->GetBinContent(binNumberX, smallBoxBinY2) > 1 && !aboveSmallBoxY2)
+          {
+            aboveSmallBoxY2 = true;
+            printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go beyond the first upper threshold (> 25 adu)!!!\n", i+1);
+          }
+          if (hist_resid[i]->GetBinContent(binNumberX, smallBoxBinY1) > 1 && !belowSmallBoxY1)
+          {
+            belowSmallBoxY1 = true;
+            printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go below the first lower threshold (< -25 adu)!!!\n", i+1);
+          }
+        }
+
+        // Big Box Check
+        if (hist_resid[i]->GetBinContent(binNumberX, nBinsY) > 1 && !aboveBigBoxY2)
+        {
+          aboveBigBoxY2 = true;
+          printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go beyond the second upper threshold (> 50 adu)!!!\n", i+1);
+        }
+        if (hist_resid[i]->GetBinContent(binNumberX, 1) > 1 && !belowBigBoxY1)
+        {
+          belowBigBoxY1 = true;
+          printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go below the second lower threshold (< -50 adu)!!!\n", i+1);
+        }
+
+        if (aboveBigBoxY2 && belowBigBoxY1 && aboveSmallBoxY2 && belowSmallBoxY1) break;
+      }
+
+      hist_resid[i]->GetListOfFunctions()->Add(bigBox[i]);
+      hist_resid[i]->GetListOfFunctions()->Add(smallBox[i]);
     }
 
   }
@@ -806,7 +914,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   for (int j = 0; j < 2; j++)
   {
     // Average residuals for both types of DACs
-    TString graphNameTitle = TString::Format("aveResid_dac%d", j);
+    TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
     graph_residAve[j] = (TGraph*)inputFile->Get(graphNameTitle);
 
     if (fit_isUsingResid)
