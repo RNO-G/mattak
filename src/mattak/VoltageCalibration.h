@@ -66,6 +66,8 @@ namespace mattak
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
       TGraph * getAveResidGraph_dac1() const { return graph_residAve[0]; }
       TGraph * getAveResidGraph_dac2() const { return graph_residAve[1]; }
+      TH2S * getResidHist_dac1() const { return hist_resid[0]; }
+      TH2S * getResidHist_dac2() const { return hist_resid[1]; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -92,6 +94,7 @@ namespace mattak
       std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
       std::array<TGraph*, 2> graph_residAve; // 2 DACs
       std::array<int, 2> nResidPoints; // 2 DACs
+      std::array<TH2S*, 2> hist_resid; // 2 DACs
       int fit_order;
       int station_number;
       double fit_vref;
