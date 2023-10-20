@@ -88,13 +88,16 @@ namespace mattak
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_chisq; //sum of difference squared, really...
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_maxerr; //maximum error
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
-      std::array<double,mattak::k::num_radiant_channels> adc_offset;
+      std::array<double, mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
       std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
       std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
       std::array<TGraph*, 2> graph_residAve; // 2 DACs
       std::array<int, 2> nResidPoints; // 2 DACs
       std::array<TH2S*, 2> hist_resid; // 2 DACs
+      std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
+      std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
+      std::array<std::array<bool, 4>, 2> isResidOutOfBoxFrame; // 4 thresholds for each DAC
       int fit_order;
       int station_number;
       double fit_vref;
