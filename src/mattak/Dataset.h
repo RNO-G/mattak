@@ -26,6 +26,7 @@ namespace mattak
       /** Loads run corresponding to station/run" in the data dir, i.e. equivalent to calling loadDir(data_dir/stationS/runR) */ 
       int loadRun(int station, int run, bool partial_skip_incomplete = true); 
       int loadDir(const char * dir, bool partial_skip_incomplete = true); 
+      int loadFile(const char * file, bool partial_skip_incomplete = true); 
       void setDataDir(const char * dir); 
 
       bool setEntry(int entry); //returns true if in range 
@@ -93,7 +94,7 @@ namespace mattak
       bool skip_incomplete;
       bool verbose = false; 
 
-  }; 
+  };
 }
 
 #endif 

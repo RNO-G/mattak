@@ -32,7 +32,7 @@ if not loaded:
     else:
         for path in sys.path:
             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
-                print('Successsfully found ' + libmattakName + ' in ',path)
+                print('Successsfully found ' + libmattakName + ' in ', path)
                 loaded_path = path
                 loaded = True
                 break 

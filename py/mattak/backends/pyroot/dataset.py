@@ -3,7 +3,7 @@ import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 from typing import Sequence, Union, Tuple, Optional, Callable
 import numpy
-
+import os
 try:
     import cppyy.ll
 
@@ -41,8 +41,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 
             self.ds = ROOT.mattak.Dataset()
             self.ds.setVerbose(verbose)
-
-            self.ds.loadDir(data_dir, skip_incomplete)
+            print(data_dir, os.path.isfile(data_dir))
+            if os.path.isfile(data_dir):
+                print("test")
+                self.ds.loadFile(data_dir, skip_incomplete)
+            else:
+                self.ds.loadDir(data_dir, skip_incomplete)
+                
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
