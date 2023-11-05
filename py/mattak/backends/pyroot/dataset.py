@@ -41,7 +41,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 
             self.ds = ROOT.mattak.Dataset()
             self.ds.setVerbose(verbose)
-            print(data_dir, os.path.isfile(data_dir))
             if os.path.isfile(data_dir):
                 print("test")
                 self.ds.loadFile(data_dir, skip_incomplete)
