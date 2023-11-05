@@ -39,28 +39,62 @@ def read_tree(ur_file, tree_names):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
+    def __init__(self, station : int, run : int, data_dir_file : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True):
+        """
+        Uproot backend for the python interface of the mattak Dataset
+        
+        Parameters
+        ----------
+        
+        station: int
+            Station Id of the data to be read. 
+            
+        run: int
+            Run number of the data to be read
+            
+        data_dir_file: str
+            Path of the data directory or file
+            
+        verbose: bool
+            Enable verbose debug log
+            
+        skip_incomplete: bool
+            Default: True
+        
+        read_daq_status: bool 
+            Enable reading of daqstatus.root. Only possible  when a complete run directory is passed. (Default: True)
+        
+        read_run_info: bool
+            Enable reading of the run information (sampling rate). Only possible when a run directory is passed 
+            which contains the runinfo.txt file. (Default: True, unless you pass a specific file as input)
+        """
         
         self.backend = "uproot"
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
-
+        
+        # default: consider each run as complete
+        self.full = True
+        self.runfile = None
         # special case where we load a directory instead of a station/run
-        if station == 0 and run == 0: 
-            self.rundir = data_dir
+        if station == 0 and run == 0:
+            if os.path.isfile(data_dir_file):
+                self.runfile = data_dir_file
+                self.full = False
+            else:
+                self.rundir = data_dir_file
         else: 
-            self.rundir = "%s/station%d/run%d" % (data_dir, station, run)
+            self.rundir = "%s/station%d/run%d" % (data_dir_file, station, run)
 
         self.skip_incomplete = skip_incomplete 
 
         # this duplicates a bunch of C++ code in mattak::Dataset
         # check for full or partial run by looking for waveforms.root
         # Only open files/trees, do not access data
-        try:
-            self.full = True
+        if self.full and os.path.exists("%s/waveforms.root" % (self.rundir)):
 
             self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
             if self.__verbose: 
@@ -80,10 +114,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
                 self._dss = self.ds_tree[self.ds_branch]
 
-        except: 
+        elif self.runfile is not None or os.path.exists("%s/combined.root" % (self.rundir)):
             self.full = False
-
-            self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+            
+            if self.runfile is not None:
+                self.combined_tree = uproot.open("%s:combined" %(self.runfile))
+            else:
+                self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+            
             if self.__verbose: 
                 print("Open combined.root ...")
                 
@@ -110,6 +148,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if self.__read_daq_status:
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
+        
+        else:
+            raise ValueError("No vaild run directory / file found!")
 
         if station == 0 and run == 0: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
@@ -119,11 +160,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = station
             self.run = run
 
-        self.data_dir = data_dir
+        self.data_dir = data_dir_file
         self.setEntries(0) 
 
         self.run_info = None
-        if self.__read_run_info:
+        if self.__read_run_info and self.runfile is None:
             # try to get the run info, if we're using combined tree, try looking in there 
             # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
             
