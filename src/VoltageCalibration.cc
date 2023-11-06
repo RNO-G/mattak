@@ -44,6 +44,8 @@ static double adcToVolt(double in_adc, int npoints, const double * resid_volt, c
   double m;
   double out_volt = 0;
 
+  // If in_adc is zero, out_volt is zero
+  if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
   if (in_adc < adc_array[0])
