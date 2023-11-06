@@ -28,11 +28,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, 
                  verbose : bool = False, skip_incomplete : bool = True, 
-                 read_daq_status : bool = True, read_run_info : bool = True):
+                 read_daq_status : bool = True, read_run_info : bool = True,
+                 voltage_calibration = ROOT.nullptr):
         
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
+        
+        # For some mysterious reason that does not work (calibration returns non-sense) 
+        # if isinstance(voltage_calibration, str):
+        #     print(voltage_calibration)
+        #     vc = ROOT.mattak.VoltageCalibration()
+        #     vc.readFitCoeffsFromFile(voltage_calibration)
+        #     voltage_calibration = vc
 
         #special case where we load a directory instead of a station/run
         if station == 0 and run == 0:
@@ -49,12 +57,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
+            self.ds.setCalibration(voltage_calibration)
 
             if verbose:
                 print("We think we found station %d run %d" % (self.station,self.run))
 
         else:
-            self.ds = ROOT.mattak.Dataset(station, run, ROOT.nullptr, data_dir, skip_incomplete, verbose)
+            self.ds = ROOT.mattak.Dataset(station, run, voltage_calibration, data_dir, skip_incomplete, verbose)
             self.station = station
             self.run = run
                     
