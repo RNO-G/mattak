@@ -587,6 +587,8 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       }
 
       aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
+
+      delete residTablePerSamp_adc;
     }
 
     // chi2 check for fit quality validation
@@ -1100,9 +1102,9 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 #ifndef MATTAK_VECTORIZE
     for (int k = 0; k < mattak::k::radiant_window_size; k++)
     {
-      const double * params = packed_fit_params + isamp * (fit_order+1);
+      const double *params = packed_fit_params + isamp * (fit_order+1);
 
-      const double *residTablePerSamp_adc;
+      double *residTablePerSamp_adc;
       if (isUsingResid) residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
 
       double adc = in[i];
@@ -1111,6 +1113,8 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
       isamp++;
       i++;
+
+      delete residTablePerSamp_adc;
     }
 #else
 
