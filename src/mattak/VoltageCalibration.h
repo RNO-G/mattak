@@ -108,9 +108,9 @@ namespace mattak
       void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
       uint32_t end_time;
       bool hasBiasScanData;
-      bool fit_isUsingResid;
+      bool fit_isUsingResid = true;
       bool left_equals_right;
-    ClassDef(VoltageCalibration, 1);
+    ClassDef(VoltageCalibration, 2);
   };
 #endif
 
