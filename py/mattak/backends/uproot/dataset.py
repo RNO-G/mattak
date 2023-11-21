@@ -72,8 +72,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # this duplicates a bunch of C++ code in mattak::Dataset
         # check for full or partial run by looking for waveforms.root
         # Only open files/trees, do not access data
-        try:
-            self.full = True
 
         self.combined_tree = None 
 
@@ -86,9 +84,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     print ("Found preferred file %s" % (preferred_file))
                     print (self.combined_tree)
                 self.full = False
-
-            except: 
-                # can't recovber from this 
+            except Exception:
+                # can't recover from this 
                 if self.data_dir_is_file: 
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.rundir)
                 print ("Could not find preferred file %s. Falling back to normal behavior" % (preferred_file))
@@ -117,7 +114,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         self._hds = self.hd_tree[self.hd_branch]
                         break
                 self.full = True
-            except: 
+            except Exception: 
                 self.full = False
 
         # we haven't already loaded the full tree
@@ -177,7 +174,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
 
-        if station == 0 and run == 0: 
+        if station == 0 and run == 0 or self.data_dir_is_file: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
             self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
 
