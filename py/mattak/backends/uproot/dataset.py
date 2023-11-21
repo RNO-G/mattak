@@ -97,29 +97,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.combined_tree is None:
             try:
                 self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-                if verbose:
-                    print ("Found full file")
+                if self.__verbose:
+                    print ("Open waveforms.root (Found full run folder) ...") 
+
                 self.combined_tree = None
-                for wf_tree_name in waveform_tree_names:
-                    if wf_tree_name in self.wf_file:
-                        self.wf_tree = self.wf_file[wf_tree_name]
-                        self.wf_branch = wf_tree_name
-                        self._wfs = self.wf_tree[self.wf_branch]
-                        break
-                self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
-                for hd_tree_name in header_tree_names:
-                    if hd_tree_name in self.hd_file:
-                        self.hd_tree = self.hd_file[hd_tree_name]
-                        self.hd_branch = hd_tree_name
-                        self._hds = self.hd_tree[self.hd_branch]
-                        break
                 self.full = True
 
+                self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
+                self._wfs = self.wf_tree[self.wf_branch]
+
+                self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
+                self.hd_tree,self.hd_branch = read_tree(self.hd_file, header_tree_names); 
+                self._hds = self.hd_tree[self.hd_branch]
+
                 if self.__read_daq_status:
-                    self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
-                    self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
-                    ds_tree = self.full_daq_tree
-                    self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
+                    self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
+                    self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
+                    self._dss = self.ds_tree[self.ds_branch]
             except Exception: 
                 self.full = False
 
@@ -127,46 +121,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.full:   
             if self.combined_tree is None: # we didn't already load our preference
                 self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
-                if verbose: 
+                if self.__verbose: 
                     print ("Found combined file")
                     print (self.combined_tree)
  
-            if not skip_incomplete: 
-                # attempt to get the full head tree
-                header_path = "%s/headers.root" % (self.rundir)
-                if os.path.isfile(header_path):  
-                    self.full_head_file = uproot.open(header_path)
-                    for hd_tree_name in header_tree_names: 
-                        if hd_tree_name in self.full_head_file: 
-                            self.full_head_tree = self.full_head_file[hd_tree_name]
-                            break 
-                else: 
-                    print("We didn't want to skip incomplete, but couldn't find the header file where we expected it. Sorry.") 
-                    self.skip_incomplete = True
-
-
-           # get the right branch names
-            for wf_branch_name in waveform_tree_names:
-                if wf_branch_name in self.combined_tree:
-                    self.wf_branch = wf_branch_name
-                    self._wfs = self.combined_tree[self.wf_branch]
-                    break 
-
-            for hd_branch_name in header_tree_names:
-                t = self.combined_tree if self.skip_incomplete else self.full_head_tree
-                if hd_branch_name in t:
-                    self.hd_branch = hd_branch_name
-                    self._hds = t[self.hd_branch]
-                    break 
-
             # build an index of the waveforms we do have
             if not self.skip_incomplete: 
                 wfs_included = self._wfs['event_number'].array() 
                 self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
-                
-                # Open header and daqstatus files to get information of all events!
+
                 self.full_head_file = uproot.open("%s/headers.root" % (self.rundir))
-                self.full_head_tree, _ = read_tree(self.full_head_file, header_tree_names)
+                self.full_head_tree,_ = read_tree(self.full_head_file, header_tree_names)
                 
                 if self.__read_daq_status:
                     self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
@@ -178,7 +143,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 
             if self.__read_daq_status:
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
-                self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
+                self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names) 
 
         if station == 0 and run == 0 or self.data_dir_is_file: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
