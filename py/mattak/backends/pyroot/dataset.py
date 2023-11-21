@@ -29,7 +29,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, 
                  verbose : bool = False, skip_incomplete : bool = True, 
-                 read_daq_status : bool = True, read_run_info : bool = True
+                 read_daq_status : bool = True, read_run_info : bool = True, 
                  preferred_file : Optional[str] = None):
         
         self.backend = "pyroot"
