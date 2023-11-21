@@ -114,6 +114,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         self._hds = self.hd_tree[self.hd_branch]
                         break
                 self.full = True
+
+                if self.__read_daq_status:
+                    self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
+                    self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
+                    ds_tree = self.full_daq_tree
+                    self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
             except Exception: 
                 self.full = False
 
