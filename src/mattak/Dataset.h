@@ -57,7 +57,6 @@ namespace mattak
       Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions()); 
       Dataset(const DatasetOptions & opt = DatasetOptions()); 
       //data_dir defaults to RNO_G_ROOT_DATA
-      Dataset (int station, int run, const VoltageCalibration * calib = nullptr, const char * data_dir = nullptr, bool partial_skip_incomplete = true, bool verbose = false); 
       void setVerbose(bool v) { opt.verbose = v; } 
       virtual ~Dataset() { unload() ; }
 
@@ -76,7 +75,7 @@ namespace mattak
       /** 
        * Deprecated, kept for ABI compatibility
        */
-      Dataset (int station, int run, const VoltageCalibration * calib, const char * base_data_dir = nullptr, bool partial_skip_incomplete = true); 
+      Dataset (int station, int run, const VoltageCalibration * calib, const char * base_data_dir = nullptr, bool partial_skip_incomplete = true, bool verbose = false); 
       Dataset (const char * data_dir); 
       int loadRun(int station, int run, bool partial_skip_incomplete); 
       int loadDir(const char * dir, bool partial_skip_incomplete ); 
