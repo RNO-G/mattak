@@ -23,9 +23,9 @@ class EventInfo:
     sysclkLastPPS: Tuple[int, int]  # the last 2 PPS sysclks, most recent first
     pps: int
     radiantStartWindows: numpy.ndarray
-    sampleRate: float  # Sample rate, in GSa/s
-    radiantThrs: numpy.ndarray
-    lowTrigThrs: numpy.ndarray
+    sampleRate: Optional[float]  # Sample rate, in GSa/s
+    radiantThrs: Optional[numpy.ndarray]
+    lowTrigThrs: Optional[numpy.ndarray]
 
 ##
 class AbstractDataset(ABC):
@@ -64,14 +64,14 @@ class AbstractDataset(ABC):
 
 
     @abstractmethod
-    def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int) -> Generator[Tuple[EventInfo, numpy.ndarray],None,None]:
+    def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int, selector: Optional[Callable[[EventInfo],bool]]) -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]],None,None]:
         """ implementation-defined part of iterator"""
         pass
 
     def iterate(self, start : int = 0, stop : Union[int,None] = None,
                 calibrated: bool = False, max_entries_in_mem : int = 256,
                 selector: Optional[Callable[[EventInfo], bool]] = None) \
-                -> Generator[Optional[Tuple[EventInfo, numpy.ndarray]], None, None]:
+                -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
             Returns a tuple of EventInfo and the event waveforms (potentially calibrated).
         """
@@ -107,10 +107,10 @@ class AbstractDataset(ABC):
     
     def get_selected_wfs(self, selector: Callable[[EventInfo], bool], calibrated : bool = False) -> Optional[numpy.ndarray]:
         """ Convenience interface to use selector """
-        return numpy.array([wf for _, wf in self.iterate(start=self.start, stop=self.stop, selector=selector)])
+        return numpy.array([wf for _, wf in self.iterate(start=self.first, stop=self.last, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", 
+def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto", 
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None ) -> Optional[AbstractDataset]:

@@ -306,10 +306,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return None if w is None else w[0] 
 
     def _iterate(self, start : int , stop : int , calibrated: bool,  max_in_mem : int, 
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) -> Generator[Tuple[mattak.Dataset.EventInfo, numpy.ndarray],None,None]:
+                 selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
 
        # cache current values given by setEntries(..)
-        original_entry = (self.first, self.last) if self.multiple else self.entry
+        original_entry : Union[int, Tuple[int,int]] = (self.first, self.last) if self.multiple else self.entry
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
