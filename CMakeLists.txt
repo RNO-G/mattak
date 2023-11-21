@@ -96,6 +96,8 @@ if (NOT DEFINED ROOTLESS)
     RUNTIME DESTINATION ${UTIL_BIN_DIR}
     )
 
+  install (FILES build/lib${libname}_rdict.pcm DESTINATION ${UTIL_LIB_DIR} )
+
 
   if (LIBRNO_G_SUPPORT) 
     add_definitions( -DLIBRNO_G_SUPPORT )

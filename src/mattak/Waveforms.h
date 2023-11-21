@@ -101,7 +101,7 @@ namespace mattak
     public: 
 
       CalibratedWaveforms() { ; }
-      CalibratedWaveforms(const Waveforms & wf, const Header & h,  const VoltageCalibration & vc); 
+      CalibratedWaveforms(const Waveforms & wf, const Header & h,  const VoltageCalibration & vc, bool isOldFirmware = false); 
 
       virtual TGraph * makeGraph(int chan, bool ns = true) const; 
       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const; 

@@ -94,7 +94,8 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
     RedirectHandle_t rh; 
     if (!branch_name[0]) gSystem->RedirectOutput(BITBUCKET,"a",&rh); 
 
-    field->tree->GetBranch(branch_name)->SetAddress(&field->ptr); 
+    field->branch = field->tree->GetBranch(branch_name); 
+    field->branch->SetAddress(&field->ptr); 
 
     if (!branch_name[0]) gSystem->RedirectOutput(0,"a",&rh); 
 
@@ -151,11 +152,12 @@ void mattak::Dataset::setOpt(const DatasetOptions & opt)
 
 }
 
-mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib, const char * data_dir, bool partial_skip) 
+mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib, const char * data_dir, bool partial_skip, bool v) 
 {
+  setVerbose(v);  // should be first
   setDataDir(data_dir); 
   setCalibration(calib); 
-  loadRun(station,run,partial_skip); 
+  loadRun(station,run,partial_skip);
 }
 
 mattak::Dataset::Dataset(const char* data_dir) 
@@ -351,53 +353,60 @@ int mattak::Dataset::loadDir(const char * dir)
     }
   }
 
- if (opt.verbose) std::cout << "about to load headers " << std::endl; 
- //now load the header files 
- if ( setup(&hd, 
-      Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), 
-      header_tree_names) )
- {
-   std::cerr << "Failed to find headers.root or " << partial_file << " .root in " << dir << std::endl; 
-   return -1; 
- }
+  if (opt.verbose) std::cout << "about to load headers " << std::endl; 
+  //now load the header files 
+  if ( setup(&hd, 
+       Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), 
+       header_tree_names) )
+  {
+    std::cerr << "Failed to find headers.root or " << partial_file << " .root in " << dir << std::endl; 
+    return -1; 
+  }
+ 
+  if (opt.verbose) std::cout << " success" << std::endl; 
+ 
+  if (!full_dataset && !opt.partial_skip_incomplete)
+  {
+    //set up an index on event number the events
+    wf.tree->BuildIndex("event_number"); 
+  }
+ 
+  if (opt.verbose) std::cout << "about to load daqstatus " << std::endl; 
+  //and the status files
+  if ( setup(&ds, 
+       Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file), 
+       daqstatus_tree_names) )
+  {
+    std::cerr << "Failed to find daqstatus.root or " << partial_file << " in " << dir << std::endl; 
+    return -1; 
+  }
+  if (opt.verbose) std::cout << " success" << std::endl; 
+ 
+  if (full_dataset) 
+  {
+     ds.tree->BuildIndex("readout_time_radiant"); 
+  }
 
- if (!full_dataset && !opt.partial_skip_incomplete)
- {
-   //set up an index on event number the events
-   wf.tree->BuildIndex("event_number"); 
- }
 
-if (opt.verbose) std::cout << "about to load daqstatus " << std::endl; 
- //and the status files
- if ( setup(&ds, 
-      Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file), 
-      daqstatus_tree_names) )
- {
-   std::cerr << "Failed to find daqstatus.root or " << partial_file << " in " << dir << std::endl; 
-   return -1; 
- }
+  if (opt.verbose) std::cout << "about to load pedestal " << std::endl; 
 
- if (full_dataset) 
- {
-   ds.tree->BuildIndex("readout_time_radiant"); 
- }
+ //and the pedestal files
+  if ( setup(&pd, 
+       Form("%s/pedestal.root", dir), 
+       pedestal_tree_names) )
+  {
+    std::cerr << "Failed to find pedestal.root in " <<dir << " (This is usually ok if you don't need them) " <<  std::endl; 
+    return -1; 
+  }
+  if (opt.verbose) std::cout << " success" << std::endl; 
 
+  if (opt.verbose) std::cout << "about to load runinfo " << std::endl; 
 
-if (opt.verbose) std::cout << "about to load pedestal " << std::endl; 
+  //and try the runinfo file 
+  setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
 
-//and the pedestal files
- if ( setup(&pd, 
-      Form("%s/pedestal.root", dir), 
-      pedestal_tree_names) )
- {
-   std::cerr << "Failed to find pedestal.root in " <<dir << " (This is usually ok if you don't need them) " <<  std::endl; 
-   return -1; 
- }
-if (opt.verbose) std::cout << "about to load runinfo " << std::endl; 
-
- //and try the runinfo file 
- setup(&runinfo, Form("%s/runinfo.root", dir),"info"); 
- return 0; 
+  if (opt.verbose) std::cout << " success" << std::endl; 
+  return 0; 
 }
 
 
@@ -422,7 +431,7 @@ mattak::Header* mattak::Dataset::header(bool force)
   if (force || hd.loaded_entry != current_entry)
   {
     if (hd.tree == nullptr) return nullptr; 
-    hd.tree->GetEntry(current_entry); 
+    hd.branch->GetEntry(current_entry); 
     hd.loaded_entry = current_entry; 
   }
 
@@ -437,7 +446,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 
     if (full_dataset || opt.partial_skip_incomplete) 
     {
-      wf.tree->GetEntry(current_entry); 
+      wf.branch->GetEntry(current_entry); 
     }
     else
     {
@@ -449,7 +458,7 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
       else
       {
         wf.missing_entry = false; 
-        wf.tree->GetEntry(wf_entry); 
+        wf.branch->GetEntry(wf_entry); 
       }
 
     }
@@ -468,21 +477,21 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   {
     if (full_dataset) 
     {
-      int ds_entry = wf.tree->GetEntryNumberWithBestIndex(header(force)->readout_time); 
+      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(header(force)->readout_time); 
       if (ds_entry < 0) 
       {
         ds.missing_entry = true; 
       }
       else
       {
-        ds.tree->GetEntry(ds_entry); 
+        ds.branch->GetEntry(ds_entry); 
         ds.missing_entry = false; 
 
       }
     }
     else
     {
-      ds.tree->GetEntry(current_entry); 
+      ds.branch->GetEntry(current_entry); 
       ds.missing_entry = false; 
     }
 
@@ -535,7 +544,7 @@ mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 
   if (force || entry != pd.loaded_entry) 
   {
-    pd.tree->GetEntry(entry); 
+    pd.branch->GetEntry(entry); 
     pd.loaded_entry = entry; 
   }
   return pd.ptr; 

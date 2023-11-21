@@ -15,7 +15,7 @@ def silent_load(what):
   return ret
  
 if 'macOS' in currentPlatform:
-    print('macOS detected...')
+    # print('macOS detected...')
     libmattakName = 'libmattak.dylib'
 else: 
     libmattakName = 'libmattak.so'

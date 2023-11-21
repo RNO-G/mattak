@@ -56,7 +56,9 @@ namespace mattak
     public:
       Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions()); 
       Dataset(const DatasetOptions & opt = DatasetOptions()); 
-
+      //data_dir defaults to RNO_G_ROOT_DATA
+      Dataset (int station, int run, const VoltageCalibration * calib = nullptr, const char * data_dir = nullptr, bool partial_skip_incomplete = true, bool verbose = false); 
+      void setVerbose(bool v) { opt.verbose = v; } 
       virtual ~Dataset() { unload() ; }
 
       void setOpt(const DatasetOptions & opt = DatasetOptions()); 
@@ -113,6 +115,7 @@ namespace mattak
       {
         TFile * file = nullptr; 
         TTree * tree = nullptr; 
+        TBranch * branch = nullptr; 
       };
 
       template <typename D> 

@@ -37,7 +37,7 @@ cmake-install:
 $(rootlessdir)/Makefile: 
 	@echo "Setting up rootless cmake build."
 	@mkdir -p $(rootlessdir)
-	@cd $(rootlessdir) && $(CMAKE) -DROOTLESS=yes../ 
+	@cd $(rootlessdir) && $(CMAKE) -DROOTLESS=yes ../ 
 
 
 $(builddir)/Makefile: 

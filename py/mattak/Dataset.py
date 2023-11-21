@@ -24,6 +24,8 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: float  # Sample rate, in GSa/s
+    radiantThrs: numpy.ndarray
+    lowTrigThrs: numpy.ndarray
 
 ##
 class AbstractDataset(ABC):
@@ -102,9 +104,16 @@ class AbstractDataset(ABC):
             Depending on what was passed to setEntries, this may be a single waveform or many
         """
         pass
+    
+    def get_selected_wfs(self, selector: Callable[[EventInfo], bool], calibrated : bool = False) -> Optional[numpy.ndarray]:
+        """ Convenience interface to use selector """
+        return numpy.array([wf for _, wf in self.iterate(start=self.start, stop=self.stop, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto", verbose : bool = False, skip_incomplete : bool = True, preferred_file : str = None) -> Optional[AbstractDataset]:
+def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", 
+            verbose : bool = False, skip_incomplete : bool = True,
+            read_daq_status : bool = True, read_run_info : bool = True
+            preferred_file : Optional[str] = None ) -> Optional[AbstractDataset]:
    """
    This is not a class, but a factory method!
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
@@ -117,6 +126,8 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
    the fakedaq.
 
    verbose prints out things mostly useful for debugging.
+
+   read_daq_status and read_run_info are mostly self-explanatory. 
 
    skip_incomplete affects what happens when a dataset is incomplete
    (telemetered). If True, will only index fully telemetered events. If False,
@@ -158,10 +169,10 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
 
    if backend == "uproot":
         import mattak.backends.uproot.dataset
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, preferred_file)
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
    elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
-        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, preferred_file)
+        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
    else:
        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
        return None
