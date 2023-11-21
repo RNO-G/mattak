@@ -1,5 +1,4 @@
 #include "mattak/VoltageCalibration.h"
-#include "TFile.h"
 #include <iostream>
 #include <stdio.h>
 
@@ -95,6 +94,7 @@ static bool inRange(unsigned low, unsigned high, unsigned x)
 #include "mattak/Pedestals.h"
 
 #include "TLinearFitter.h"
+#include "TFile.h"
 #include "TF1.h"
 #include "TList.h"
 #include "TString.h"
