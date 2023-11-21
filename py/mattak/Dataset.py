@@ -169,9 +169,14 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
    """
 
    if data_dir is None:
-       data_dir = os.environ['RNO_G_DATA']
-       if data_dir is None:
-           data_dir = os.environ['RNO_G_ROOT_DATA']
+       for env_var in ['RNO_G_DATA', 'RNO_G_ROOT_DATA']: 
+           if env_var in os.environ: 
+               data_dir = os.environ[env_var] 
+               break 
+       if data_dir is None:                
+           print("Neither data_dir nor any relevant environmental variable (e.g. RNO_G_DATA) is defined and I don't know where else to look :(")
+           return None 
+
    if backend == "auto":
         try:
             import ROOT
