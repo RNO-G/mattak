@@ -62,19 +62,21 @@ static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
 }
 
 template <typename D> 
-static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0) 
+static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = true) 
 {
   clear(field); 
-  field->file = silentlyTryToOpen(filename,"READ"); 
+  field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ"); 
   if (!field->file) return -1; 
 
   int itry = 0; 
   while(tree_names[itry]) 
   {
     field->tree = (TTree*) field->file->Get(tree_names[itry]); 
+    if (verbose) std::cout << "trying tree " << tree_names[itry] << std::endl; 
     if (!field->tree) 
     {
       field->tree = (TTree*) field->file->Get("combined"); 
+      if (verbose) std::cout << "trying tree combined " << std::endl; 
     }
 
     if (!field->tree) 
@@ -84,6 +86,7 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
     }
 
     const char * branch_name = branch_names ? branch_names[itry] : tree_names[itry]; 
+    if (verbose) std::cout << "trying branch " << branch_name << std::endl; 
     if (!field->tree->GetBranch(branch_name))
     {
       itry++; 
@@ -96,22 +99,23 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
 
     field->branch = field->tree->GetBranch(branch_name); 
     field->branch->SetAddress(&field->ptr); 
+    if (verbose) std::cout << "Found!" << std::endl; 
 
     if (!branch_name[0]) gSystem->RedirectOutput(0,"a",&rh); 
 
     gROOT->cd(); 
     return 0; 
  }
- std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl; 
+ if (verbose) std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl; 
  return -1; 
 
 }
 
 template <typename D> 
-static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name) 
+static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool silent = true) 
 {
   clear(field); 
-  field->file = silentlyTryToOpen(filename,"READ"); 
+  field->file = silent ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ"); 
   if (!field->file) return -1; 
   field->ptr = (D*) field->file->Get(obj_name); 
   gROOT->cd();
@@ -262,12 +266,12 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     opt.partial_skip_incomplete  = true; 
   }
 
-  if (opt.verbose) std::cout << "Opening" << f << std::endl; 
+  if (opt.verbose) std::cout << "Opening " << f << std::endl; 
 
 
-  if (setup(&wf, f, waveform_tree_names, 0) || setup(&hd, f, header_tree_names)); 
+  if (setup(&wf, f, waveform_tree_names, 0, opt.verbose) || setup(&hd, f, header_tree_names, 0, opt.verbose)) 
   {
-    std::cerr << "Could not load waveforms and headers  things from " << f << std::endl; 
+    std::cerr << "Could not load waveforms and headers things from " << f << std::endl; 
     return -1; 
   }
 
@@ -275,7 +279,7 @@ int mattak::Dataset::loadCombinedFile(const char * f)
 
   // Try some optionalish things 
   
-  if (setup(&ds, f, daqstatus_tree_names,0))
+  if (setup(&ds, f, daqstatus_tree_names,0, opt.verbose))
   {
     std:: cerr << "Could not load daqstatus from " << f << " (this is ok if you don't use them) " << std::endl; 
   }
@@ -286,7 +290,7 @@ int mattak::Dataset::loadCombinedFile(const char * f)
 
   //we probably don't have pedetals, but we could try I guess? 
 
-  if (!setup(&pd, f, pedestal_tree_names,0))
+  if (!setup(&pd, f, pedestal_tree_names,0, opt.verbose))
   {
 
     if (opt.verbose) std::cout << "Found pedestals in" << f << std::endl; 
