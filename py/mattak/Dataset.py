@@ -112,7 +112,7 @@ class AbstractDataset(ABC):
 
 def Dataset(station : int, run : int, data_dir : str = None, backend : str= "auto", 
             verbose : bool = False, skip_incomplete : bool = True,
-            read_daq_status : bool = True, read_run_info : bool = True
+            read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None ) -> Optional[AbstractDataset]:
    """
 
