@@ -44,15 +44,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.ds = ROOT.mattak.Dataset(opt)
 
         if data_dir is not None and os.path.isfile(data_dir):
-             self.ds.loadCombinedFile(data_dir)
-
-            self.station = self.ds.header().station_number
-            self.run = self.ds.header().run_number
+            self.ds.loadCombinedFile(data_dir)
         elif (station == 0 and run == 0):
-             self.ds.loadDir(data_dir)
+            self.ds.loadDir(data_dir)
         else:
-             self.ds.loadRun(station,run)
-
+            self.ds.loadRun(station,run)
                     
         self.data_dir = data_dir
         self.setEntries(0)
