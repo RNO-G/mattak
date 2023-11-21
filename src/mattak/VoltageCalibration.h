@@ -110,7 +110,7 @@ namespace mattak
       bool hasBiasScanData;
       bool fit_isUsingResid = true;
       bool left_equals_right;
-    ClassDef(VoltageCalibration, 1);
+    ClassDef(VoltageCalibration, 2);
   };
 #endif
 
