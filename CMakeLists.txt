@@ -126,6 +126,7 @@ if (NOT DEFINED ROOTLESS)
 
   if (LIBRNO_G_SUPPORT) 
   add_program(rno-g-convert) 
+  add_program(rno-g-test-voltage-calibration) 
   add_program(rno-g-readout-elapsed) 
   endif( )
   add_program(rno-g-combine) 

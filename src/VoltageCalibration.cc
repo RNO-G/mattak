@@ -104,6 +104,7 @@ ClassImp(mattak::VoltageCalibration);
 
 
 mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
+  : TObject()
 {
   setupFromTree(tree,branch_name,vref,fit_order,min,max,isUsingResid);
 }
@@ -141,6 +142,7 @@ void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch
 }
 
 mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, double vref, int fit_order, double min, double max, bool isUsingResid)
+: TObject() 
 {
 
   /*
@@ -211,6 +213,21 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
 
 }
 
+mattak::VoltageCalibration::~VoltageCalibration() 
+{
+
+  for (auto g: graph_residAve) delete g; 
+  for (auto ch : graph ) 
+  {
+    for (auto g: ch) 
+    {
+      delete g; 
+    }
+  }
+  for (auto h : hist_resid) delete h; 
+
+
+}
 static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","pol1","pol2","pol3","pol4","pol5","pol6","pol7","pol8","pol9"};
 
 
@@ -588,7 +605,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
       aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
 
-      delete residTablePerSamp_adc;
+      delete []  residTablePerSamp_adc;
     }
 
     // chi2 check for fit quality validation
