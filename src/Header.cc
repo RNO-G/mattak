@@ -5,6 +5,15 @@
 
 ClassImp(mattak::Header); 
 
+bool iscalpulser() {
+  double sysclk_diff = (this->sysclk - this->sysclk_last_pps)%(pow(2,32));
+  if sysclk_diff <= 200*pow(10,3){
+    return True;
+  }
+  else {
+    return False;
+  }
+}
 
 mattak::Header::Header(const rno_g_header_t * head) 
   : mattak::Header() 
@@ -67,16 +76,6 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->trigger_info.lt_info.window = head->lt_simple_trigger_cfg.window;
   this->trigger_info.lt_info.num_coinc = head->lt_simple_trigger_cfg.num_coinc;
   this->trigger_info.lt_info.vppmode = head->lt_simple_trigger_cfg.vpp_mode;
-
-  bool iscalpulser() {
-    double sysclk_diff = (this->sysclk - this->sysclk_last_pps)%(pow(2,32));
-    if sysclk_diff <= 200*pow(10,3){
-      return True;
-    }
-    else {
-      return False;
-    }
-  }
 
 #else
   std::cerr << "Not compiled with librno-g support. "<< std::endl;
