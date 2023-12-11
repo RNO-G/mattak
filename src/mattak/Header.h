@@ -20,6 +20,7 @@ namespace mattak
 
     public: 
       Header() { ; }; 
+      bool iscalpulser(); // return True if event is a cal pulser
       Header(const rno_g_header_t * hdr); 
 
       uint32_t run_number = 0; 
