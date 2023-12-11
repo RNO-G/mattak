@@ -6,13 +6,15 @@
 ClassImp(mattak::Header); 
 
 bool mattak::Header::iscalpulser() {
-  double sysclk_diff = (this->sysclk - this->sysclk_last_pps)%(pow(2,32));
-  if sysclk_diff <= 200*pow(10,3){
-    return True;
-  }
-  else {
-    return False;
-  }
+        uint32_t diff = this->sysclk - this->sysclk_last_pps;
+        unsigned long long two_to_the_32 = 4294967296;
+        uint32_t sysclk_diff = diff%two_to_the_32;
+        if (sysclk_diff <= 200*pow(10,3)) {
+                return true;
+        }
+        else {
+                return false;
+        }
 }
 
 mattak::Header::Header(const rno_g_header_t * head) 
