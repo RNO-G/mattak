@@ -5,7 +5,7 @@
 
 ClassImp(mattak::Header); 
 
-bool iscalpulser() {
+bool mattak::Header::iscalpuser() {
   double sysclk_diff = (this->sysclk - this->sysclk_last_pps)%(pow(2,32));
   if sysclk_diff <= 200*pow(10,3){
     return True;
