@@ -116,7 +116,7 @@ def Dataset(station : int, run : int, data_dir : str = None, backend : str= "aut
    This is not a class, but a factory method!
    Returns a dataset corresponding to the station and run using data_dir as the base. If data_dir is not defined,
    then the environmental variable RNO_G_DATA will be used. The backend can be chosen explicitly or auto will try to
-   use the best one (PyROOT if available, otherwise will rever to uproot).
+   use the best one (PyROOT if available, otherwise will revert to uproot).
 
    There is a special case of setting station = 0 and run = 0 and data_dir will
    be interpreted as a directory containing ROOT files, useful if you don't

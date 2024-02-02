@@ -2,6 +2,7 @@ import os
 import uproot
 import os.path
 import configparser
+import glob
 
 import mattak.Dataset
 import typing
@@ -108,6 +109,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
             self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
             self._hds = self.hd_tree[self.hd_branch]
+
+            # try finding a calibration file in the run directory
+            try:
+                self.cal_file = uproot.open(glob.glob(f"{self.rundir}/volCalConst*.root")[0])
+                if self.__verbose:
+                    print("Opening calibration file")
+            except:  
+                self.cal_file = None
+                if self.__verbose:
+                    print("No calibration file found, continuing without calibration")
             
             if self.__read_daq_status:
                 self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
@@ -140,7 +151,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if self.__read_daq_status:
                     self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
                     self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
-
+                    
             # Get header and daq information from combined file or from full run
             hd_tree = self.combined_tree if skip_incomplete else self.full_head_tree
             self._hds, self.hd_branch = read_tree(hd_tree, header_tree_names)
@@ -244,7 +255,67 @@ class Dataset(mattak.Dataset.AbstractDataset):
     
     def N(self) -> int: 
         return self._hds.num_entries
+    
+    def __unpack_cal_parameters(self, cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
+        """
+        Function that reads out 9th order polynomial parameters from the calibration file
 
+        Returns
+        ---------
+        coef : np.ndarray of shape (24 * 4096, 10)
+        """
+        coef = numpy.stack(cal_file["coeffs_tree/coeff"].array(library = 'np'))   #stack is needed to convert ndarray of ndarrays to 'normally shaped' array, otherwise you have nested ndarrays
+        return coef
+
+    def __unpack_cal_residuals(self, cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
+        """
+        Function that reads out the residuals from the calibration file
+
+        Returns
+        ---------
+        (v_residuals, residuals) : both v_residuals and residuals have shape (points, 2)
+
+        """
+
+        vres_dac1, vres_dac2 = cal_file["aveResid_dac1"].values(axis = 0), cal_file["aveResid_dac2"].values(axis = 0)
+        residual_dac1, residual_dac2 = cal_file["aveResid_dac1"].values(axis = 1), cal_file["aveResid_dac2"].values(axis = 1)
+        return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
+    
+    def __calibrate(self, waveform_array : numpy.ndarray, param : numpy.ndarray, 
+                    vres : numpy.ndarray, res : numpy.ndarray, starting_window : float | int,
+                    fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.01) -> numpy.ndarray:
+        """
+        The calibration function that transforms waveforms from ADC to voltage
+
+        Parameters
+        ------------
+        waveform_array: array of one waveform, expected to have shape (24, 2048)
+        param : the parameters found in the calibration file, expected to have shape (24 * 4096, 10)
+        vres : the voltage points of the residuals
+        res : the ADC values of the residuals
+        starting_window : the sample on which the run started
+        
+        """
+
+        # "discrete" inverse
+        vsamples = numpy.arange(fit_min, fit_max, accuracy)
+        waveform_volt = numpy.zeros((24, 2048))
+        for c, wf_channel in enumerate(waveform_array):
+            starting_window_channel = starting_window[c]
+            # Reordering the parameters to match the correct starting window
+            # (calibration is done per sample)
+            param_channel = param[4096 * c : 4096 * (c + 1)]
+            samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
+            if starting_window_channel >= 16:
+                samples_idx += 2048
+            param_channel = param_channel[samples_idx]
+
+            for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
+                # discrete inverse
+                adcsamples = numpy.polyval(p[::-1], vsamples)
+                volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
+                waveform_volt[c, s] = volt
+        return waveform_volt
 
     def wfs(self, calibrated : bool = False) -> numpy.ndarray: 
         # assert(not calibrated) # not implemented yet 
@@ -278,8 +349,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if len(wf_idxs): 
                 w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop=wf_end, library='np')
 
-        # here we'd eventually handle calibration I think? 
-        if self.multiple: 
+        # calibration
+        if calibrated and self.cal_file:
+            cal_param = self.__unpack_cal_parameters(self.cal_file)
+            cal_residuals_v, cal_residuals_adc = self.__unpack_cal_residuals(self.cal_file)
+            kw = dict(entry_start = self.first, entry_stop = self.last)
+            radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw, library='np')
+            starting_window = radiantStartWindows[0, :, 0]
+            w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window) for ele in w])
+        elif calibrated and not self.cal_file:
+            print(f"No calibration file was found in {self.rundir}, calibration was not applied")
+
+        if self.multiple:
             return w
         
         return None if w is None else w[0] 
