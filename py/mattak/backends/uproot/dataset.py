@@ -261,7 +261,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         Function that reads out 9th order polynomial parameters from the calibration file
 
         Returns
-        ---------
+        -------
         coef : np.ndarray of shape (24 * 4096, 10)
         """
         coef = numpy.stack(cal_file["coeffs_tree/coeff"].array(library = 'np'))   #stack is needed to convert ndarray of ndarrays to 'normally shaped' array, otherwise you have nested ndarrays
@@ -272,34 +272,55 @@ class Dataset(mattak.Dataset.AbstractDataset):
         Function that reads out the residuals from the calibration file
 
         Returns
-        ---------
-        (v_residuals, residuals) : both v_residuals and residuals have shape (points, 2)
+        -------
+        (v_residuals, residuals) : tuple of numpy arrays
+            both v_residuals and residuals have shape (points, 2)
 
         """
 
-        vres_dac1, vres_dac2 = cal_file["aveResid_dac1"].values(axis = 0), cal_file["aveResid_dac2"].values(axis = 0)
-        residual_dac1, residual_dac2 = cal_file["aveResid_dac1"].values(axis = 1), cal_file["aveResid_dac2"].values(axis = 1)
+        vres_dac1 = cal_file["aveResid_dac1"].values(axis = 0)
+        vres_dac2 = cal_file["aveResid_dac2"].values(axis = 0)
+        residual_dac1 = cal_file["aveResid_dac1"].values(axis = 1)
+        residual_dac2 = cal_file["aveResid_dac2"].values(axis = 1)
         return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
     
     def __calibrate(self, waveform_array : numpy.ndarray, param : numpy.ndarray, 
                     vres : numpy.ndarray, res : numpy.ndarray, starting_window : float | int,
-                    fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.01) -> numpy.ndarray:
+                    fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage
 
         Parameters
-        ------------
-        waveform_array: array of one waveform, expected to have shape (24, 2048)
-        param : the parameters found in the calibration file, expected to have shape (24 * 4096, 10)
-        vres : the voltage points of the residuals
-        res : the ADC values of the residuals
-        starting_window : the sample on which the run started
-        
+        ----------
+        waveform_array : array of shape (24, 2048)
+            array of one waveform
+        param : array of shape (24 * 4096, 10)
+            the parameters found in the calibration file
+        vres : array of shape (points, 2)
+            the voltage points of the residuals, shape
+        res : array of shape (points, 2)
+            the ADC values of the residuals
+        starting_window : int | float
+            the sample on which the run started
+        fit_min : float
+            lower bound of original fit used on the bias scan
+        fit_max : float
+            upper bound of original fit used on the bias scan
+        accuracy : float
+            nr of voltage steps in table of the calibration function
+
+        Return
+        ------
+        waveform_volt : array of shape (24, 2048)
+            calibrated waveform in volt
         """
 
         # "discrete" inverse
         vsamples = numpy.arange(fit_min, fit_max, accuracy)
         waveform_volt = numpy.zeros((24, 2048))
+        # residuals split over DACs    
+        res_interp = numpy.interp(vsamples, vres[:, 0], res[:, 0]), numpy.interp(vsamples, vres[:, 1], res[:, 1])
+        
         for c, wf_channel in enumerate(waveform_array):
             starting_window_channel = starting_window[c]
             # Reordering the parameters to match the correct starting window
@@ -312,7 +333,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
                 # discrete inverse
-                adcsamples = numpy.polyval(p[::-1], vsamples)
+                adcsamples = numpy.polyval(p[::-1], vsamples) + res_interp[int(c/12)]
                 volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
                 waveform_volt[c, s] = volt
         return waveform_volt
@@ -355,8 +376,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             cal_residuals_v, cal_residuals_adc = self.__unpack_cal_residuals(self.cal_file)
             kw = dict(entry_start = self.first, entry_stop = self.last)
             radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw, library='np')
-            starting_window = radiantStartWindows[0, :, 0]
-            w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window) for ele in w])
+            starting_window = radiantStartWindows[:, :, 0]
+            w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window[i]) for i,ele in enumerate(w)])
         elif calibrated and not self.cal_file:
             print(f"No calibration file was found in {self.rundir}, calibration was not applied")
 
