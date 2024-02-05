@@ -319,7 +319,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         vsamples = numpy.arange(fit_min, fit_max, accuracy)
         waveform_volt = numpy.zeros((24, 2048))
         # residuals split over DACs    
-        res_interp = numpy.interp(vsamples, vres[:, 0], res[:, 0]), numpy.interp(vsamples, vres[:, 1], res[:, 1])
+        ressamples = (numpy.interp(vsamples, vres[:, 0], res[:, 0]), numpy.interp(vsamples, vres[:, 1], res[:, 1]))
         
         for c, wf_channel in enumerate(waveform_array):
             starting_window_channel = starting_window[c]
@@ -333,7 +333,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
                 # discrete inverse
-                adcsamples = numpy.polyval(p[::-1], vsamples) + res_interp[int(c/12)]
+                adcsamples = numpy.polyval(p[::-1], vsamples) + ressamples[int(c/12)]
                 volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
                 waveform_volt[c, s] = volt
         return waveform_volt
@@ -377,7 +377,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             kw = dict(entry_start = self.first, entry_stop = self.last)
             radiantStartWindows = self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw, library='np')
             starting_window = radiantStartWindows[:, :, 0]
-            w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window[i]) for i,ele in enumerate(w)])
+            w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window[i]) for i, ele in enumerate(w)])
         elif calibrated and not self.cal_file:
             print(f"No calibration file was found in {self.rundir}, calibration was not applied")
 
