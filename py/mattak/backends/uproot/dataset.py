@@ -1,11 +1,11 @@
 import os 
 import uproot
+import errno 
 import os.path
 import configparser
-
 import mattak.Dataset
 import typing
-from typing import Union, Tuple, Optional, Callable, Sequence
+from typing import Union, List, Optional, Tuple, Generator, Callable, Sequence
 import numpy
 import math
 
@@ -41,63 +41,97 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
-                 read_run_info : bool = True):
+                 read_run_info : bool = True, file_preference: Optional[str] = None):
         
         self.backend = "uproot"
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
-        # special case where we load a directory instead of a station/run
-        if station == 0 and run == 0: 
-            self.rundir = data_dir
+        #special case where data_dir is a file
+
+        if os.path.isfile(data_dir): 
+            self.data_dir_is_file = True
+            self.rundir = data_dir 
         else: 
-            self.rundir = "%s/station%d/run%d" % (data_dir, station, run)
+            self.data_dir_is_file = False
+            # special case where we load a directory instead of a station/run
+            if station == 0 and run == 0: 
+                self.rundir = data_dir
+            else: 
+                self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+
+
+
+        if (skip_incomplete == False  and self.data_dir_is_file):
+            print("skip_incomplete = false is incompatible with data_dir as file"); 
+            skip_incomplete = True 
 
         self.skip_incomplete = skip_incomplete 
 
         # this duplicates a bunch of C++ code in mattak::Dataset
         # check for full or partial run by looking for waveforms.root
         # Only open files/trees, do not access data
-        try:
-            self.full = True
 
-            self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-            if self.__verbose: 
-                print("Open waveforms.root (Found full run folder) ...")
-            
-            self.combined_tree = None
-            
-            self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
-            self._wfs = self.wf_tree[self.wf_branch]
-            
-            self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
-            self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
-            self._hds = self.hd_tree[self.hd_branch]
-            
-            if self.__read_daq_status:
-                self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
-                self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
-                self._dss = self.ds_tree[self.ds_branch]
+        self.combined_tree = None 
 
-        except: 
-            self.full = False
+        # check for a preference
+        if (file_preference is not None and file_preference != "") or self.data_dir_is_file: 
+            preferred_file = "%s:combined" % (self.rundir) if self.data_dir_is_file  else "%s/%s.root:combined" %(self.rundir, file_preference) 
+            try: 
+                self.combined_tree = uproot.open(preferred_file)
+                if verbose: 
+                    print ("Found preferred file %s" % (preferred_file))
+                    print (self.combined_tree)
+                self.full = False
+            except Exception:
+                # can't recover from this 
+                if self.data_dir_is_file: 
+                    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.rundir)
+                print ("Could not find preferred file %s. Falling back to normal behavior" % (preferred_file))
 
-            self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
-            if self.__verbose: 
-                print("Open combined.root ...")
-                
-            self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
 
-            if not skip_incomplete:
-                
-                # build an index of the waveforms we do have
+        
+
+        #if we didn't load the combined_tree already , try to load full tree 
+        if self.combined_tree is None:
+            try:
+                self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
+                if self.__verbose:
+                    print ("Open waveforms.root (Found full run folder) ...") 
+
+                self.combined_tree = None
+                self.full = True
+
+                self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
+                self._wfs = self.wf_tree[self.wf_branch]
+
+                self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
+                self.hd_tree,self.hd_branch = read_tree(self.hd_file, header_tree_names); 
+                self._hds = self.hd_tree[self.hd_branch]
+
+                if self.__read_daq_status:
+                    self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
+                    self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
+                    self._dss = self.ds_tree[self.ds_branch]
+            except Exception: 
+                self.full = False
+
+        # we haven't already loaded the full tree
+        if not self.full:   
+            if self.combined_tree is None: # we didn't already load our preference
+                self.combined_tree = uproot.open("%s/combined.root:combined" %(self.rundir))
+                if self.__verbose: 
+                    print ("Found combined file")
+                    print (self.combined_tree)
+ 
+            # build an index of the waveforms we do have
+            if not self.skip_incomplete: 
                 wfs_included = self._wfs['event_number'].array() 
                 self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
-                
-                # Open header and daqstatus files to get information of all events!
+
                 self.full_head_file = uproot.open("%s/headers.root" % (self.rundir))
-                self.full_head_tree, _ = read_tree(self.full_head_file, header_tree_names)
+                self.full_head_tree,_ = read_tree(self.full_head_file, header_tree_names)
                 
                 if self.__read_daq_status:
                     self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
@@ -109,9 +143,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 
             if self.__read_daq_status:
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
-                self._dss, self.ds_branch = read_tree(ds_tree, daqstatus_tree_names)
+                self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names) 
 
-        if station == 0 and run == 0: 
+        if station == 0 and run == 0 or self.data_dir_is_file: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
             self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
 
@@ -204,8 +238,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int: 
         return self._hds.num_entries
 
-
-    def wfs(self, calibrated : bool = False) -> numpy.ndarray: 
+    def wfs(self, calibrated : bool =False) -> Optional[numpy.ndarray]: 
         # assert(not calibrated) # not implemented yet 
 
         w = None 
@@ -238,17 +271,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop=wf_end, library='np')
 
         # here we'd eventually handle calibration I think? 
+
         if self.multiple: 
             return w
-        
         return None if w is None else w[0] 
-    
-    
-    def _iterate(self, start, stop, calibrated, max_in_mem,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
 
-        # cache current values given by setEntries(..)
-        original_entry = (self.first, self.last) if self.multiple else self.entry
+    def _iterate(self, start : int , stop : int , calibrated: bool,  max_in_mem : int, 
+                 selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+
+       # cache current values given by setEntries(..)
+        original_entry : Union[int, Tuple[int,int]] = (self.first, self.last) if self.multiple else self.entry
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
@@ -275,11 +307,4 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
-            
-
-
-
-
-
-
 
