@@ -1,7 +1,7 @@
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
-from typing import Sequence, Union, Tuple, Optional, Callable
+from typing import Sequence, Union, Tuple, Optional, Callable, Generator
 import numpy
 import os
 try:
@@ -26,49 +26,48 @@ def isNully(p):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, 
-                 verbose : bool = False, skip_incomplete : bool = True, 
+    def __init__(self, station : int, run : int, data_dir : str,
+                 verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
-                 voltage_calibration = ROOT.nullptr):
-        
+                 voltage_calibration = ROOT.nullptr, preferred_file : Optional[str] = None):
+
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
-        
-        # For some mysterious reason that does not work (calibration returns non-sense) 
+
+        # For some mysterious reason that does not work (calibration returns non-sense)
         # if isinstance(voltage_calibration, str):
         #     print(voltage_calibration)
         #     vc = ROOT.mattak.VoltageCalibration()
         #     vc.readFitCoeffsFromFile(voltage_calibration)
         #     voltage_calibration = vc
 
-        #special case where we load a directory instead of a station/run
-        if station == 0 and run == 0:
-            if verbose:
-                print("Trying to load data dir!")
-                
-            self.ds = ROOT.mattak.Dataset()
-            self.ds.setVerbose(verbose)
-            if os.path.isfile(data_dir):
-                print("test")
-                self.ds.loadFile(data_dir, skip_incomplete)
-            else:
-                self.ds.loadDir(data_dir, skip_incomplete)
-                
-            self.station = self.ds.header().station_number
-            self.run = self.ds.header().run_number
-            self.ds.setCalibration(voltage_calibration)
+        opt = ROOT.mattak.DatasetOptions()
 
-            if verbose:
-                print("We think we found station %d run %d" % (self.station,self.run))
+        opt.partial_skip_incomplete = skip_incomplete
+        opt.verbose = verbose
+        if preferred_file is not None and preferred_file != "":
+            opt.file_preference = preferred_file
 
+        if voltage_calibration != ROOT.nullptr:
+            opt.calib = voltage_calibration
+
+        self.ds = ROOT.mattak.Dataset(opt)
+
+        if data_dir is not None and os.path.isfile(data_dir):
+            self.ds.loadCombinedFile(data_dir)
+        elif (station == 0 and run == 0):
+            self.ds.loadDir(data_dir)
         else:
-            self.ds = ROOT.mattak.Dataset(station, run, voltage_calibration, data_dir, skip_incomplete, verbose)
-            self.station = station
-            self.run = run
-                    
+            self.ds.loadRun(station, run)
+
         self.data_dir = data_dir
         self.setEntries(0)
+        self.station = self.ds.header().station_number
+        self.run = self.ds.header().run_number
+
+        if verbose:
+            print("We think we found station %d run %d" % (self.station,self.run))
 
     def N(self) -> int:
         return self.ds.N()
@@ -77,9 +76,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         #TODO: handle this in C++ code if it's too slow in Python
         if not self.ds.setEntry(i):
             return None
-        
+
         hdr = self.ds.header()
-        
+
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
@@ -87,23 +86,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             radiantThrs = None
             lowTrigThrs = None
-            
+
         if self.__read_run_info:
             runinfo = self.ds.info()
-            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2 
+            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2
         else:
             sampleRate = None
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
-        
+
         station = hdr.station_number
         run = hdr.run_number
         eventNumber = hdr.event_number
         readoutTime = hdr.readout_time
         triggerTime = hdr.trigger_time
         triggerType = "UNKNOWN"
-        
+
         if hdr.trigger_info.radiant_trigger:
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
@@ -142,7 +141,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             infos = []
             for i in range(self.first, self.last):
                 infos.append(self._eventInfo(i))
-            
+
             return infos
 
         return self._eventInfo(self.entry)
@@ -152,11 +151,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
         if isNully(wf):
             return None
-        
+
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24,2048)
 
 
-    def wfs(self, calibrated : bool=False) -> numpy.ndarray:
+    def wfs(self, calibrated : bool=False) -> Optional[numpy.ndarray]:
 
         # the simple case first
         if not self.multiple:
@@ -173,26 +172,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         return out
 
-    # ignore max_in_mem since it doesn't save much time for us...
-    def _iterate(self, start, stop, calibrated, max_in_mem,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Tuple[mattak.Dataset.EventInfo, numpy.ndarray]:
+
+    def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
+                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
 
         if selector is not None:
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
-                if selector(evinfo):
+                if evinfo is not None and selector(evinfo):
                     yield evinfo, self._wfs(i, calibrated)
         else:
             for i in range(start, stop):
                 yield self._eventInfo(i), self._wfs(i, calibrated)
         return
-
-
-
-
-
-
-
-
-
-
