@@ -41,7 +41,7 @@ def read_tree(ur_file, tree_names):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir_file : str, verbose : bool = False,
+    def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, file_preference: Optional[str] = None):
         """
@@ -56,8 +56,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         run: int
             Run number of the data to be read
 
-        data_dir_file: str
-            Path of the data directory or file
+        data_path: str
+            Path of the run directory or root file
 
         verbose: bool
             Enable verbose debug log
@@ -78,23 +78,20 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
-        #special case where data_dir is a file
-
-        if os.path.isfile(data_dir):
+        # special case where data_dir is a file
+        if os.path.isfile(data_path):
             self.data_dir_is_file = True
-            self.rundir = data_dir
+            self.rundir = data_path
         else:
             self.data_dir_is_file = False
             # special case where we load a directory instead of a station/run
             if station == 0 and run == 0:
-                self.rundir = data_dir
+                self.rundir = data_path
             else:
-                self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+                self.rundir = f"{data_path}/station{station}/run{run}"
 
-
-
-        if (skip_incomplete == False  and self.data_dir_is_file):
-            print("skip_incomplete = false is incompatible with data_dir as file");
+        if skip_incomplete is False  and self.data_dir_is_file:
+            print("skip_incomplete = false is incompatible with data_dir as file")
             skip_incomplete = True
 
         self.skip_incomplete = skip_incomplete
@@ -107,21 +104,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # check for a preference
         if (file_preference is not None and file_preference != "") or self.data_dir_is_file:
-            preferred_file = "%s:combined" % (self.rundir) if self.data_dir_is_file  else "%s/%s.root:combined" %(self.rundir, file_preference)
+            preferred_file = f"{self.rundir}:combined" if self.data_dir_is_file \
+                else f"{self.rundir}/{file_preference}.root:combined"
             try:
                 self.combined_tree = uproot.open(preferred_file)
                 if verbose:
-                    print ("Found preferred file %s" % (preferred_file))
-                    print (self.combined_tree)
+                    print(f"Found preferred file {preferred_file}")
+                    print(self.combined_tree)
                 self.full = False
             except Exception:
                 # can't recover from this
                 if self.data_dir_is_file:
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.rundir)
-                print ("Could not find preferred file %s. Falling back to normal behavior" % (preferred_file))
-
-
-
+                print(f"Could not find preferred file {preferred_file}. Falling back to normal behavior")
 
         #if we didn't load the combined_tree already , try to load full tree
         if self.combined_tree is None:
@@ -178,13 +173,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if station == 0 and run == 0 or self.data_dir_is_file:
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
             self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
-
         else:
             self.station = station
             self.run = run
-
-        self.data_dir = data_dir_file
-        self.setEntries(0)
 
         self.run_info = None
         if self.__read_run_info and self.runfile is None:
@@ -198,6 +189,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     config = configparser.ConfigParser()
                     config.read_string('[dummy]\n' + fruninfo.read())
                     self.run_info = config['dummy']
+
+        self.setEntries(0)
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
