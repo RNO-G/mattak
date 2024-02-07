@@ -78,6 +78,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
+
+        # try finding a calibration file in the run directory
+        calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
+        if len(calibration_files):
+            self.cal_file = uproot.open(calibration_files[0])
+            if self.__verbose:
+                print("Opening calibration file")
+        else:
+            self.cal_file = None
+            if self.__verbose:
+                print("No calibration file found, continuing without calibration")
+
         # special case where data_dir is a file
         if os.path.isfile(data_path):
             self.data_dir_is_file = True
