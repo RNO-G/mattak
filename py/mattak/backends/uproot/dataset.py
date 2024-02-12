@@ -124,7 +124,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if self.__verbose: 
                     print ("Found combined file")
                     print (self.combined_tree)
- 
+
+            self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
+
             # build an index of the waveforms we do have
             if not self.skip_incomplete: 
                 wfs_included = self._wfs['event_number'].array() 
@@ -136,6 +138,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if self.__read_daq_status:
                     self.full_daq_file = uproot.open("%s/daqstatus.root" % (self.rundir))
                     self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
+
 
             # Get header and daq information from combined file or from full run
             hd_tree = self.combined_tree if skip_incomplete else self.full_head_tree
