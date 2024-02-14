@@ -43,7 +43,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
-                 read_run_info : bool = True, file_preference: Optional[str] = None):
+                 read_run_info : bool = True, preferred_file : Optional[str] = None,
+                 voltage_calibration : Optional[str] = None):
         """
         Uproot backend for the python interface of the mattak Dataset
 
@@ -103,9 +104,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.combined_tree = None
 
         # check for a preference
-        if (file_preference is not None and file_preference != "") or self.data_dir_is_file:
+        if (preferred_file is not None and preferred_file != "") or self.data_dir_is_file:
             preferred_file = f"{self.rundir}:combined" if self.data_dir_is_file \
-                else f"{self.rundir}/{file_preference}.root:combined"
+                else f"{self.rundir}/{preferred_file}.root:combined"
             try:
                 self.combined_tree = uproot.open(preferred_file)
                 if verbose:
@@ -192,9 +193,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         self.setEntries(0)
+        print(voltage_calibration)
+        if voltage_calibration is None:
+            # try finding a calibration file in the run directory
+            calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
+        elif isinstance(voltage_calibration, str):
+            calibration_files = [voltage_calibration]
+        else:
+            raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
 
-        # try finding a calibration file in the run directory
-        calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
         if len(calibration_files):
             self.cal_file = uproot.open(calibration_files[0])
             if self.__verbose:

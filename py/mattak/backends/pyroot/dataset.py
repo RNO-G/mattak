@@ -1,7 +1,7 @@
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
-from typing import Sequence, Union, Tuple, Optional, Callable, Generator
+from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
 import os
 try:
@@ -17,19 +17,19 @@ except AttributeError:
     cppyy.gbl.free = cppyy.gbl.freee
     import cppyy.ll
 
-
-cppyy.cppdef(" bool is_nully(void *p) { return !p; }");
-
+cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or  cppyy.gbl.is_nully(p)
+
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_dir : str,
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
-                 voltage_calibration = ROOT.nullptr, preferred_file : Optional[str] = None):
+                 preferred_file : Optional[str] = None,
+                 voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None):
 
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status
@@ -46,7 +46,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if data_dir is not None and os.path.isfile(data_dir):
             self.ds.loadCombinedFile(data_dir)
-        elif (station == 0 and run == 0):
+        elif station == 0 and run == 0:
             self.ds.loadDir(data_dir)
         else:
             self.ds.loadRun(station, run)

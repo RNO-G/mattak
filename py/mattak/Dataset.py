@@ -2,7 +2,7 @@
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Sequence, Union, Tuple, Optional, Generator, Callable
+from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
 import numpy
 import logging
 
@@ -118,7 +118,8 @@ class AbstractDataset(ABC):
 def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto",
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
-            preferred_file : Optional[str] = None, voltage_calibration : Optional = None) -> Optional[AbstractDataset]:
+            preferred_file : Optional[str] = None,
+            voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None) -> Optional[AbstractDataset]:
     """
 
     This is not a class, but a factory method! This is meant to be the interface
@@ -202,7 +203,8 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     if backend == "uproot":
         import mattak.backends.uproot.dataset
         return mattak.backends.uproot.dataset.Dataset(
-            station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
+            station, run, data_dir, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
+            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
 
     elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
