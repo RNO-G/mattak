@@ -255,14 +255,14 @@ int mattak::Dataset::loadDir(const char * dir, const DatasetOptions & opt)
 
 int mattak::Dataset::loadFile(const char * file, bool partial_skip)
 {
-  if (verbose) std::cout << "mattak::Dataset::loadFile (" << file  << ", " << partial_skip << ") called" << std::endl;
-  skip_incomplete = partial_skip;
+  if (opt.verbose) std::cout << "mattak::Dataset::loadFile (" << file  << ", " << partial_skip << ") called" << std::endl;
+  opt.partial_skip_incomplete = partial_skip;
 
   //first clear all
   unload();
   current_entry = 0;
 
-  if (verbose) std::cout << "about to load waveforms " << std::endl;
+  if (opt.verbose) std::cout << "about to load waveforms " << std::endl;
 
   // let's load waveforms from (combined) file. If it fails abort
   if (setup(&wf, file, waveform_tree_names))
@@ -274,13 +274,13 @@ int mattak::Dataset::loadFile(const char * file, bool partial_skip)
 
   full_dataset = false;
 
-  if (verbose) std::cout << "about to load headers ...";
+  if (opt.verbose) std::cout << "about to load headers ...";
   // now load the header files
   if (setup(&hd, file, header_tree_names)) {
     std::cerr << "Failed to find headers in " << file << std::endl;
     return -1;
   }
-  if (verbose) std::cout << " success" << std::endl;
+  if (opt.verbose) std::cout << " success" << std::endl;
 
   if (!full_dataset && !partial_skip)
   {
@@ -288,20 +288,20 @@ int mattak::Dataset::loadFile(const char * file, bool partial_skip)
     wf.tree->BuildIndex("event_number");
   }
 
-  if (verbose) std::cout << "about to load daqstatus ...";
+  if (opt.verbose) std::cout << "about to load daqstatus ...";
   // and the status files
   if (setup(&ds, file, daqstatus_tree_names)) {
     std::cerr << "Failed to find daqstatus in " << file << std::endl;
     return -1;
   }
-  if (verbose) std::cout << " success" << std::endl;
+  if (opt.verbose) std::cout << " success" << std::endl;
 
   if (full_dataset)
   {
     ds.tree->BuildIndex("readout_time_radiant");
   }
 
-  // if (verbose) std::cout << "about to load pedestal ...";
+  // if (opt.verbose) std::cout << "about to load pedestal ...";
   // // and the pedestal files
   // if (setup(&pd,
   //     Form("%s/pedestal.root", dir),
@@ -310,13 +310,13 @@ int mattak::Dataset::loadFile(const char * file, bool partial_skip)
   //   std::cerr << "Failed to find pedestal.root in " <<dir << std::endl;
   //   return -1;
   // }
-  // if (verbose) std::cout << " success" << std::endl;
+  // if (opt.verbose) std::cout << " success" << std::endl;
 
-  // if (verbose) std::cout << "about to load runinfo ...";
+  // if (opt.verbose) std::cout << "about to load runinfo ...";
   // //and try the runinfo file
   // setup(&runinfo, Form("%s/runinfo.root", dir),"info");
 
-  if (verbose) std::cout << " success" << std::endl;
+  if (opt.verbose) std::cout << " success" << std::endl;
   return 0;
 }
 

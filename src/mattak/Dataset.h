@@ -78,7 +78,8 @@ namespace mattak
       Dataset (int station, int run, const VoltageCalibration * calib, const char * base_data_dir = nullptr, bool partial_skip_incomplete = true, bool verbose = false);
       Dataset (const char * data_dir);
       int loadRun(int station, int run, bool partial_skip_incomplete);
-      int loadDir(const char * dir, bool partial_skip_incomplete );
+      int loadDir(const char * dir, bool partial_skip_incomplete);
+      int loadFile(const char * file, bool partial_skip_incomplete);
       void setDataDir(const char * dir);
 
 
