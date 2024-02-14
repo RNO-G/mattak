@@ -31,17 +31,18 @@ jobs:
       id: cache-root
       uses: actions/cache@v4
       with:
-        path: root
+        path: root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
         key: ${{ runner.os }}
     - name: Download ROOT
       if: steps.cache-root.outputs.cache-hit != 'true'
       run: |
         wget https://root.cern/download/root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
-        tar -xzvf root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
     - name: Install ROOT
       run: |
         sudo apt-get install dpkg-dev cmake g++ gcc binutils libx11-dev libxpm-dev libxft-dev libxext-dev python3 libssl-dev libafterimage0
+        tar -xzf root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
         source root/bin/thisroot.sh
     - name: Test installation (ROOT)
-      run:
+      run: |
+        source root/bin/thisroot.sh
         pip install -v .
