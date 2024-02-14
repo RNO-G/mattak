@@ -8,6 +8,9 @@ sdist.include = ['CMakeLists.txt']
 wheel.packages = ['src', "py/mattak"]
 wheel.install-dir = "mattak"
 
+[tool.scikit-build.cmake.define]
+RNO_G_INSTALL_DIR = {env="RNO_G_INSTALL_DIR", default="./build"}
+
 [project]
 name = "mattak"
 version = "0.1"

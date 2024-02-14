@@ -5,7 +5,7 @@ import os
 from mattak import __path__ as mattak_path
 
 # this is where pip puts the compiled files
-mattak_path = os.path.join(mattak_path[0], 'installed/lib/')
+mattak_path = os.path.join(mattak_path[0], 'build/lib/')
 
 loaded = False
 loaded_path = None
