@@ -24,9 +24,24 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
           ${{ runner.os }}-
+    - name: Cache sample file
+      id: cache-sample-file
+      uses: actions/cache@v4
+      with:
+        path: tests/data
+        key: data
+    - name: Download sample file
+      if: steps.cache-sample-file.outputs.cache-hit != 'true'
+      run: |
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/forced_triggers/station23_run325.root
+        mkdir -p tests/data/station23/run325
+        mv station23_run325.root tests/data/station23/run325/combined.root
     - name: Test installation (ROOTless)
       run: |
         pip install -v .
+    - name: Read a sample file (ROOTless)
+      run: |
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
     - name: Cache ROOT
       id: cache-root
       uses: actions/cache@v4
@@ -46,3 +61,7 @@ jobs:
       run: |
         source root/bin/thisroot.sh
         pip install -v .
+    - name: Read a sample file (ROOT)
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot
