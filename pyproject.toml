@@ -3,8 +3,6 @@ requires = ["scikit-build-core", "pybind11"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
-sdist.cmake = true
-sdist.include = ['CMakeLists.txt']
 wheel.packages = ['src', "py/mattak"]
 wheel.install-dir = "mattak"
 
@@ -14,3 +12,7 @@ RNO_G_INSTALL_DIR = {env="RNO_G_INSTALL_DIR", default="./build"}
 [project]
 name = "mattak"
 version = "0.1"
+authors = [{name="Cosmin Deaconu, email=<cozzyd@kicp.uchicago.edu>"}]
+homepage = "https://github.com/RNO-G/mattak"
+readme = "README.md"
+description = "Mattak is (will eventually be) a multilingual package containing readers and helpers for RNO-G in C++, Python (via both uproot and PyROOT) and maybe even JS (via rootjs)."
