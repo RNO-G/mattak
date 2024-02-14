@@ -1,0 +1,13 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+sdist.cmake = true
+sdist.include = ['CMakeLists.txt']
+wheel.packages = ['src', "py/mattak"]
+wheel.install-dir = "mattak"
+
+[project]
+name = "mattak"
+version = "0.1"
