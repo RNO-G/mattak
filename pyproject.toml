@@ -8,7 +8,6 @@ wheel.install-dir = "mattak"
 
 [tool.scikit-build.cmake.define]
 PIP_INSTALLATION = true
-#RNO_G_INSTALL_DIR = {env="RNO_G_INSTALL_DIR", default="./build"}
 
 [project]
 name = "mattak"
@@ -17,3 +16,4 @@ authors = [{name="Cosmin Deaconu, email=<cozzyd@kicp.uchicago.edu>"}]
 homepage = "https://github.com/RNO-G/mattak"
 readme = "README.md"
 description = "Mattak is (will eventually be) a multilingual package containing readers and helpers for RNO-G in C++, Python (via both uproot and PyROOT) and maybe even JS (via rootjs)."
+dependencies = ["numpy"]
