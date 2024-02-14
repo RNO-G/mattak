@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable
 import numpy
+import logging
 
 
 @dataclass
@@ -49,9 +50,12 @@ class AbstractDataset(ABC):
                 self.last += self.N()
 
             if self.last > self.N():
+                logging.warning("You specified a range which is larger than the amount of events stored in this dataset.")
                 self.last = self.N()
         else:
             self.multiple = False
+            if i >= self.N() or i < 0:
+                raise ValueError(f"The entry you specified \"{i}\" does not exist.")
             self.entry = i
             self.first = i
             self.last = i + 1
