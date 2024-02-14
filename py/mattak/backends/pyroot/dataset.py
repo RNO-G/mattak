@@ -35,22 +35,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
-        # For some mysterious reason that does not work (calibration returns non-sense)
-        # if isinstance(voltage_calibration, str):
-        #     print(voltage_calibration)
-        #     vc = ROOT.mattak.VoltageCalibration()
-        #     vc.readFitCoeffsFromFile(voltage_calibration)
-        #     voltage_calibration = vc
-
         opt = ROOT.mattak.DatasetOptions()
 
         opt.partial_skip_incomplete = skip_incomplete
         opt.verbose = verbose
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
-
-        if voltage_calibration != ROOT.nullptr:
-            opt.calib = voltage_calibration
 
         self.ds = ROOT.mattak.Dataset(opt)
 
@@ -60,6 +50,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.ds.loadDir(data_dir)
         else:
             self.ds.loadRun(station, run)
+
+        if voltage_calibration not in [ROOT.nullptr, None]:
+            if isinstance(voltage_calibration, str):
+                vc = ROOT.mattak.VoltageCalibration()
+                vc.readFitCoeffsFromFile(voltage_calibration)
+                voltage_calibration = vc
+
+            self.ds.setCalibration(voltage_calibration)
+            self.has_calib = True
+        else:
+            self.has_calib = False
 
         self.data_dir = data_dir
         self.setEntries(0)
@@ -147,6 +148,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return self._eventInfo(self.entry)
 
     def _wfs(self, i : int, calibrated: bool = False):
+        if calibrated and not self.has_calib:
+            raise ValueError("No calibration available")
+
         self.ds.setEntry(i)
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
         if isNully(wf):

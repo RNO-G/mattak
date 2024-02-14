@@ -78,18 +78,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
-
-        # try finding a calibration file in the run directory
-        calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
-        if len(calibration_files):
-            self.cal_file = uproot.open(calibration_files[0])
-            if self.__verbose:
-                print("Opening calibration file")
-        else:
-            self.cal_file = None
-            if self.__verbose:
-                print("No calibration file found, continuing without calibration")
-
         # special case where data_dir is a file
         if os.path.isfile(data_path):
             self.data_dir_is_file = True
@@ -190,6 +178,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.run = run
 
         self.run_info = None
+        self.runfile = None
         if self.__read_run_info and self.runfile is None:
             # try to get the run info, if we're using combined tree, try looking in there
             # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
@@ -203,6 +192,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         self.setEntries(0)
+
+        # try finding a calibration file in the run directory
+        calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
+        if len(calibration_files):
+            self.cal_file = uproot.open(calibration_files[0])
+            if self.__verbose:
+                print("Opening calibration file")
+        else:
+            self.cal_file = None
+            if self.__verbose:
+                print("No calibration file found, continuing without calibration")
+
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -282,6 +283,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         coef : np.ndarray of shape (24 * 4096, 10)
         """
         coef = numpy.stack(cal_file["coeffs_tree/coeff"].array(library = 'np'))   #stack is needed to convert ndarray of ndarrays to 'normally shaped' array, otherwise you have nested ndarrays
+        # print(coef, coef.shape)
         return coef
 
     def __unpack_cal_residuals(self, cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
@@ -397,6 +399,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             w = numpy.array([self.__calibrate(ele, cal_param, cal_residuals_v, cal_residuals_adc,  starting_window[i]) for i, ele in enumerate(w)])
         elif calibrated and not self.cal_file:
             print(f"No calibration file was found in {self.rundir}, calibration was not applied")
+
+        w = numpy.asarray(w, dtype=float)
 
         if self.multiple:
             return w
