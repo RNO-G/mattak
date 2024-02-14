@@ -8,15 +8,20 @@ if (NOT DEFINED ROOTLESS)
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
   find_package(ROOT COMPONENTS Matrix Minuit)
   if( ROOT_FOUND)
+    set(ROOTLESS FALSE)
     set(libname mattak)
     set(DICTNAME G__${libname})
 
-    option(RNO_G_INSTALL_DIR "Target installation path" /usr/local/lib)
-    if(DEFINED ENV{RNO_G_INSTALL_DIR})
+    option(PIP_INSTALLATION "Used by scikit-build-core to set correct default installation path" OFF)
+
+    if(PIP_INSTALLATION)
+      set(RNO_G_INSTALL_DIR ./build)
+    elseif(DEFINED ENV{RNO_G_INSTALL_DIR})
       message("RNO_G_INSTALL_DIR is set to $ENV{RNO_G_INSTALL_DIR}")
-      set(RNO_G_INSTALL_DIR, $ENV{RNO_G_INSTALL_DIR})
-    elif(RNO_G_INSTALL_DIR EQUALS /usr/local/lib)
-      message("Will install to /usr/local  RNO_G_INSTALL_DIR not set")
+      set(RNO_G_INSTALL_DIR $ENV{RNO_G_INSTALL_DIR})
+    else()
+      message(WARNING "Will install to /usr/local  RNO_G_INSTALL_DIR not set")
+      set(RNO_G_INSTALL_DIR "/usr/local")
     endif()
 
     set(UTIL_LIB_DIR ${RNO_G_INSTALL_DIR}/lib)
@@ -92,7 +97,7 @@ if (NOT DEFINED ROOTLESS)
       RUNTIME DESTINATION ${UTIL_BIN_DIR}
       )
 
-    install (FILES build/lib${libname}_rdict.pcm DESTINATION ${UTIL_LIB_DIR} )
+    install (FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${libname}_rdict.pcm DESTINATION ${UTIL_LIB_DIR} )
 
 
     if (LIBRNO_G_SUPPORT)
