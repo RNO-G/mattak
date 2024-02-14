@@ -1,6 +1,4 @@
 ### Python dataset class, agnostic to backend
-
-import ROOT
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -27,7 +25,10 @@ class EventInfo:
 
 
 class AbstractDataset(ABC):
-    """ Abstract Base Class for accessing RNO-G data in Python , implemented either with uproot or PyROOT"""
+    """
+    Abstract Base Class for accessing RNO-G data in Python, implemented either with uproot or PyROOT.
+    To see how to initalize a dataset object see the fuction `Dataset` defined below.
+    """
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
@@ -62,7 +63,9 @@ class AbstractDataset(ABC):
 
 
     @abstractmethod
-    def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int, selector: Optional[Callable[[EventInfo],bool]]) -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]],None,None]:
+    def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
+                 selector: Optional[Callable[[EventInfo], bool]]) \
+                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ implementation-defined part of iterator"""
         pass
 
@@ -118,22 +121,22 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     to rule them all for loading RNO-G data. Due to Cosmin's poor initial API
     design, it has become perhaps more complicated than it should be.
 
-    If data_dir is a directory and station/run are non-zero, this returns a
-    dataset corresponding to the station and run using data_dir as the base
-    directory (i.e. the folder hierarcy is structured something likelike
-    ${data_dir}/stationX/runY/*.root). If data_dir is None, then the
-    environmental variable RNO_G_DATA (or RNO_G_ROOT_DATA) will be queried and
-    the run loaded from that base. data_dir can also be a URL for loading of
-    files via HTTP (e.g. https://user:password@example.com/rno-g-data), though
+    If `data_dir` is a directory and `station` or `run` are non-zero, this returns a
+    dataset corresponding to the station and run using `data_dir` as the base
+    directory (i.e. the folder hierarcy is structured something like
+    `${data_dir}/stationX/runY/*.root`). If `data_dir` is None, then the
+    environmental variable `RNO_G_DATA` (or `RNO_G_ROOT_DATA`) will be queried and
+    the run loaded from that base. `data_dir` can also be a URL for loading of
+    files via HTTP (e.g. `https://user:password@example.com/rno-g-data`), though
     there may be some subtleties about escaping passwords that may differ
     betweeen different backends.
 
-    In the special case of setting station = 0 and run = 0, data_dir
+    In the special case of setting `station = 0` and `run = 0`, `data_dir`
     will be interpreted as a directory containing ROOT files, which is useful if
     you don't have the full directory hierarchy setup or want to look at data
     taken with the fakedaq.
 
-    If data_dir is, despite its name, a file rather than directory, then that
+    If `data_dir` is, despite its name, a file rather than directory, then that
     file will be attempted to be loaded as a combined file. Really it should
     be called data_source, changing the parameter name will break the API and
     we'll try hard not to do that.
@@ -163,7 +166,6 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     a file that is only forced triggers) this provides an arguably convenient
     way to load those.
 
-
     """
 
     if data_dir is None:
@@ -172,7 +174,8 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
                 data_dir = os.environ[env_var]
                 break
         if data_dir is None:
-            print("Neither data_dir nor any relevant environmental variable (e.g. RNO_G_DATA) is defined and I don't know where else to look :(")
+            print("Neither data_dir nor any relevant environmental variable (e.g. RNO_G_DATA) "
+                    "is defined and I don't know where else to look :(")
             return None
 
     if backend == "auto":
@@ -196,6 +199,7 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
         import mattak.backends.uproot.dataset
         return mattak.backends.uproot.dataset.Dataset(
             station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
+
     elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
         return mattak.backends.pyroot.dataset.Dataset(
