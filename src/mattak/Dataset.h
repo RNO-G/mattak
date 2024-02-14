@@ -99,7 +99,7 @@ namespace mattak
 
       bool isFullDataset() const { return full_dataset; }
       void setCalibration(const VoltageCalibration * calib);
-      const VoltageCalibration * getCalibration() const { return calib; }
+      const VoltageCalibration * getCalibration() const { return opt.calib; }
 
 
       template <typename D>
@@ -142,7 +142,6 @@ namespace mattak
       void unload();
       int current_entry = 0;
 
-      const VoltageCalibration * calib = nullptr;
       bool full_dataset ;
       DatasetOptions opt;
 

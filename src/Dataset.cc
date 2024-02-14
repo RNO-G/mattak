@@ -62,7 +62,7 @@ static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
 }
 
 template <typename D>
-static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = true)
+static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = false)
 {
   clear(field);
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
@@ -470,7 +470,7 @@ int mattak::Dataset::loadDir(const char * dir)
        Form("%s/pedestal.root", dir),
        pedestal_tree_names) )
   {
-    std::cerr << "Failed to find pedestal.root in " <<dir << " (This is usually ok if you don't need them) " <<  std::endl;
+    std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) ";
     return -1;
   }
   if (opt.verbose) std::cout << " success" << std::endl;
