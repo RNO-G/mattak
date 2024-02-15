@@ -126,6 +126,9 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     to rule them all for loading RNO-G data. Due to Cosmin's poor initial API
     design, it has become perhaps more complicated than it should be.
 
+    Parameters `station`, `run`, `data_dir`
+    ---------------------------------------
+
     If `data_dir` is a directory and `station` or `run` are non-zero, this returns a
     dataset corresponding to the station and run using `data_dir` as the base
     directory (i.e. the folder hierarcy is structured something like
@@ -146,31 +149,41 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     be called data_source, changing the parameter name will break the API and
     we'll try hard not to do that.
 
-    The backend can be chosen explicitly ("pyroot" or "uproot") or auto will try
-    to use the best one ("pyroot" if available, otherwise reverting to "uproot").
+    Other Parameters
+    ----------------
 
-    verbose prints out things mostly useful for debugging.
+    backend : str (Default: "auto")
+        The backend can be chosen explicitly (`"pyroot"` or `"uproot"`) or `"auto"` will try
+        to use the best one (`"pyroot"` if available, otherwise reverting to `"uproot"`).
 
-    read_daq_status and read_run_info are mostly self-explanatory. Avoiding
-    reading them may speed things up or work around the files not being there
-    for some reason.
+    verbose : bool
+        Verbose prints out things mostly useful for debugging.
 
-    skip_incomplete affects what happens when a dataset is incomplete
-    (telemetered). If True, will only index fully telemetered events. If False,
-    will be indexed by full dataset, but untelemetered events will have
-    waveforms of None type (if requested singly) or be all 0's (if requested
-    via the bulk interface, as numpy doesn't support jagged ararys).
+    read_daq_status : bool
+        Self-explanatory. Avoiding reading them may speed things up or work around
+        the files not being there for some reason.
 
-    preferred_file, if not None or "", and data_dir is not a file, will further
-    change the loading behavior. By default,  we will try to load full waveforms
-    falling back to loading combined.root. But if preferred_file is set, it will
-    prefer loading ${preferred_file}.root if possible, treating it as a file in
-    the same format as combined.root.  For example, you can set it to "combined"
-    to load combined.root even if full waveforms are available. Or, if you have
-    your own subselection in the same format (e.g. for example if you generated
-    a file that is only forced triggers) this provides an arguably convenient
-    way to load those.
+    read_run_info : bool
+        Self-explanatory. Avoiding reading them may speed things up or work around
+        the files not being there for some reason.
 
+    skip_incomplete : bool
+        Affects what happens when a dataset is incomplete (telemetered - send by satellite).
+        If True, will only index fully telemetered events. If False,
+        will be indexed by full dataset, but untelemetered events will have
+        waveforms of None type (if requested singly) or be all 0's (if requested
+        via the bulk interface, as numpy doesn't support jagged ararys).
+
+    preferred_file : str
+        If not None or "", and data_dir is not a file, will further
+        change the loading behavior. By default, we will try to load full waveforms
+        falling back to loading combined.root. But if preferred_file is set, it will
+        prefer loading ${preferred_file}.root if possible, treating it as a file in
+        the same format as combined.root.  For example, you can set it to "combined"
+        to load combined.root even if full waveforms are available. Or, if you have
+        your own subselection in the same format (e.g. for example if you generated
+        a file that is only forced triggers) this provides an arguably convenient
+        way to load those.
     """
 
     if data_dir is None:
