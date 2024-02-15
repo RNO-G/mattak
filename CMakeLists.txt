@@ -142,7 +142,7 @@ if(NOT DEFINED PYBINDLESS)
   add_library(mattak_noroot MODULE src/VoltageCalibration.cc)
   target_compile_definitions(mattak_noroot PUBLIC -DMATTAK_NOROOT)
   target_link_libraries(mattak_noroot PUBLIC pybind11::module)
-  install (TARGETS ${libname}
+  install (TARGETS mattak_noroot
       ARCHIVE DESTINATION ${UTIL_LIB_DIR}
       LIBRARY DESTINATION ${UTIL_LIB_DIR}
       RUNTIME DESTINATION ${UTIL_BIN_DIR}
