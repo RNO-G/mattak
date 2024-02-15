@@ -1,7 +1,7 @@
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
-from typing import Sequence, Union, Tuple, Optional, Callable, Generator
+from typing import Sequence, Union, Tuple, Optional, Callable, Generator, Type
 import numpy
 import os.path 
 
@@ -145,16 +145,20 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24,2048)
 
 
-    def wfs(self, calibrated : bool=False) -> Optional[numpy.ndarray]: 
+    def wfs(self, calibrated : bool=False, wanted_type : Optional[Type] = numpy.float64) -> Optional[numpy.ndarray]: 
 
         # the simple case first
         if not self.multiple:
-            return self._wfs(self.entry, calibrated)
+            w = self._wfs(self.entry, calibrated)
+            if wanted_type is not None:
+                w = w.astype(wanted_type, copy = False) 
+            return w
+
 
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
+        out = numpy.zeros((self.last - self.first, 24, 2048), dtype=wanted_type if wanted_type is not None else numpy.float64 if calibrated else numpy.int16)
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:

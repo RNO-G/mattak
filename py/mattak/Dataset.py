@@ -99,9 +99,14 @@ class AbstractDataset(ABC):
         pass
 
     @abstractmethod
-    def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float32) -> Optional[numpy.ndarray]:
         """ Get select waveform(s).
-            Depending on what was passed to setEntries, this may be a single waveform or many
+            Depending on what was passed to setEntries, this may be a single waveform or many. 
+            
+            If you ask for calibrated waveforms, they will be calibrated (to the best of our current ability). 
+
+            The type of the numpy arrray will be coerced to the wanted_type (unless you set it to None, and then it will be whatever it comes out as. 
+
         """
         pass
     

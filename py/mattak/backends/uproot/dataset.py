@@ -241,20 +241,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int: 
         return self._hds.num_entries
 
-    def wfs(self, calibrated : bool =False) -> Optional[numpy.ndarray]: 
+    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float32) -> Optional[numpy.ndarray]: 
         # assert(not calibrated) # not implemented yet 
 
         w = None 
         if self.full or self.skip_incomplete: 
             w = self._wfs['radiant_data[24][2048]'].array(entry_start=self.first, entry_stop=self.last, library='np')
+            if wanted_type is not None: 
+                w = w.astype(wanted_type, copy=False)
+
         elif not self.multiple: 
             if self.first in self.events_with_waveforms: 
                 idx = self.events_with_waveforms[self.first]
-                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np')
+                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np').astype(wanted_type, copy=False)
+                if wanted_type is not None: 
+                    w = w.astype(wanted_type, copy=False)
         else: 
             # so ... we need to loop through and find which things we have actually have waveforms
             # start by allocating the output
-            w = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
+            w = numpy.zeros((self.last - self.first, 24, 2048), dtype=wanted_type if wanted_type is not None else numpy.int16 if not calibrated else numpy.float64)
 
             # now figure out how much of the data array we need 
             wf_start = None
