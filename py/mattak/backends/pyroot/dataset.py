@@ -30,6 +30,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
                  voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None):
+        """
+        PyROOT backend for the python interface of the mattak Dataset. See further information in
+        `mattak.Dataset.Dataset`.
+        """
 
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status

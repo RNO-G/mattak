@@ -188,6 +188,9 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
 
     voltage_calibration : str
         Path to a voltage calibration file. If None, check for file in run directory.
+        (The pyroot backend actually allows to pass an object of type
+        `ROOT.mattak.VoltageCalibration`, but this is not possible to
+        implement in uproot.)
     """
 
     if data_dir is None:

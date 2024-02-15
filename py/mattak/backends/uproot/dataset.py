@@ -47,7 +47,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  voltage_calibration : Optional[str] = None):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
-        `mattak.Dataset.Dataset`.
+        `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
+        and `preferred_file`.
 
         Parameters
         ----------
@@ -75,7 +76,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             which contains the runinfo.txt file. (Default: True, unless you pass a specific file as input)
 
         preferred_file: str
-            Define a name pattern other than the default.
+            Specify a prefered file name to load.
+
+        voltage_calibration : str
+            Path to a voltage calibration file. If None, check for file in run directory.
         """
 
         self.backend = "uproot"
