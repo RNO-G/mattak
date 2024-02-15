@@ -3,6 +3,27 @@ project(mattak)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
 
+option(PIP_INSTALLATION "Used by scikit-build-core to set correct default installation path" OFF)
+
+if(PIP_INSTALLATION)
+  set(RNO_G_INSTALL_DIR ./build)
+elseif(DEFINED ENV{RNO_G_INSTALL_DIR})
+  message("RNO_G_INSTALL_DIR is set to $ENV{RNO_G_INSTALL_DIR}")
+  set(RNO_G_INSTALL_DIR $ENV{RNO_G_INSTALL_DIR})
+else()
+  message(WARNING "Will install to /usr/local  RNO_G_INSTALL_DIR not set")
+  set(RNO_G_INSTALL_DIR "/usr/local")
+endif()
+
+set(UTIL_LIB_DIR ${RNO_G_INSTALL_DIR}/lib)
+set(UTIL_INC_DIR ${RNO_G_INSTALL_DIR}/include)
+set(UTIL_BIN_DIR ${RNO_G_INSTALL_DIR}/bin)
+set(UTIL_SHARE_DIR ${RNO_G_INSTALL_DIR}/share)
+set(LD_UTIL ${RNO_G_INSTALL_DIR}/lib)
+set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
+
+
+
 if (NOT DEFINED ROOTLESS) 
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
@@ -10,25 +31,6 @@ if (NOT DEFINED ROOTLESS)
   if( ROOT_FOUND)
     set(libname mattak)
     set(DICTNAME G__${libname})
-
-    option(PIP_INSTALLATION "Used by scikit-build-core to set correct default installation path" OFF)
-
-    if(PIP_INSTALLATION)
-      set(RNO_G_INSTALL_DIR ./build)
-    elseif(DEFINED ENV{RNO_G_INSTALL_DIR})
-      message("RNO_G_INSTALL_DIR is set to $ENV{RNO_G_INSTALL_DIR}")
-      set(RNO_G_INSTALL_DIR $ENV{RNO_G_INSTALL_DIR})
-    else()
-      message(WARNING "Will install to /usr/local  RNO_G_INSTALL_DIR not set")
-      set(RNO_G_INSTALL_DIR "/usr/local")
-    endif()
-
-    set(UTIL_LIB_DIR ${RNO_G_INSTALL_DIR}/lib)
-    set(UTIL_INC_DIR ${RNO_G_INSTALL_DIR}/include)
-    set(UTIL_BIN_DIR ${RNO_G_INSTALL_DIR}/bin)
-    set(UTIL_SHARE_DIR ${RNO_G_INSTALL_DIR}/share)
-    set(LD_UTIL ${RNO_G_INSTALL_DIR}/lib)
-    set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
 
     include(${ROOT_USE_FILE} )
