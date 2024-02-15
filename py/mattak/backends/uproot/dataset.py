@@ -241,7 +241,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int: 
         return self._hds.num_entries
 
-    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float32) -> Optional[numpy.ndarray]: 
+    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float64) -> Optional[numpy.ndarray]: 
         # assert(not calibrated) # not implemented yet 
 
         w = None 

@@ -99,7 +99,7 @@ class AbstractDataset(ABC):
         pass
 
     @abstractmethod
-    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float32) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, wanted_type : Optional[typing.Type] = numpy.float64) -> Optional[numpy.ndarray]:
         """ Get select waveform(s).
             Depending on what was passed to setEntries, this may be a single waveform or many. 
             
