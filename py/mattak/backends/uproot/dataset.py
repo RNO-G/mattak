@@ -253,7 +253,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif not self.multiple: 
             if self.first in self.events_with_waveforms: 
                 idx = self.events_with_waveforms[self.first]
-                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np').astype(wanted_type, copy=False)
+                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np')
                 if wanted_type is not None: 
                     w = w.astype(wanted_type, copy=False)
         else: 
