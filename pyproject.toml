@@ -11,7 +11,7 @@ PIP_INSTALLATION = true
 
 [project]
 name = "mattak"
-version = "0.1"
+version = "0.1.2"
 authors = [{name="Cosmin Deaconu, email=<cozzyd@kicp.uchicago.edu>"}]
 homepage = "https://github.com/RNO-G/mattak"
 readme = "README.md"
