@@ -493,10 +493,10 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
 
     vbias, adc = rescale_adc(vbias, adc)
     adc_cut = [[] for i in range(24)]
-    adc_cut[:12] = adc[:12, :, vbias[:, 0] < 0.7]
-    adc_cut[12:] = adc[12:, :, vbias[:, 1] < 0.7]
+    adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
+    adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
     adc = adc_cut
-    vbias =  numpy.array([[v for v in vbias[:, DAC] if v < 0.7] for DAC in range(2)]).T
+    vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)]).T
 
     for c, wf_channel in enumerate(waveform_array):
         starting_window_channel = starting_window[c]
