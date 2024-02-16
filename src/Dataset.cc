@@ -252,7 +252,7 @@ int mattak::Dataset::loadDir(const char * dir, const DatasetOptions & opt)
 
 int mattak::Dataset::loadDir(const char * dir, bool partial_skip) 
 {
-  opt.partial_skip_incomplete = true; 
+  opt.partial_skip_incomplete = partial_skip; 
   return loadDir(dir); 
 }
 
