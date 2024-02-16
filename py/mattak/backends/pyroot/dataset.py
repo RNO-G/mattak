@@ -25,7 +25,7 @@ def isNully(p):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str,
+    def __init__(self, station : int, run : int, data_path : str,
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
@@ -40,20 +40,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_run_info = read_run_info
 
         opt = ROOT.mattak.DatasetOptions()
+        self.ds = ROOT.mattak.Dataset()
 
         opt.partial_skip_incomplete = skip_incomplete
         opt.verbose = verbose
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
 
-        self.ds = ROOT.mattak.Dataset(opt)
-
-        if data_dir is not None and os.path.isfile(data_dir):
-            self.ds.loadCombinedFile(data_dir)
-        elif station == 0 and run == 0:
-            self.ds.loadDir(data_dir)
+        if data_path is not None and os.path.isfile(data_path):
+            self.ds.loadCombinedFile(data_path, opt)
+            data_path = os.path.dirname(data_path)
         else:
-            self.ds.loadRun(station, run)
+            opt.base_data_dir = data_path
+            if station == 0 and run == 0:
+                self.ds.loadDir(data_path, opt)
+            else:
+                self.ds.loadRun(station, run, opt)
 
         if voltage_calibration not in [ROOT.nullptr, None]:
             if isinstance(voltage_calibration, str):
@@ -66,7 +68,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             self.has_calib = False
 
-        self.data_dir = data_dir
+        self.data_dir = data_path
         self.setEntries(0)
         self.station = self.ds.header().station_number
         self.run = self.ds.header().run_number
