@@ -1,0 +1,67 @@
+name: Test install
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        # This path is specific to Ubuntu
+        path: ~/.cache/pip
+        # Look to see if there is a cache hit for the corresponding requirements file
+        key: ${{ runner.os }}-pip-${{ hashFiles('mattak/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          ${{ runner.os }}-
+    - name: Cache sample file
+      id: cache-sample-file
+      uses: actions/cache@v4
+      with:
+        path: tests/data
+        key: data
+    - name: Download sample file
+      if: steps.cache-sample-file.outputs.cache-hit != 'true'
+      run: |
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/forced_triggers/station23_run325.root
+        mkdir -p tests/data/station23/run325
+        mv station23_run325.root tests/data/station23/run325/combined.root
+    - name: Test installation (ROOTless)
+      run: |
+        pip install -v .
+    - name: Read a sample file (ROOTless)
+      run: |
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
+    - name: Cache ROOT
+      id: cache-root
+      uses: actions/cache@v4
+      with:
+        path: root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
+        key: ${{ runner.os }}
+    - name: Download ROOT
+      if: steps.cache-root.outputs.cache-hit != 'true'
+      run: |
+        wget https://root.cern/download/root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
+    - name: Install ROOT
+      run: |
+        sudo apt-get install dpkg-dev cmake g++ gcc binutils libx11-dev libxpm-dev libxft-dev libxext-dev python3 libssl-dev libafterimage0
+        tar -xzf root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
+        source root/bin/thisroot.sh
+    - name: Test installation (ROOT)
+      run: |
+        source root/bin/thisroot.sh
+        pip install -v .
+    - name: Read a sample file (ROOT)
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot

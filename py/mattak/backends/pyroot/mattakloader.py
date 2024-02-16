@@ -1,6 +1,11 @@
 import ROOT 
 import sys
 import platform
+import os
+from mattak import __path__ as mattak_path
+
+# this is where pip puts the compiled files
+mattak_path = os.path.join(mattak_path[0], 'build/lib/')
 
 loaded = False
 loaded_path = None
@@ -19,7 +24,7 @@ if 'macOS' in currentPlatform:
     libmattakName = 'libmattak.dylib'
 else: 
     libmattakName = 'libmattak.so'
-    
+
 if not loaded: 
     if not silent_load(libmattakName):
         loaded_path = "LD_LIBRARY_PATH"
@@ -28,6 +33,10 @@ if not loaded:
     elif not silent_load('build/'+libmattakName):
         print('Successsfully found ' + libmattakName + ' in build')
         loaded_path = "build"
+        loaded = True
+    elif not silent_load(os.path.join(mattak_path, libmattakName)):
+        print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
+        loaded_path = mattak_path
         loaded = True
     else:
         for path in sys.path:
