@@ -40,6 +40,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         opt.partial_skip_incomplete = skip_incomplete
         opt.verbose = verbose 
+        opt.base_data_dir = data_path # only has an effect if it's actually a dir
+
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
         self.ds = ROOT.mattak.Dataset(opt)
