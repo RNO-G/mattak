@@ -136,7 +136,7 @@ void mattak::Dataset::unload()
 
 mattak::Dataset::Dataset(int station, int run, const DatasetOptions & opt)
 {
-  loadRun(station,run, opt);
+  loadRun(station, run, opt);
 }
 
 mattak::Dataset::Dataset(const DatasetOptions & opt)
