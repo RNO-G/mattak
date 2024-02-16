@@ -8,6 +8,7 @@ import typing
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable
 import numpy
 import datetime
+import warnings
 
 
 @dataclass
@@ -53,6 +54,10 @@ class AbstractDataset(ABC):
                 self.last = self.N()
         else:
             self.multiple = False
+            if i < 0:
+                i+= self.N() 
+            if i is None: 
+                i = 0 
             self.entry = i
             self.first = i
             self.last = i + 1
@@ -110,35 +115,38 @@ class AbstractDataset(ABC):
         return numpy.array([wf for _, wf in self.iterate(start=self.first, stop=self.last, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto", 
+def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, backend : str= "auto", 
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
-            preferred_file : Optional[str] = None ) -> Optional[AbstractDataset]:
+            preferred_file : Optional[str] = None, 
+            *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
    """
 
    This is not a class, but a factory method! This is meant to be the interface
    to rule them all for loading RNO-G data. Due to Cosmin's poor initial API
    design, it has become perhaps more complicated than it should be. 
 
-   If data_dir is a directory and station/run are non-zero, this returns a
-   dataset corresponding to the station and run using data_dir as the base
-   directory (i.e. the folder hierarcy is structured something likelike
-   ${data_dir}/stationX/runY/*.root). If data_dir is None, then the
-   environmental variable RNO_G_DATA (or RNO_G_ROOT_DATA) will be queried and
-   the run loaded from that base. data_dir can also be a URL for loading of
-   files via HTTP (e.g. https://user:password@example.com/rno-g-data), though
-   there may be some subtleties about escaping passwords that may differ
-   betweeen different backends. 
+   In the case of setting station = 0 and run = 0, data_path will be
+   interpreted as a directory containing ROOT files, which is useful if you
+   don't have the full directory hierarchy setup or want to look at data taken
+   with the fakedaq.
 
-   In the special case of setting station = 0 and run = 0, data_dir
-   will be interpreted as a directory containing ROOT files, which is useful if
-   you don't have the full directory hierarchy setup or want to look at data
-   taken with the fakedaq.
+   If data_path is a file rather than directory, then that file will be
+   attempted to be loaded as a combined file, ignoring the provided run and
+   station numbers. 
 
-   If data_dir is, despite its name, a file rather than directory, then that
-   file will be attempted to be loaded as a combined file. Really it should
-   be called data_source, changing the parameter name will break the API and
-   we'll try hard not to do that. 
+   If data_path is a directory and station/run are non-zero, this returns a
+   dataset corresponding to the station and run using data_path as the base
+   directory (i.e. the folder hierarcy is structured something like
+   ${data_path}/stationX/runY/*.root). 
+
+
+   If data_path is None (or ""), then the environmental variable RNO_G_DATA
+   (and also  RNO_G_ROOT_DATA) will be queried.  data_path can also be a URL
+   for loading of files via HTTP (e.g.
+   https://user:password@example.com/rno-g-data), though there may be some
+   subtleties about escaping passwords that may differ betweeen different
+   backends. 
 
    The backend can be chosen explicitly ("pyroot" or "uproot") or auto will try
    to use the best one ("pyroot" if available, otherwise reverting to "uproot").
@@ -155,7 +163,7 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
    waveforms of None type (if requested singly) or be all 0's (if requested
    via the bulk interface, as numpy doesn't support jagged ararys).
 
-   preferred_file, if not None or "", and data_dir is not a file, will further
+   preferred_file, if not None or "", and data_path is not a file, will further
    change the loading behavior. By default,  we will try to load full waveforms
    falling back to loading combined.root. But if preferred_file is set, it will
    prefer loading ${preferred_file}.root if possible, treating it as a file in
@@ -165,16 +173,29 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
    a file that is only forced triggers) this provides an arguably convenient
    way to load those. 
 
-
    """
 
-   if data_dir is None:
+
+   # handle deprecated name data_dir 
+   if data_dir is not None: 
+       warnings.warn("data_dir is deprecated, use data_path instead. This may be removed in the future, breaking your code.")
+       if data_path is not None: 
+           raise TypeError("Dataset received both data_path and data_dir!") 
+       data_path = data_dir 
+
+
+   #treat "" as an alias for None
+   if data_path == "": 
+       data_path = None
+
+
+   if data_path is None:
        for env_var in ['RNO_G_DATA', 'RNO_G_ROOT_DATA']: 
            if env_var in os.environ: 
-               data_dir = os.environ[env_var] 
+               data_path = os.environ[env_var] 
                break 
-       if data_dir is None:                
-           print("Neither data_dir nor any relevant environmental variable (e.g. RNO_G_DATA) is defined and I don't know where else to look :(")
+       if data_path is None:                
+           print("Neither data_path nor any relevant environmental variable (e.g. RNO_G_DATA) is defined and I don't know where else to look :(")
            return None 
 
    if backend == "auto":
@@ -196,10 +217,10 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
 
    if backend == "uproot":
         import mattak.backends.uproot.dataset
-        return mattak.backends.uproot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
+        return mattak.backends.uproot.dataset.Dataset(station, run, data_path, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
    elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
-        return mattak.backends.pyroot.dataset.Dataset(station, run, data_dir, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
+        return mattak.backends.pyroot.dataset.Dataset(station, run, data_path, verbose, skip_incomplete, read_daq_status, read_run_info, preferred_file)
    else:
        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
        return None
