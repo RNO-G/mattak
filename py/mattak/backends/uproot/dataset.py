@@ -39,7 +39,7 @@ def read_tree(ur_file, tree_names):
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_dir : str, verbose : bool = False,
+    def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, file_preference: Optional[str] = None):
         
@@ -48,23 +48,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
-        #special case where data_dir is a file
+        #special case where data_path is a file
 
-        if os.path.isfile(data_dir): 
-            self.data_dir_is_file = True
-            self.rundir = data_dir 
+        if os.path.isfile(data_path): 
+            self.data_path_is_file = True
+            self.rundir = data_path 
         else: 
-            self.data_dir_is_file = False
+            self.data_path_is_file = False
             # special case where we load a directory instead of a station/run
             if station == 0 and run == 0: 
-                self.rundir = data_dir
+                self.rundir = data_path
             else: 
-                self.rundir = "%s/station%d/run%d" % (data_dir,station,run)
+                self.rundir = "%s/station%d/run%d" % (data_path,station,run)
 
 
 
-        if (skip_incomplete == False  and self.data_dir_is_file):
-            print("skip_incomplete = false is incompatible with data_dir as file"); 
+        if (skip_incomplete == False  and self.data_path_is_file):
+            print("skip_incomplete = false is incompatible with data_path as file"); 
             skip_incomplete = True 
 
         self.skip_incomplete = skip_incomplete 
@@ -76,8 +76,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.combined_tree = None 
 
         # check for a preference
-        if (file_preference is not None and file_preference != "") or self.data_dir_is_file: 
-            preferred_file = "%s:combined" % (self.rundir) if self.data_dir_is_file  else "%s/%s.root:combined" %(self.rundir, file_preference) 
+        if (file_preference is not None and file_preference != "") or self.data_path_is_file: 
+            preferred_file = "%s:combined" % (self.rundir) if self.data_path_is_file  else "%s/%s.root:combined" %(self.rundir, file_preference) 
             try: 
                 self.combined_tree = uproot.open(preferred_file)
                 if verbose: 
@@ -86,7 +86,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.full = False
             except Exception:
                 # can't recover from this 
-                if self.data_dir_is_file: 
+                if self.data_path_is_file: 
                     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), self.rundir)
                 print ("Could not find preferred file %s. Falling back to normal behavior" % (preferred_file))
 
@@ -148,7 +148,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names) 
 
-        if station == 0 and run == 0 or self.data_dir_is_file: 
+        if station == 0 and run == 0 or self.data_path_is_file: 
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
             self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
 
@@ -156,7 +156,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = station
             self.run = run
 
-        self.data_dir = data_dir
+        self.data_path = data_path
         self.setEntries(0) 
 
         self.run_info = None
