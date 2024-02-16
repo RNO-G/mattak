@@ -1,7 +1,5 @@
 import os
 import uproot
-import errno
-import os.path
 import configparser
 import glob
 
@@ -92,6 +90,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.data_dir_is_file = True
             self.rundir = os.path.dirname(data_path)
         else:
+            if data_path.endswith(".root"):  # catch the case where it was intented to pass a file
+                raise FileNotFoundError(f"Could not find the file {data_path}")
+
             self.data_dir_is_file = False
             # special case where we load a directory instead of a station/run
             if station == 0 and run == 0:
