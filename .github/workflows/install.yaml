@@ -65,3 +65,8 @@ jobs:
       run: |
         source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot
+    - name: Read a sample file (all)
+      run: |
+        source root/bin/thisroot.sh
+        export RNO_G_DATA="$PWD/tests/data/"
+        python3 tests/test_dataset_all.py
