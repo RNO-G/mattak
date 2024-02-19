@@ -128,33 +128,31 @@ def Dataset(station : int, run : int, data_path : Optional[str] = None, backend 
     to rule them all for loading RNO-G data. Due to Cosmin's poor initial API
     design, it has become perhaps more complicated than it should be.
 
-    There are a couple of arguments (`station`, `run`, `data_dir`, `preferred_file`)
+    There are a couple of arguments (`station`, `run`, `data_path`, `preferred_file`)
     which control which/how data are read. The following explains this in the order the code
     interpretes the arguments
 
-    If `data_dir` is, despite its name, a file, then that file will loaded as a "combined root file".
-    (Really it should be called data_source, changing the parameter name will break the API and
-    we'll try hard not to do that.)
+    If `data_path` is a file, then that file will loaded as a "combined root file".
 
-    If `data_dir` is a directory and `station` or `run` are non-zero, this returns a
-    dataset corresponding to the station and run using `data_dir` as the base
+    If `data_path` is a directory and `station` or `run` are non-zero, this returns a
+    dataset corresponding to the station and run using `data_path` as the base
     directory (i.e. the folder hierarcy is structured something like
-    `${data_dir}/stationX/runY/*.root`).
+    `${data_path}/stationX/runY/*.root`).
 
-    In the special case of setting `station = 0` and `run = 0`, `data_dir`
+    In the special case of setting `station = 0` and `run = 0`, `data_path`
     will be interpreted as a directory containing ROOT files, which is useful if
     you don't have the full directory hierarchy setup or want to look at data
     taken with the fakedaq.
 
-    If `data_dir` is None, it will set to either `RNO_G_DATA` or `RNO_G_ROOT_DATA` environmental variable
+    If `data_path` is None, it will set to either `RNO_G_DATA` or `RNO_G_ROOT_DATA` environmental variable
     if they exist on your system (otherwise an error is raised).
 
-    `data_dir` can also be a URL for loading of
+    `data_path` can also be a URL for loading of
     files via HTTP (e.g. `https://user:password@example.com/rno-g-data`), though
     there may be some subtleties about escaping passwords that may differ
     betweeen different backends.
 
-    If `data_dir` is not a file, by default, mattak will always try to load the full run
+    If `data_path` is not a file, by default, mattak will always try to load the full run
     data stored in `waveforms.root`, `headers.root`, ... . Only if that fails, it will
     "fall back" and try to load `combined.root`. However, you can specify with `preferred_file`
     which root file it should load (will be interpreted as "combined root file"). For example,
@@ -193,6 +191,10 @@ def Dataset(station : int, run : int, data_path : Optional[str] = None, backend 
         (The pyroot backend actually allows to pass an object of type
         `ROOT.mattak.VoltageCalibration`, but this is not possible to
         implement in uproot.)
+
+    data_dir : deprecated
+        left for backwards compatibility
+
     """
 
 
