@@ -116,7 +116,7 @@ class AbstractDataset(ABC):
         return numpy.array([wf for _, wf in self.iterate(start=self.first, stop=self.last, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_path : Optional[str] = None, backend : str= "auto",
+def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, backend : str= "auto",
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
@@ -132,25 +132,23 @@ def Dataset(station : int, run : int, data_path : Optional[str] = None, backend 
     which control which/how data are read. The following explains this in the order the code
     interpretes the arguments
 
-    If `data_path` is a file, then that file will loaded as a "combined root file".
+        * If `data_path` is a file, then that file will be loaded as a "combined root file".
 
-    If `data_path` is a directory and `station` or `run` are non-zero, this returns a
-    dataset corresponding to the station and run using `data_path` as the base
-    directory (i.e. the folder hierarcy is structured something like
-    `${data_path}/stationX/runY/*.root`).
+        * If `data_path` is a directory and `station = 0` and `run = 0` (default),
+          `data_path` will be interpreted as a directory containing the ROOT files.
 
-    In the special case of setting `station = 0` and `run = 0`, `data_path`
-    will be interpreted as a directory containing ROOT files, which is useful if
-    you don't have the full directory hierarchy setup or want to look at data
-    taken with the fakedaq.
+        * If `data_path` is a directory and `station` or `run` are non-zero, a
+          dataset corresponding to the run stored in `${data_path}/stationX/runY/`
+          using `data_path` as the base is returned.
 
-    If `data_path` is None, it will set to either `RNO_G_DATA` or `RNO_G_ROOT_DATA` environmental variable
-    if they exist on your system (otherwise an error is raised).
+        * If `data_path` is None, it will be set to either `RNO_G_DATA` or `RNO_G_ROOT_DATA`
+          environmental variable if they exist on your system (otherwise an error is raised).
+          This (typically) also requires that `station` and `run` are non-zero.
 
-    `data_path` can also be a URL for loading of
-    files via HTTP (e.g. `https://user:password@example.com/rno-g-data`), though
-    there may be some subtleties about escaping passwords that may differ
-    betweeen different backends.
+        * `data_path` can also be a URL for loading of files via HTTP
+          (e.g. `https://user:password@example.com/rno-g-data`), though
+          there may be some subtleties about escaping passwords that may differ
+          betweeen different backends.
 
     If `data_path` is not a file, by default, mattak will always try to load the full run
     data stored in `waveforms.root`, `headers.root`, ... . Only if that fails, it will
@@ -193,10 +191,8 @@ def Dataset(station : int, run : int, data_path : Optional[str] = None, backend 
         implement in uproot.)
 
     data_dir : deprecated
-        left for backwards compatibility
-
+        Left here for backwards compatibility
     """
-
 
     # handle deprecated name data_dir
     if data_dir is not None:

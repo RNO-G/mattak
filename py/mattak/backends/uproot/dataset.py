@@ -142,7 +142,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self._wfs = self.wf_tree[self.wf_branch]
 
                 self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
-                self.hd_tree,self.hd_branch = read_tree(self.hd_file, header_tree_names);
+                self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
                 self._hds = self.hd_tree[self.hd_branch]
 
                 if self.__read_daq_status:
