@@ -281,6 +281,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   int nResidSets[2]; // 2 DAC
   std::array<std::vector<double>, 2> residAve_volt;
   std::array<std::vector<double>, 2> residAve_adc;
+  std::array<std::vector<double>, 2> residVar_adc;
   for (int j = 0; j < 2; j++)
   {
     nResidSets[j] = 0;
@@ -288,6 +289,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     {
       residAve_volt[j].push_back(0);
       residAve_adc[j].push_back(0);
+      residVar_adc[j].push_back(0);
     }
   }
 
@@ -431,6 +433,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         {
           residAve_volt[dacType].resize(npoints);
           residAve_adc[dacType].resize(npoints);
+          residVar_adc[dacType].resize(npoints);
         }
 
         for (int j = 0 ; j < npoints; j++)
@@ -440,6 +443,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           double adcResid = adc - evalPars(v, fit_order, &fit_coeffs[ichan][i * (order+1)]);
           residAve_volt[dacType][j] += v;
           residAve_adc[dacType][j] += adcResid;
+          residVar_adc[dacType][j] += pow(adcResid, 2);
         }
       }
 
@@ -464,6 +468,12 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
     graph_residAve[j]->GetYaxis()->SetTitle("ADC Residual");
 
+    TString graphVarNameTitle = TString::Format("varResid_dac%d", j+1);
+    graph_residVar[j] = new TGraph();
+    graph_residVar[j]->SetNameTitle(graphVarNameTitle);
+    graph_residVar[j] ->GetXaxis()->SetTitle("VBias [Volt]");
+    graph_residVar[j]->GetYaxis()->SetTitle("Var ADC Residual");
+
     if (fit_isUsingResid)
     {
       int npoints_residGraph = residAve_volt[j].size();
@@ -471,7 +481,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       {
         residAve_volt[j][ipoint] /= nResidSets[j];
         residAve_adc[j][ipoint] /= nResidSets[j];
+        residVar_adc[j][ipoint] = abs(residVar_adc[j][ipoint]/nResidPoints[j] - pow(residAve_adc[j][ipoint], 2)); 
         graph_residAve[j]->SetPoint(graph_residAve[j]->GetN(), residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+        graph_residVar[j]->SetPoint(graph_residVar[j]->GetN(), residAve_volt[j][ipoint], residVar_adc[j][ipoint]);
       }
 
       resid_volt[j].resize(npoints_residGraph*2-1);
@@ -921,6 +933,9 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
 
   getAveResidGraph_dac1()->Write();
   getAveResidGraph_dac2()->Write();
+
+  getVarResidGraph_dac1()->Write();
+  getVarResidGraph_dac2()->Write();
 
   std::cout << "\n\nAll voltage calibration constants saved in file: " << outFileName << std::endl;
   f.Close();
