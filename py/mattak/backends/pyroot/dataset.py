@@ -176,7 +176,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                 dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24, 2048)
 
 
-    def wfs(self, calibrated : bool=False) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 

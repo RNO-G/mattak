@@ -309,7 +309,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw)
 
     def wfs(self, calibrated : bool = False, raw_calibration = False) -> Optional[numpy.ndarray]:
-        if calibrate and not self.has_calib:
+        if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
         # assert(not calibrated) # not implemented yet

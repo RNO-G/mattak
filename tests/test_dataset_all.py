@@ -17,7 +17,7 @@ for station, run, data_dir, preferred_file in zip(stations, runs, data_dirs, pre
     print(f"Load datasets with station = {station}, run = {run}, data_dir = {data_dir}, preferred_file = {preferred_file}")
     for backend in ("uproot", "pyroot"):
         print(backend)
-        d = mattak.Dataset.Dataset(station, run, data_dir=data_dir, backend=backend, preferred_file=preferred_file)
+        d = mattak.Dataset.Dataset(station, run, data_path=data_dir, backend=backend, preferred_file=preferred_file)
         print(d.N())
         print(d.eventInfo())
         print(d.wfs())
