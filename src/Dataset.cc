@@ -255,6 +255,7 @@ int mattak::Dataset::loadDir(const char * dir, const DatasetOptions & opt)
 
 int mattak::Dataset::loadFile(const char * file, bool partial_skip)
 {
+<<<<<<< HEAD
   if (opt.verbose) std::cout << "mattak::Dataset::loadFile (" << file  << ", " << partial_skip << ") called" << std::endl;
   opt.partial_skip_incomplete = partial_skip;
 
@@ -318,6 +319,10 @@ int mattak::Dataset::loadFile(const char * file, bool partial_skip)
 
   if (opt.verbose) std::cout << " success" << std::endl;
   return 0;
+=======
+  opt.partial_skip_incomplete = partial_skip; 
+  return loadDir(dir); 
+>>>>>>> main
 }
 
 

@@ -3,7 +3,9 @@ import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
-import os
+import os.path
+import warnings
+
 try:
     import cppyy.ll
 
@@ -68,10 +70,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             self.has_calib = False
 
+        if self.N() < 0:
+            raise IOError("Could not load run [data_path: %s, %d %d]" % (data_path, station, run))
+
+        if self.N() == 0:
+            warnings.warn("Run is empty?")
+            self.station = station
+            self.run = run
+        else:
+            self.station = self.ds.header().station_number
+            self.run = self.ds.header().run_number
+
         self.data_dir = data_path
         self.setEntries(0)
-        self.station = self.ds.header().station_number
-        self.run = self.ds.header().run_number
 
         if verbose:
             print("We think we found station %d run %d" % (self.station,self.run))

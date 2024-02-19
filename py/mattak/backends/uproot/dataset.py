@@ -87,20 +87,20 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # special case where data_dir is a file
         if os.path.isfile(data_path):
-            self.data_dir_is_file = True
+            self.data_path_is_file = True
             self.rundir = os.path.dirname(data_path)
         else:
             if data_path.endswith(".root"):  # catch the case where it was intented to pass a file
                 raise FileNotFoundError(f"Could not find the file {data_path}")
 
-            self.data_dir_is_file = False
+            self.data_path_is_file = False
             # special case where we load a directory instead of a station/run
             if station == 0 and run == 0:
                 self.rundir = data_path
             else:
                 self.rundir = f"{data_path}/station{station}/run{run}"
 
-        if skip_incomplete is False and self.data_dir_is_file:
+        if skip_incomplete is False and self.data_path_is_file:
             logging.warining("`skip_incomplete == False` is incompatible with data_dir as file. "
                              "Set `skip_incomplete == True`")
             skip_incomplete = True
@@ -117,7 +117,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.combined_tree = None
 
-        if self.data_dir_is_file:
+        if self.data_path_is_file:
             self.combined_tree = uproot.open(f"{data_path}:combined")
         elif preferred_file not in [None, ""]:
             if preferred_file.endswith(".root"):
@@ -160,7 +160,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.combined_tree = uproot.open(f"{self.rundir}/combined.root:combined")
                 if self.__verbose:
                     print("Found combined file")
-                    print(self.combined_tree)
 
             self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
 
@@ -176,6 +175,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.full_daq_file = uproot.open(f"{self.rundir}/daqstatus.root")
                     self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
 
+
             # Get header and daq information from combined file or from full run
             hd_tree = self.combined_tree if skip_incomplete else self.full_head_tree
             self._hds, self.hd_branch = read_tree(hd_tree, header_tree_names)
@@ -184,12 +184,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names)
 
-        if station == 0 and run == 0 or self.data_dir_is_file:
+        if station == 0 and run == 0 or self.data_path_is_file:
             self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
             self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
         else:
             self.station = station
             self.run = run
+
+        self.data_path = data_path
+        self.setEntries(0)
 
         self.run_info = None
         self.runfile = None
@@ -204,8 +207,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     config = configparser.ConfigParser()
                     config.read_string('[dummy]\n' + fruninfo.read())
                     self.run_info = config['dummy']
-
-        self.setEntries(0)
 
         if voltage_calibration is None:
             # try finding a calibration file in the run directory

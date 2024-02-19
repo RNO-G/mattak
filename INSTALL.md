@@ -1,16 +1,17 @@
-#Notes
+# Notes
 
-For users just interesting in reading data you may want to read doc/ReadingData.md first
+This guide is only relevant if you want to manually install mattak, for example
+because you want to use the C++ version or contribute to development. If you only want to use mattak from Python, you can just run
+
+    pip install git+https://github.com/RNO-G/mattak.git
+
+For users just interesting in reading data you may want to also read doc/ReadingData.md.
 
 mattak is a C++ library that also has a python API.
 
 The python API supports either a ROOT or uproot backend for reading data. Depending on which backend you use, the requirements may differ.
 
-Eventually, setup.py will work which will make things easier for python users.
-
 # Build from source
-
-
 
 ## Requirements
 

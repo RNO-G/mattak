@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
 import numpy
 import logging
+import warnings
 
 
 @dataclass
@@ -115,11 +116,12 @@ class AbstractDataset(ABC):
         return numpy.array([wf for _, wf in self.iterate(start=self.first, stop=self.last, selector=selector)])
 
 
-def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend : str= "auto",
+def Dataset(station : int, run : int, data_path : Optional[str] = None, backend : str= "auto",
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
-            voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None) -> Optional[AbstractDataset]:
+            voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None,
+            *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
 
     This is not a class, but a factory method! This is meant to be the interface
@@ -193,15 +195,28 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
         implement in uproot.)
     """
 
-    if data_dir is None:
+
+    # handle deprecated name data_dir
+    if data_dir is not None:
+        warnings.warn("data_dir is deprecated, use data_path instead. This may be removed in the future, breaking your code.")
+        if data_path is not None:
+            raise TypeError("Dataset received both data_path and data_dir!")
+
+        data_path = data_dir
+
+    # treat "" as an alias for None
+    if data_path == "":
+        data_path = None
+
+    if data_path is None:
         for env_var in ['RNO_G_DATA', 'RNO_G_ROOT_DATA']:
             if env_var in os.environ:
-                data_dir = os.environ[env_var]
+                data_path = os.environ[env_var]
                 break
 
-        if data_dir is None:
+        if data_path is None:
             logging.error(
-                "Neither `data_dir` nor any relevant environmental variable (e.g. RNO_G_DATA) "
+                "Neither `data_path` nor any relevant environmental variable (e.g. RNO_G_DATA) "
                 "is defined and I don't know where else to look :(")
             return None
 
@@ -225,13 +240,13 @@ def Dataset(station : int, run : int, data_dir : Optional[str] = None, backend :
     if backend == "uproot":
         import mattak.backends.uproot.dataset
         return mattak.backends.uproot.dataset.Dataset(
-            station, run, data_dir, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
+            station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
             read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
 
     elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
         return mattak.backends.pyroot.dataset.Dataset(
-            station, run, data_dir, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
+            station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
             read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
 
     else:

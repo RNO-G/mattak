@@ -4,12 +4,12 @@ This is a quick guide to reading data with `mattak.` If you have data in ROOT fo
 
 ## Building `mattak` 
 
-If you plan on using C++ or the `PyROOT` backend, this is necessary for now. In
-the future the `setup.py` will automatically do this so you only need to worry
-about it if you're developing or working in C++. 
+Manually building `mattak` is necessary only if you are developing or working in C++. If this is not you, you can just run
 
-Requirements include `ROOT` and `cmake`, and potentially others (to be
-documented) Typically, just typing `make` will work. The `Makefile` just wraps
+    pip install git+https://github.com/RNO-G/mattak.git
+
+To manually build `mattak`, requirements include `ROOT` and `cmake`, and potentially others (to be
+documented). Typically, just typing `make` will work. The `Makefile` just wraps
 a `cmake` build, so you can also use `cmake` directly. 
 
 There are special requirements if you need to read/convert raw data (see all the way below) 

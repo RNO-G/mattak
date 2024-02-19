@@ -8,6 +8,12 @@ helpers for RNO-G in C++, Python (via both uproot and PyROOT) and maybe even JS 
 rootjs). Writers are provided in C++ ( and Python via PyROOT)
 These are all in the same package so that they can be kept in concert with each other. 
 
+# Quickstart
+The Python interface for mattak can be installed by running:
+
+    pip install git+https://github.com/RNO-G/mattak.git
+
+In order to use the (faster) PyROOT backend, you need a working installation of [ROOT](https://root.cern/install/). If no ROOT installation can be found, only the uproot backend will be installed.
 
 # Data directory hierarchy 
 
