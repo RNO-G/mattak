@@ -232,6 +232,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             else:
                 raise ValueError()
 
+        self.has_calib = self.__cal_param is not None
+
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
         kw = dict(entry_start = self.first, entry_stop = self.last)
@@ -307,6 +309,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw)
 
     def wfs(self, calibrated : bool = False, raw_calibration = False) -> Optional[numpy.ndarray]:
+        if calibrate and not self.has_calib:
+            raise ValueError("You requested a calibrated waveform but no calibration is available")
+
         # assert(not calibrated) # not implemented yet
         kw = dict(entry_start=self.first, entry_stop=self.last, library='np')
 

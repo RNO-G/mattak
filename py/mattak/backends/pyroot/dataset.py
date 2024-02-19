@@ -22,7 +22,7 @@ except AttributeError:
 cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
-    return p is None or ROOT.AddressOf(p) == 0 or  cppyy.gbl.is_nully(p)
+    return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
@@ -51,15 +51,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if data_path is not None and os.path.isfile(data_path):
             self.ds.loadCombinedFile(data_path, opt)
-            data_path = os.path.dirname(data_path)
+            self.rundir = os.path.dirname(data_path)  # Just to keep backends compatibile, not actually needed
         else:
             opt.base_data_dir = data_path
             if station == 0 and run == 0:
+                self.rundir = data_path
                 self.ds.loadDir(data_path, opt)
             else:
+                self.rundir = f"{data_path}/station{station}/run{run}"
                 self.ds.loadRun(station, run, opt)
 
-        if voltage_calibration not in [ROOT.nullptr, None]:
+        if not isNully(voltage_calibration):
             if isinstance(voltage_calibration, str):
                 vc = ROOT.mattak.VoltageCalibration()
                 vc.readFitCoeffsFromFile(voltage_calibration)
@@ -81,7 +83,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
-        self.data_dir = data_path
+        self.data_path = data_path
         self.setEntries(0)
 
         if verbose:
@@ -165,18 +167,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return self._eventInfo(self.entry)
 
     def _wfs(self, i : int, calibrated: bool = False):
-        if calibrated and not self.has_calib:
-            raise ValueError("No calibration available")
-
         self.ds.setEntry(i)
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
         if isNully(wf):
             return None
 
-        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24,2048)
+        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
+                                dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24, 2048)
 
 
     def wfs(self, calibrated : bool=False) -> Optional[numpy.ndarray]:
+        if calibrated and not self.has_calib:
+            raise ValueError("You requested a calibrated waveform but no calibration is available")
 
         # the simple case first
         if not self.multiple:
@@ -190,6 +192,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
                 out[entry-self.first][:][:] = this_wfs
+
+        out = numpy.asarray(out, dtype=float)
 
         return out
 
