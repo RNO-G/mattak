@@ -161,10 +161,7 @@ mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib,
   setVerbose(v);  // should be first
   setDataDir(data_dir);
   setCalibration(calib);
-  if (station == 0 && run == 0)
-    loadFile(data_dir, partial_skip);
-  else
-    loadRun(station, run, partial_skip);
+  loadRun(station, run, partial_skip);
 }
 
 mattak::Dataset::Dataset(const char* data_dir)

@@ -79,7 +79,6 @@ namespace mattak
       Dataset (const char * data_dir);
       int loadRun(int station, int run, bool partial_skip_incomplete);
       int loadDir(const char * dir, bool partial_skip_incomplete);
-      int loadFile(const char * file, bool partial_skip_incomplete);
       void setDataDir(const char * dir);
 
 
