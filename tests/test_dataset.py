@@ -3,6 +3,7 @@ import time
 import numpy
 import argparse
 
+
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Test mattak.")
     argparser.add_argument('--station', type=int, default=21)
@@ -14,7 +15,7 @@ if __name__ == "__main__":
     for backend in args.backend:
         print(f">----- Testing backend: {backend} -----<")
         d = mattak.Dataset.Dataset(
-            args.station, args.run, data_dir=args.data_dir,
+            args.station, args.run, data_path=args.data_dir,
             backend=backend, verbose=True)
         print(d.N())
         print(d.eventInfo())
@@ -27,9 +28,8 @@ if __name__ == "__main__":
         mean = 0
         start = time.time()
         for ev in d.iterate():
-        #    print ( ev[0].eventNumber,numpy.average(ev[1]))
             mean += numpy.average(ev[1])
-        end = time.time()
-        print (mean/d.N())
-        print ("time:", end-start)
 
+        end = time.time()
+        print(mean / d.N())
+        print("time:", end - start)

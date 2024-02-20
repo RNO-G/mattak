@@ -1,9 +1,9 @@
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
-from typing import Sequence, Union, Tuple, Optional, Callable, Generator
+from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
-import os.path 
+import os.path
 import warnings
 
 try:
@@ -19,56 +19,74 @@ except AttributeError:
     cppyy.gbl.free = cppyy.gbl.freee
     import cppyy.ll
 
-
-cppyy.cppdef(" bool is_nully(void *p) { return !p; }");
-
+cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
-    return p is None or ROOT.AddressOf(p) == 0 or  cppyy.gbl.is_nully(p)
+    return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
+
 
 class Dataset(mattak.Dataset.AbstractDataset):
 
-    def __init__(self, station : int, run : int, data_path : str, 
-                 verbose : bool = False, skip_incomplete : bool = True, 
-                 read_daq_status : bool = True, read_run_info : bool = True, 
-                 preferred_file : Optional[str] = None):
-        
+    def __init__(self, station : int, run : int, data_path : str,
+                 verbose : bool = False, skip_incomplete : bool = True,
+                 read_daq_status : bool = True, read_run_info : bool = True,
+                 preferred_file : Optional[str] = None,
+                 voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None):
+        """
+        PyROOT backend for the python interface of the mattak Dataset. See further information in
+        `mattak.Dataset.Dataset`.
+        """
+
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
 
         opt = ROOT.mattak.DatasetOptions()
+        self.ds = ROOT.mattak.Dataset()
 
         opt.partial_skip_incomplete = skip_incomplete
-        opt.verbose = verbose 
-        opt.base_data_dir = data_path # only has an effect if it's actually a dir
-
+        opt.verbose = verbose
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
-        self.ds = ROOT.mattak.Dataset(opt)
 
         if data_path is not None and os.path.isfile(data_path):
-            self.ds.loadCombinedFile(data_path)
-        elif (station == 0 and run == 0):
-            self.ds.loadDir(data_path)
+            self.ds.loadCombinedFile(data_path, opt)
+            self.rundir = os.path.dirname(data_path)  # Just to keep backends compatibile, not actually needed
         else:
-            self.ds.loadRun(station,run)
-                    
-        if self.N() < 0: 
-            raise IOError("Could not load run [data_path: %s, %d %d]" % (data_path, station, run)) 
+            opt.base_data_dir = data_path
+            if station == 0 and run == 0:
+                self.rundir = data_path
+                self.ds.loadDir(data_path, opt)
+            else:
+                self.rundir = f"{data_path}/station{station}/run{run}"
+                self.ds.loadRun(station, run, opt)
 
-        if self.N() == 0: 
+        if not isNully(voltage_calibration):
+            if isinstance(voltage_calibration, str):
+                vc = ROOT.mattak.VoltageCalibration()
+                vc.readFitCoeffsFromFile(voltage_calibration)
+                voltage_calibration = vc
+
+            self.ds.setCalibration(voltage_calibration)
+            self.has_calib = True
+        else:
+            self.has_calib = False
+
+        if self.N() < 0:
+            raise IOError("Could not load run [data_path: %s, %d %d]" % (data_path, station, run))
+
+        if self.N() == 0:
             warnings.warn("Run is empty?")
             self.station = station
             self.run = run
-        else: 
+        else:
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
         self.data_path = data_path
         self.setEntries(0)
 
-        if verbose: 
+        if verbose:
             print("We think we found station %d run %d" % (self.station,self.run))
 
     def N(self) -> int:
@@ -78,9 +96,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         #TODO: handle this in C++ code if it's too slow in Python
         if not self.ds.setEntry(i):
             return None
-        
+
         hdr = self.ds.header()
-        
+
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
@@ -88,23 +106,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             radiantThrs = None
             lowTrigThrs = None
-            
+
         if self.__read_run_info:
             runinfo = self.ds.info()
-            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2 
+            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2
         else:
             sampleRate = None
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
-        
+
         station = hdr.station_number
         run = hdr.run_number
         eventNumber = hdr.event_number
         readoutTime = hdr.readout_time
         triggerTime = hdr.trigger_time
         triggerType = "UNKNOWN"
-        
+
         if hdr.trigger_info.radiant_trigger:
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
@@ -143,7 +161,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             infos = []
             for i in range(self.first, self.last):
                 infos.append(self._eventInfo(i))
-            
+
             return infos
 
         return self._eventInfo(self.entry)
@@ -153,11 +171,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
         wf = self.ds.calibrated() if calibrated else self.ds.raw()
         if isNully(wf):
             return None
-        
-        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data), dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24,2048)
+
+        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
+                                dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24, 2048)
 
 
-    def wfs(self, calibrated : bool=False) -> Optional[numpy.ndarray]: 
+    def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
+        if calibrated and not self.has_calib:
+            raise ValueError("You requested a calibrated waveform but no calibration is available")
 
         # the simple case first
         if not self.multiple:
@@ -172,9 +193,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if this_wfs is not None:
                 out[entry-self.first][:][:] = this_wfs
 
+        out = numpy.asarray(out, dtype=float)
+
         return out
 
-       
+
     def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
                  selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
 
@@ -187,7 +210,3 @@ class Dataset(mattak.Dataset.AbstractDataset):
             for i in range(start, stop):
                 yield self._eventInfo(i), self._wfs(i, calibrated)
         return
-
-
-
-
