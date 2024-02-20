@@ -31,7 +31,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str|TypeVar('ROOT.mattak.VoltageCalibration')] = None):
+                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset`.

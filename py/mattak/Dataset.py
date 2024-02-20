@@ -120,7 +120,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
-            voltage_calibration : Optional[str] = None,
+            voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
 
