@@ -477,7 +477,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         residAve_adc[j][ipoint] /= nResidSets[j];
         residVar_adc[j][ipoint] = abs(residVar_adc[j][ipoint]/nResidSets[j] - pow(residAve_adc[j][ipoint], 2)); 
         graph_residAve[j]->SetPoint(ipoint, residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
-        graph_residAve[j]->SetPointError(ipoint, 0, residVar_adc[j][ipoint]);
+        graph_residAve[j]->SetPointError(ipoint, 0, sqrt(residVar_adc[j][ipoint]));
       }
 
       resid_volt[j].resize(npoints_residGraph*2-1);
