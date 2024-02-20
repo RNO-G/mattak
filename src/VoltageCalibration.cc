@@ -463,16 +463,10 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   for (int j = 0; j < 2; j++)
   {
     TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
-    graph_residAve[j] = new TGraph();
+    graph_residAve[j] = new TGraphErrors();
     graph_residAve[j]->SetNameTitle(graphNameTitle);
     graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
     graph_residAve[j]->GetYaxis()->SetTitle("ADC Residual");
-
-    TString graphVarNameTitle = TString::Format("varResid_dac%d", j+1);
-    graph_residVar[j] = new TGraph();
-    graph_residVar[j]->SetNameTitle(graphVarNameTitle);
-    graph_residVar[j] ->GetXaxis()->SetTitle("VBias [Volt]");
-    graph_residVar[j]->GetYaxis()->SetTitle("Var ADC Residual");
 
     if (fit_isUsingResid)
     {
@@ -481,9 +475,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       {
         residAve_volt[j][ipoint] /= nResidSets[j];
         residAve_adc[j][ipoint] /= nResidSets[j];
-        residVar_adc[j][ipoint] = abs(residVar_adc[j][ipoint]/nResidPoints[j] - pow(residAve_adc[j][ipoint], 2)); 
-        graph_residAve[j]->SetPoint(graph_residAve[j]->GetN(), residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
-        graph_residVar[j]->SetPoint(graph_residVar[j]->GetN(), residAve_volt[j][ipoint], residVar_adc[j][ipoint]);
+        residVar_adc[j][ipoint] = abs(residVar_adc[j][ipoint]/nResidSets[j] - pow(residAve_adc[j][ipoint], 2)); 
+        graph_residAve[j]->SetPoint(ipoint, residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+        graph_residAve[j]->SetPointError(ipoint, 0, residVar_adc[j][ipoint]);
       }
 
       resid_volt[j].resize(npoints_residGraph*2-1);
@@ -934,9 +928,6 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   getAveResidGraph_dac1()->Write();
   getAveResidGraph_dac2()->Write();
 
-  getVarResidGraph_dac1()->Write();
-  getVarResidGraph_dac2()->Write();
-
   std::cout << "\n\nAll voltage calibration constants saved in file: " << outFileName << std::endl;
   f.Close();
 }
@@ -1023,7 +1014,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 
     // Average residuals for both types of DACs
     TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
-    graph_residAve[j] = (TGraph*)inputFile->Get(graphNameTitle);
+    graph_residAve[j] = (TGraphErrors*)inputFile->Get(graphNameTitle);
 
     if (fit_isUsingResid)
     {
