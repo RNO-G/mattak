@@ -2,6 +2,7 @@ import os
 import uproot
 import configparser
 import glob
+import re
 
 import mattak.Dataset
 from typing import Union, Optional, Tuple, Generator, Callable, Sequence
@@ -211,6 +212,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if voltage_calibration is None:
             # try finding a calibration file in the run directory
             calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
+            # Look in VC constants directory
+            #calibration_files = self.find_VC()
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]
         else:
@@ -405,6 +408,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
+
+
+def find_VCs(VC_dir, station_nr, time):
+    """
+    Function to find the VC parameter file that lays closest to given time
+    """
+    VC_station = glob.glob(f"{VC_dir}/station{station_nr}/*/*")
+    # extracting bias scan start time from cal_file name
+    VC_start_times = [(i, re.split("\W+|_", el)[3]) for i, el in enumerate(VC_station)]
+    closest_idx = min(VC_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
+    return VC_station[idx]
+
 
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
