@@ -213,14 +213,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # try finding a calibration file in the run directory
             # order of search:
             # - in same folder as run
-            # - in folder structure under RNO_G_DATA/calibration/station
+            # - in folder structure under RNO_G_DATA/calibration/stationX
             calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
             if not calibration_files:
                 # Look in VC constants directory
-                VC_dir = f"{os.environ['RNO_G_DATA']}/calibration"
-                # pick out first trigger time (trigger time diffs << bias scan time diffs)
-                time = self._hds['trigger_time'].array()[0]
-                calibration_files = [find_VC(VC_dir, self.station, time)]
+                try:
+                    VC_dir = f"{os.environ['RNO_G_DATA']}/calibration"
+                    # pick out first trigger time (trigger time diffs << bias scan time diffs)
+                    time = self._hds['trigger_time'].array()[0]
+                    calibration_files = [find_VC(VC_dir, self.station, time)]
+                except:
+                    print("RNO_G_DATA path was not found in system env paths, no voltage calibration root file was found")
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]
         else:
