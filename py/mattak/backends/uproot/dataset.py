@@ -211,9 +211,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if voltage_calibration is None:
             # try finding a calibration file in the run directory
+            # order of search:
+            # - in same folder as run
+            # - in folder structure under RNO_G_DATA/calibration/station
             calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
-            # Look in VC constants directory
-            #calibration_files = self.find_VC()
+            if not calibration_files:
+                # Look in VC constants directory
+                VC_dir = f"{os.environ['RNO_G_DATA']}/calibration"
+                # pick out first trigger time (trigger time diffs << bias scan time diffs)
+                time = self._hds['trigger_time'].array()[0]
+                calibration_files = [find_VC(VC_dir, self.station, time)]
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]
         else:
@@ -231,9 +238,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 elif "pedestals" in self.cal_file:
                     self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
                 else:
-                    raise ValueError()
+                    raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
             else:
-                raise ValueError()
+                raise ValueError(f"{calibration_files[0]} is not recognized as a root file")
 
         self.has_calib = self.__cal_param is not None
 
@@ -410,15 +417,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     yield e[idx], w[idx]
 
 
-def find_VCs(VC_dir, station_nr, time):
+def find_VC(VC_dir, station_nr, time):
     """
     Function to find the VC parameter file that lays closest to given time
     """
-    VC_station = glob.glob(f"{VC_dir}/station{station_nr}/*/*")
+    VC_station_dir = glob.glob(f"{VC_dir}/station{station_nr}")[0]
+    VC_station = os.listdir(VC_station_dir)
     # extracting bias scan start time from cal_file name
-    VC_start_times = [(i, re.split("\W+|_", el)[3]) for i, el in enumerate(VC_station)]
+    VC_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(VC_station)]
     closest_idx = min(VC_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
-    return VC_station[idx]
+    return f"{VC_station_dir}/{VC_station[closest_idx]}"
 
 
 
