@@ -1060,44 +1060,56 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
   bool is2ndHalfWindows;
   int nwindows = N / mattak::k::radiant_window_size;
+  int window_shift;
   int isamp;
   int i = 0;
-  int j;
 
-  if (start_window > 15)
+  if (start_window >= mattak::k::radiant_windows_per_buffer)
   {
     is2ndHalfWindows = true;
-    j = start_window - mattak::k::radiant_windows_per_buffer;
+    window_shift = start_window - mattak::k::radiant_windows_per_buffer;
   }
   else
   {
     is2ndHalfWindows = false;
-    j = start_window;
+    window_shift = start_window;
   }
 
 
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
   {
-    if (isOldFirmware)
-    {
-      // Old Firmware
-      // Wrap around if j % 16 = 0
-      if (j % mattak::k::radiant_windows_per_buffer == 0) j = 0;
-      if (inRange(0,4,j) || inRange(8,12,j)) isamp = (j+3) * mattak::k::radiant_window_size;
-      if (inRange(5,7,j) || inRange(13,15,j)) isamp = (j-5) * mattak::k::radiant_window_size;
-    }
+    if (window_shift == 0) isamp = iwindow * mattak::k::radiant_window_size;
     else
     {
-      // New Firmware
-      // Wrap around if j % 16 = 0
-      if (j % mattak::k::radiant_windows_per_buffer == 0) j = 0;
-      if (inRange(0,12,j)) isamp = (j+3) * mattak::k::radiant_window_size;
-      if (inRange(13,15,j)) isamp = (j-13) * mattak::k::radiant_window_size;
+      if (isOldFirmware)
+      {
+        // Old Firmware
+        int half = mattak::k::radiant_windows_per_buffer/2;
+        int x1 = 0;
+        int x4 = half - 1;
+        int x2 = x4 - window_shift;
+        int x3 = x2 + 1;
+        int x5 = x1 + half;
+        int x6 = x2 + half;
+        int x7 = x3 + half;
+        int x8 = x4 + half;
+        if (inRange(x1,x2,iwindow) || inRange(x5,x6,iwindow)) isamp = (iwindow+window_shift) * mattak::k::radiant_window_size;
+        if (inRange(x3,x4,iwindow) || inRange(x7,x8,iwindow)) isamp = (iwindow+window_shift-half) * mattak::k::radiant_window_size;
+      }
+      else
+      {
+        // New Firmware
+        int whole = mattak::k::radiant_windows_per_buffer;
+        int x1 = 0;
+        int x4 = whole - 1;
+        int x2 = x4 - window_shift;
+        int x3 = x2 + 1;
+        if (inRange(x1,x2,iwindow)) isamp = (iwindow+window_shift) * mattak::k::radiant_window_size;
+        if (inRange(x3,x4,iwindow)) isamp = (iwindow+window_shift-whole) * mattak::k::radiant_window_size;
+      }
     }
-
+    
     if (is2ndHalfWindows) isamp += mattak::k::num_radiant_samples;
-
-    j++;
 
 #ifndef MATTAK_VECTORIZE
     for (int k = 0; k < mattak::k::radiant_window_size; k++)
