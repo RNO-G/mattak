@@ -52,8 +52,8 @@ namespace mattak
       bool readFitCoeffsFromFile(TFile *);
 
       int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
-      const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
-      const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * getPackedAveResid_volt(int chan) const { return isResid() ? &resid_volt[chan>=mattak::k::num_radiant_channels/2][0] : 0; }
+      const double * getPackedAveResid_adc(int chan) const { return isResid() ? &resid_adc[chan>=mattak::k::num_radiant_channels/2][0] : 0; }
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
       double getFitMax() const { return fit_max; }
