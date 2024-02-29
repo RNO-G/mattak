@@ -1,5 +1,4 @@
 #include "mattak/VoltageCalibration.h"
-#include "TFile.h"
 #include <iostream>
 #include <stdio.h>
 
@@ -95,6 +94,7 @@ static bool inRange(unsigned low, unsigned high, unsigned x)
 #include "mattak/Pedestals.h"
 
 #include "TLinearFitter.h"
+#include "TFile.h"
 #include "TF1.h"
 #include "TList.h"
 #include "TString.h"
@@ -634,7 +634,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     if (aveChisq[ichan] > 6.0)
     {
       isBad_channelAveChisqPerDOF[ichan] = true;
-      printf("\nBAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
+      printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
     }
 
     if (aveChisq[ichan] <= 6.0 && channelHasBadFit)
@@ -642,7 +642,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       for (int samp = 0; samp < badFit.size(); samp++)
       {
         int bad = badFit[samp];
-        printf("\nBAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
+        printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
     }
 
@@ -706,13 +706,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           {
             aboveSmallBoxY2 = true;
             isResidOutOfBoxFrame[i][0] = true;
-            printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go beyond the first upper threshold (> 25 adu)!!!\n", i+1);
+            printf("BAD FITTING WARNING: Some residuals in DAC-%d go beyond the first upper threshold (> 25 adu)!!!\n", i+1);
           }
           if (hist_resid[i]->GetBinContent(binNumberX, smallBoxBinY1) > 1 && !belowSmallBoxY1)
           {
             belowSmallBoxY1 = true;
             isResidOutOfBoxFrame[i][1] = true;
-            printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go below the first lower threshold (< -25 adu)!!!\n", i+1);
+            printf("BAD FITTING WARNING: Some residuals in DAC-%d go below the first lower threshold (< -25 adu)!!!\n", i+1);
           }
         }
 
@@ -721,13 +721,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         {
           aboveBigBoxY2 = true;
           isResidOutOfBoxFrame[i][2] = true;
-          printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go beyond the second upper threshold (> 50 adu)!!!\n", i+1);
+          printf("BAD FITTING WARNING: Some residuals in DAC-%d go beyond the second upper threshold (> 50 adu)!!!\n", i+1);
         }
         if (hist_resid[i]->GetBinContent(binNumberX, 1) > 1 && !belowBigBoxY1)
         {
           belowBigBoxY1 = true;
           isResidOutOfBoxFrame[i][3] = true;
-          printf("\nBAD FITTING WARNING: Some residuals in DAC-%d go below the second lower threshold (< -50 adu)!!!\n", i+1);
+          printf("BAD FITTING WARNING: Some residuals in DAC-%d go below the second lower threshold (< -50 adu)!!!\n", i+1);
         }
 
         if (aboveBigBoxY2 && belowBigBoxY1 && aboveSmallBoxY2 && belowSmallBoxY1) break;
@@ -1038,7 +1038,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
   {
     chisqValidation_tree->GetEntry(iChan);
     isBad_channelAveChisqPerDOF[iChan] = channelAveChisqPerDOF;
-    if (isBad_channelAveChisqPerDOF[iChan]) printf("\nBAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+    if (isBad_channelAveChisqPerDOF[iChan]) printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
 
     fit_coeffs[iChan].clear();
     fit_coeffs[iChan].resize((fit_order+1)*mattak::k::num_lab4_samples, 0);
@@ -1046,7 +1046,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
     {
       isBad_sampChisqPerDOF[iChan][iSamp] = sampChisqPerDOF[iSamp];
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
-      printf("\nBAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+      printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
 
       fitCoeffs_tree->GetEntry(iChan*mattak::k::num_lab4_samples+iSamp);
       for(int iOrder = 0; iOrder < fit_order+1; iOrder++)
@@ -1064,10 +1064,10 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
       isResidOutOfBoxFrame[j][i] = residOutOfBoxFrame[i];
       if (isResidOutOfBoxFrame[j][i])
       {
-        if (i == 0) printf("\nBAD FITTING WARNING: Some residuals in DAC-%d are beyond the SMALL BOX FRAME upper threshold (25 adu)!!!\n", j+1);
-        else if (i == 1) printf("\nBAD FITTING WARNING: Some residuals in DAC-%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!\n", j+1);
-        else if (i == 2) printf("\nBAD FITTING WARNING: Some residuals in DAC-%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!\n", j+1);
-        else printf("\nBAD FITTING WARNING: Some residuals in DAC-%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!\n", j+1);
+        if (i == 0) printf("BAD FITTING WARNING: Some residuals in DAC-%d are beyond the SMALL BOX FRAME upper threshold (25 adu)!!!\n", j+1);
+        else if (i == 1) printf("BAD FITTING WARNING: Some residuals in DAC-%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!\n", j+1);
+        else if (i == 2) printf("BAD FITTING WARNING: Some residuals in DAC-%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!\n", j+1);
+        else printf("BAD FITTING WARNING: Some residuals in DAC-%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!\n", j+1);
       }
     }
 

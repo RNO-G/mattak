@@ -103,18 +103,18 @@ namespace mattak
       std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
       std::array<std::array<bool, 4>, 2> isResidOutOfBoxFrame; // 4 thresholds for each DAC
-      int fit_order;
-      int station_number;
-      double fit_vref;
-      double fit_min;
-      double fit_max;
-      uint32_t start_time;
-      int turnover_threshold;
+      int fit_order = 9 ;
+      int station_number = 0 ;
+      double fit_vref = 1.5;
+      double fit_min = 0.2;
+      double fit_max = 2.2;
+      uint32_t start_time = 0;
+      int turnover_threshold = 20;
       void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
-      uint32_t end_time;
+      uint32_t end_time = 0;
       bool hasBiasScanData = false;
-      bool fit_isUsingResid;
-      bool left_equals_right;
+      bool fit_isUsingResid = true;
+      bool left_equals_right = false;
     ClassDef(VoltageCalibration, 2);
   };
 #endif

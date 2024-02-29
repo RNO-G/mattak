@@ -36,3 +36,4 @@
 
 
 #pragma link C++ class mattak::Dataset+;
+#pragma link C++ struct mattak::DatasetOptions+;
