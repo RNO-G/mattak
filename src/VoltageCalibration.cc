@@ -1057,12 +1057,17 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
   int nSamplesPerGroup = mattak::k::num_radiant_samples;
   int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
   int i = 0;
-  int isamp;
+  int isamp, isamp_A, isamp_B;
 
   if (isOldFirmware)
   {
     nSamplesPerGroup /= 2;
     nWindowsPerGroup /= 2;
+    isamp_A = (start_window / nWindowsPerGroup) * nSamplesPerGroup;
+  }
+  else
+  {
+    isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
   }
 
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
@@ -1071,16 +1076,9 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
     for (int k = 0; k < mattak::k::radiant_window_size; k++)
     {
-      if (isOldFirmware)
-      {
-        isamp = (start_window / nWindowsPerGroup) * nSamplesPerGroup;
-      }
-      else
-      {
-        isamp = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
-      }
+      isamp_B = (k + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
 
-      isamp += (k + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+      isamp = isamp_A + isamp_B;
 
       const double *params = packed_fit_params + isamp * (fit_order+1);
 
