@@ -1071,8 +1071,6 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
   for (int i = 0; i < nSamples_wf; i++)
   {
-#ifndef MATTAK_VECTORIZE
-
     isamp_B = (i + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
 
     isamp_lab4 = isamp_A + isamp_B;
@@ -1096,58 +1094,6 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     }
 
     delete residTablePerSamp_adc;
-
-
-#else
-
-// Vectorized version, on intel x86x64 anyway. Optimized for AVX2.
-#define VEC_SIZE 4
-#define VECD vec4d
-#define VECI vec4q
-#define VEC_INCR VECI(0,1,2,3)
-#define VEC_N mattak::k::radiant_window_size / (VEC_SIZE * VEC_UNROLL)
-
-    if (i % mattak::k::radiant_window_size == 0)
-    {
-      VECD v[VEC_UNROLL];
-      VECI vin[VEC_UNROLL];
-      VECD x[VEC_UNROLL];
-      VECI idx[VEC_UNROLL];
-
-
-      for (int k = 0; k < vec_N; k++)
-      {
-        int iout = i; // for simplicity
-
-        for (int u = 0; u < VEC_UNROLL; u++)
-        {
-          vin[u].load(in + i);
-          x[u] = vin[u];
-          idx[u]= VEC_INCR + isamp;
-          v[u] = lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
-          idx[u] *= (fit_order+1);
-          isamp += VEC_SIZE;
-          i += VEC_SIZE;
-        }
-
-        for (int j = fit_order-1; j >= 0; j--)
-        {
-          for (int u = 0; u < VEC_UNROLL; u++)
-          {
-            idx[u]++;
-            v[u] = v[u] * x[u] + lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
-          }
-        }
-
-        for (int u = 0; u < VEC_UNROLL; u++)
-        {
-          v[u].store(out+iout);
-          iout += VEC_SIZE;
-        }
-      }
-    }
-
-#endif
   }
 
   return out;
