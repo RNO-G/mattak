@@ -45,6 +45,8 @@ namespace mattak
        */
       VoltageCalibration(const char * bias_scan_file_or_saved_coeff_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
+      VoltageCalibration(const VoltageCalibration & vc) = delete; 
+      VoltageCalibration & operator=(const VoltageCalibration & vc) = delete; 
       virtual ~VoltageCalibration(); 
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool isUsingResid = true, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
