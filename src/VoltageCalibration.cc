@@ -1121,11 +1121,10 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
-  int nwindows = N / mattak::k::radiant_window_size;
+  int nSamples_wf = N;
   int nSamplesPerGroup = mattak::k::num_radiant_samples;
   int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
-  int i = 0;
-  int isamp, isamp_A, isamp_B;
+  int isamp_lab4, isamp_A, isamp_B;
 
   if (isOldFirmware)
   {
@@ -1138,85 +1137,31 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
   }
 
-  for (int iwindow = 0; iwindow < nwindows; iwindow++)
+  for (int i = 0; i < nSamples_wf; i++)
   {
-#ifndef MATTAK_VECTORIZE
+    isamp_B = (i + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
 
-    for (int k = 0; k < mattak::k::radiant_window_size; k++)
+    isamp_lab4 = isamp_A + isamp_B;
+
+    const double *params = packed_fit_params + isamp_lab4 * (fit_order+1);
+
+    double *residTablePerSamp_adc;
+    if (isUsingResid)
     {
-      isamp_B = (k + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
-
-      isamp = isamp_A + isamp_B;
-
-      const double *params = packed_fit_params + isamp * (fit_order+1);
-
-      double *residTablePerSamp_adc = nullptr;
-      if (isUsingResid)
-      {
-        residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
-      }
-
-      double adc = in[i];
-      if (isUsingResid)
-      {
-        out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
-      }
-      else
-      {
-        out[i] = evalPars(adc, fit_order, params);
-      }
-
-      i++;
-
-      delete [] residTablePerSamp_adc;
+      residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
     }
 
-#else
-
-// Vectorized version, on intel x86x64 anyway. Optimized for AVX2.
-#define VEC_SIZE 4
-#define VECD vec4d
-#define VECI vec4q
-#define VEC_INCR VECI(0,1,2,3)
-#define VEC_N mattak::k::radiant_window_size / (VEC_SIZE * VEC_UNROLL)
-
-    VECD v[VEC_UNROLL];
-    VECI vin[VEC_UNROLL];
-    VECD x[VEC_UNROLL];
-    VECI idx[VEC_UNROLL];
-
-
-    for (int k = 0; k < vec_N; k++)
+    double adc = in[i];
+    if (isUsingResid)
     {
-      int iout = i; // for simplicity
-
-      for (int u = 0; u < VEC_UNROLL; u++)
-      {
-        vin[u].load(in + i);
-        x[u] = vin[u];
-        idx[u]= VEC_INCR + isamp;
-        v[u] = lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
-        idx[u] *= (fit_order+1);
-        isamp += VEC_SIZE;
-        i += VEC_SIZE;
-      }
-
-      for (int j = fit_order-1; j >= 0; j--)
-      {
-        for (int u = 0; u < VEC_UNROLL; u++)
-        {
-          idx[u]++;
-          v[u] = v[u] * x[u] + lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
-        }
-      }
-
-      for (int u = 0; u < VEC_UNROLL; u++)
-      {
-        v[u].store(out+iout);
-        iout += VEC_SIZE;
-      }
+      out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
     }
-#endif
+    else
+    {
+      out[i] = evalPars(adc, fit_order, params);
+    }
+
+    delete [] residTablePerSamp_adc;
   }
 
   return out;
