@@ -66,6 +66,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 vc = ROOT.mattak.VoltageCalibration()
                 vc.readFitCoeffsFromFile(voltage_calibration)
                 voltage_calibration = vc
+                self.vc = vc #prevent wanton destruction
 
             self.ds.setCalibration(voltage_calibration)
             self.has_calib = True
