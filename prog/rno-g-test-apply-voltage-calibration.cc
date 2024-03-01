@@ -19,22 +19,27 @@ int main (int nargs, char ** args)
   mattak::VoltageCalibration vc(args[3]); 
   opt.calib = &vc; 
 
+  int station = atoi(args[1]); 
+  int run = atoi(args[2]); 
 
-  mattak::Dataset d(atoi(args[1]), atoi(args[2]), opt); 
+  mattak::Dataset d(station,run, opt); 
 
   TCanvas c("c","c",1920,1080); 
-  d.calibrated(true)->drawWaveforms(mattak::WaveformPlotOptions(), &c); 
-  c.SaveAs("vc0.gif+100"); 
-  c.Clear();
-  d.calibrated(true)->drawWaveforms(mattak::WaveformPlotOptions(), &c); 
-  c.SaveAs("vc.gif+100"); 
-  d.setEntry(1); 
-  c.Clear();
-  d.calibrated(true)->drawWaveforms(mattak::WaveformPlotOptions(), &c); 
-  c.SaveAs("vc.gif+100"); 
-  c.Clear();
-  d.calibrated(true)->drawWaveforms(mattak::WaveformPlotOptions(), &c); 
-  c.SaveAs("vc.gif+100"); 
+  for (int i = 0; i <  (d.N() < 10 ? d.N() : 10) ; i++) 
+  {
+    d.setEntry(i); 
+    printf("%d\n", i); 
+    //do it twice, just in case
+    for (int j = 0; j < 2; j++) 
+    {
+      d.calibrated(j > 0)->drawWaveforms(mattak::WaveformPlotOptions(), &c); 
+      c.SaveAs(Form("vc_%d_%d.gif+50", station, run)); 
+      mattak::WaveformPlotOptions optraw; 
+      optraw.color = kRed +2; 
+      d.raw(j > 0)->drawWaveforms(optraw, &c); 
+      c.SaveAs(Form("vc_%d_%d.gif+50", station, run)); 
+    }
+  }
 
 
 }
