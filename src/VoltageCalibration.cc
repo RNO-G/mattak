@@ -1014,7 +1014,22 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 
     // Average residuals for both types of DACs
     TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
-    graph_residAve[j] = (TGraphErrors*)inputFile->Get(graphNameTitle);
+
+    // In older data, this may be a TGraph
+    TObject * obj = inputFile->Get(graphNameTitle); 
+    if (obj->InheritsFrom("TGraphErrors") )
+    {
+      graph_residAve[j] = (TGraphErrors*) obj; 
+    }
+    else 
+    {
+      TGraph * g = (TGraph*) obj; 
+      graph_residAve[j] = new TGraphErrors(g->GetN(), g->GetX(), g->GetY()); 
+      g->TNamed::Copy(*graph_residAve[j]); 
+      g->TAttMarker::Copy(*graph_residAve[j]); 
+      g->TAttLine::Copy(*graph_residAve[j]); 
+      g->TAttFill::Copy(*graph_residAve[j]); 
+    }
 
     if (fit_isUsingResid)
     {
