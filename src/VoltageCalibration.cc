@@ -83,11 +83,6 @@ static double adcToVolt(double in_adc, int npoints, const double * resid_volt, c
   return out_volt;
 }
 
-static bool inRange(unsigned low, unsigned high, unsigned x)
-{
-  return (low <= x && x <= high);
-}
-
 
 #ifndef MATTAK_NOROOT
 
@@ -1058,76 +1053,54 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
-  bool is2ndHalfWindows;
   int nwindows = N / mattak::k::radiant_window_size;
-  int window_shift;
-  int isamp;
+  int nSamplesPerGroup = mattak::k::num_radiant_samples;
+  int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
   int i = 0;
-
-  if (start_window >= mattak::k::radiant_windows_per_buffer)
-  {
-    is2ndHalfWindows = true;
-    window_shift = start_window - mattak::k::radiant_windows_per_buffer;
-  }
-  else
-  {
-    is2ndHalfWindows = false;
-    window_shift = start_window;
-  }
-
+  int isamp;
 
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
   {
-    if (window_shift == 0) isamp = iwindow * mattak::k::radiant_window_size;
-    else
+#ifndef MATTAK_VECTORIZE
+
+    for (int k = 0; k < mattak::k::radiant_window_size; k++)
     {
       if (isOldFirmware)
       {
-        // Old Firmware
-        int half = mattak::k::radiant_windows_per_buffer/2;
-        int x1 = 0;
-        int x4 = half - 1;
-        int x2 = x4 - window_shift;
-        int x3 = x2 + 1;
-        int x5 = x1 + half;
-        int x6 = x2 + half;
-        int x7 = x3 + half;
-        int x8 = x4 + half;
-        if (inRange(x1,x2,iwindow) || inRange(x5,x6,iwindow)) isamp = (iwindow+window_shift) * mattak::k::radiant_window_size;
-        if (inRange(x3,x4,iwindow) || inRange(x7,x8,iwindow)) isamp = (iwindow+window_shift-half) * mattak::k::radiant_window_size;
+        nSamplesPerGroup /= 2;
+        nWindowsPerGroup /= 2;
+        isamp = (start_window / nWindowsPerGroup) * nSamplesPerGroup;
       }
       else
       {
-        // New Firmware
-        int whole = mattak::k::radiant_windows_per_buffer;
-        int x1 = 0;
-        int x4 = whole - 1;
-        int x2 = x4 - window_shift;
-        int x3 = x2 + 1;
-        if (inRange(x1,x2,iwindow)) isamp = (iwindow+window_shift) * mattak::k::radiant_window_size;
-        if (inRange(x3,x4,iwindow)) isamp = (iwindow+window_shift-whole) * mattak::k::radiant_window_size;
+        isamp = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
       }
-    }
-    
-    if (is2ndHalfWindows) isamp += mattak::k::num_radiant_samples;
 
-#ifndef MATTAK_VECTORIZE
-    for (int k = 0; k < mattak::k::radiant_window_size; k++)
-    {
+      isamp += (k + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+
       const double *params = packed_fit_params + isamp * (fit_order+1);
 
       double *residTablePerSamp_adc;
-      if (isUsingResid) residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
+      if (isUsingResid)
+      {
+        residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
+      }
 
       double adc = in[i];
-      if (isUsingResid) out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
-      else out[i] = evalPars(adc, fit_order, params);
+      if (isUsingResid)
+      {
+        out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
+      }
+      else
+      {
+        out[i] = evalPars(adc, fit_order, params);
+      }
 
-      isamp++;
       i++;
 
       delete residTablePerSamp_adc;
     }
+
 #else
 
 // Vectorized version, on intel x86x64 anyway. Optimized for AVX2.
