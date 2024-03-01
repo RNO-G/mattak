@@ -1059,6 +1059,12 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
   int i = 0;
   int isamp;
 
+  if (isOldFirmware)
+  {
+    nSamplesPerGroup /= 2;
+    nWindowsPerGroup /= 2;
+  }
+
   for (int iwindow = 0; iwindow < nwindows; iwindow++)
   {
 #ifndef MATTAK_VECTORIZE
@@ -1067,8 +1073,6 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     {
       if (isOldFirmware)
       {
-        nSamplesPerGroup /= 2;
-        nWindowsPerGroup /= 2;
         isamp = (start_window / nWindowsPerGroup) * nSamplesPerGroup;
       }
       else
