@@ -1053,10 +1053,10 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
+  int nSamples_wf = N;
   int nSamplesPerGroup = mattak::k::num_radiant_samples;
   int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
-  int i = 0;
-  int isamp, isamp_A, isamp_B;
+  int isamp_lab4, isamp_A, isamp_B;
 
   if (isOldFirmware)
   {
@@ -1069,15 +1069,15 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
   }
 
-  for (int i = 0; i < N; i++)
+  for (int i = 0; i < nSamples_wf; i++)
   {
 #ifndef MATTAK_VECTORIZE
 
     isamp_B = (i + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
 
-    isamp = isamp_A + isamp_B;
+    isamp_lab4 = isamp_A + isamp_B;
 
-    const double *params = packed_fit_params + isamp * (fit_order+1);
+    const double *params = packed_fit_params + isamp_lab4 * (fit_order+1);
 
     double *residTablePerSamp_adc;
     if (isUsingResid)
@@ -1107,42 +1107,46 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 #define VEC_INCR VECI(0,1,2,3)
 #define VEC_N mattak::k::radiant_window_size / (VEC_SIZE * VEC_UNROLL)
 
-    VECD v[VEC_UNROLL];
-    VECI vin[VEC_UNROLL];
-    VECD x[VEC_UNROLL];
-    VECI idx[VEC_UNROLL];
-
-
-    for (int k = 0; k < vec_N; k++)
+    if (i % mattak::k::radiant_window_size == 0)
     {
-      int iout = i; // for simplicity
+      VECD v[VEC_UNROLL];
+      VECI vin[VEC_UNROLL];
+      VECD x[VEC_UNROLL];
+      VECI idx[VEC_UNROLL];
 
-      for (int u = 0; u < VEC_UNROLL; u++)
-      {
-        vin[u].load(in + i);
-        x[u] = vin[u];
-        idx[u]= VEC_INCR + isamp;
-        v[u] = lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
-        idx[u] *= (fit_order+1);
-        isamp += VEC_SIZE;
-        i += VEC_SIZE;
-      }
 
-      for (int j = fit_order-1; j >= 0; j--)
+      for (int k = 0; k < vec_N; k++)
       {
+        int iout = i; // for simplicity
+
         for (int u = 0; u < VEC_UNROLL; u++)
         {
-          idx[u]++;
-          v[u] = v[u] * x[u] + lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
+          vin[u].load(in + i);
+          x[u] = vin[u];
+          idx[u]= VEC_INCR + isamp;
+          v[u] = lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
+          idx[u] *= (fit_order+1);
+          isamp += VEC_SIZE;
+          i += VEC_SIZE;
+        }
+
+        for (int j = fit_order-1; j >= 0; j--)
+        {
+          for (int u = 0; u < VEC_UNROLL; u++)
+          {
+            idx[u]++;
+            v[u] = v[u] * x[u] + lookup < mattak::max_voltage_calibration_fit_order * mattak::k::num_lab4_samples > (idx, packed_fit_params);
+          }
+        }
+
+        for (int u = 0; u < VEC_UNROLL; u++)
+        {
+          v[u].store(out+iout);
+          iout += VEC_SIZE;
         }
       }
-
-      for (int u = 0; u < VEC_UNROLL; u++)
-      {
-        v[u].store(out+iout);
-        iout += VEC_SIZE;
-      }
     }
+
 #endif
   }
 
