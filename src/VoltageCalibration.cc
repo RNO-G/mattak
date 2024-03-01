@@ -235,7 +235,6 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
 
 mattak::VoltageCalibration::~VoltageCalibration() 
 {
-  std::cout << "Destruction ensuing" << std::endl; 
   delete graphs; 
 
   for (auto h : hist_resid) delete h; 
