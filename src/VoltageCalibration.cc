@@ -1053,7 +1053,6 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
-  int nwindows = N / mattak::k::radiant_window_size;
   int nSamplesPerGroup = mattak::k::num_radiant_samples;
   int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
   int i = 0;
@@ -1070,38 +1069,34 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
   }
 
-  for (int iwindow = 0; iwindow < nwindows; iwindow++)
+  for (int i = 0; i < N; i++)
   {
 #ifndef MATTAK_VECTORIZE
 
-    for (int k = 0; k < mattak::k::radiant_window_size; k++)
+    isamp_B = (i + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+
+    isamp = isamp_A + isamp_B;
+
+    const double *params = packed_fit_params + isamp * (fit_order+1);
+
+    double *residTablePerSamp_adc;
+    if (isUsingResid)
     {
-      isamp_B = (k + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
-
-      isamp = isamp_A + isamp_B;
-
-      const double *params = packed_fit_params + isamp * (fit_order+1);
-
-      double *residTablePerSamp_adc;
-      if (isUsingResid)
-      {
-        residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
-      }
-
-      double adc = in[i];
-      if (isUsingResid)
-      {
-        out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
-      }
-      else
-      {
-        out[i] = evalPars(adc, fit_order, params);
-      }
-
-      i++;
-
-      delete residTablePerSamp_adc;
+      residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
     }
+
+    double adc = in[i];
+    if (isUsingResid)
+    {
+      out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
+    }
+    else
+    {
+      out[i] = evalPars(adc, fit_order, params);
+    }
+
+    delete residTablePerSamp_adc;
+
 
 #else
 
