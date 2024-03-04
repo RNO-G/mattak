@@ -1035,13 +1035,13 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 #include <pybind11/numpy.h>
 #endif
 
-double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
                             int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc)
 
 {
-  if (!out) out = new double[N];
+  if (!out) out = new double[nSamples_wf];
 
-  if (N % mattak::k::radiant_window_size)
+  if (nSamples_wf % mattak::k::radiant_window_size)
   {
     std::cerr << "Not multiple of window size!" << std::endl;
     return 0;
@@ -1053,25 +1053,26 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
     return 0;
   }
 
-  int nSamples_wf = N;
   int nSamplesPerGroup = mattak::k::num_radiant_samples;
   int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
   int isamp_lab4, isamp_A, isamp_B;
+
+  isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
 
   if (isOldFirmware)
   {
     nSamplesPerGroup /= 2;
     nWindowsPerGroup /= 2;
-    isamp_A = (start_window / nWindowsPerGroup) * nSamplesPerGroup;
-  }
-  else
-  {
-    isamp_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
   }
 
   for (int i = 0; i < nSamples_wf; i++)
   {
     isamp_B = (i + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+
+    if (isOldFirmware)
+    {
+      isamp_B += (i >= nSamplesPerGroup) * nSamplesPerGroup;
+    }
 
     isamp_lab4 = isamp_A + isamp_B;
 
