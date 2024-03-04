@@ -269,16 +269,16 @@ def find_VC(rundir, station, time):
         for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA"]:
             if env_var in os.environ:
                 vc_dir = f"{os.environ[env_var]}/station{station}/calibration"
+                vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
                 break
-        vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
         if vc_dir is None:
             logging.error(
                 "Could not find a directory for the calibration files." 
                 "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
             return None
-    if not vc_list:
-        logging.error("Could not find any calibration files")
-        return None
+        if not vc_list:
+            logging.error("Could not find any calibration files")
+            return None
         
     
     # to marginally save time when there is only one file
