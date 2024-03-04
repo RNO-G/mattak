@@ -1077,23 +1077,18 @@ double * mattak::applyVoltageCalibration (int N, const int16_t * in, double * ou
 
     const double *params = packed_fit_params + isamp_lab4 * (fit_order+1);
 
-    double *residTablePerSamp_adc;
-    if (isUsingResid)
-    {
-      residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
-    }
-
     double adc = in[i];
     if (isUsingResid)
     {
+      double *residTablePerSamp_adc;
+      residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
       out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
+      delete residTablePerSamp_adc;
     }
     else
     {
       out[i] = evalPars(adc, fit_order, params);
     }
-
-    delete residTablePerSamp_adc;
   }
 
   return out;
