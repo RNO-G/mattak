@@ -210,20 +210,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         if voltage_calibration is None:
-            # try finding a calibration file in the run directory
-            # order of search:
-            # - in same folder as run
-            # - in folder structure under RNO_G_DATA/calibration/stationX
-            calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
-            if not calibration_files:
-                # Look in VC constants directory
-                try:
-                    VC_dir = f"{os.environ['RNO_G_DATA']}/calibration"
-                    # pick out first trigger time (trigger time diffs << bias scan time diffs)
-                    time = self._hds['trigger_time'].array()[0]
-                    calibration_files = [find_VC(VC_dir, self.station, time)]
-                except:
-                    print("RNO_G_DATA path was not found in system env paths, no voltage calibration root file was found")
+            # do find_VC here
+            time = self._hds['trigger_time'].array()[0]
+            cal = mattak.Dataset.find_VC(self.rundir, self.station, time)
+            calibration_files = [cal] if cal is not None else []
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]
         else:
@@ -418,20 +408,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
-
-
-def find_VC(VC_dir, station_nr, time):
-    """
-    Function to find the VC parameter file that lays closest to given time
-    """
-    VC_station_dir = glob.glob(f"{VC_dir}/station{station_nr}")[0]
-    VC_station = os.listdir(VC_station_dir)
-    # extracting bias scan start time from cal_file name
-    VC_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(VC_station)]
-    closest_idx = min(VC_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
-    return f"{VC_station_dir}/{VC_station[closest_idx]}"
-
-
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
     """

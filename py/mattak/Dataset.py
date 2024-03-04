@@ -1,5 +1,7 @@
 ### Python dataset class, agnostic to backend
 import os
+import glob
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
@@ -250,3 +252,40 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
     else:
         print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
         return None
+
+def find_VC(rundir, station, time):
+    """
+    Function to find the calibration file that lays closest to given time.
+    Returns None if no file was found
+    The order of the search is:
+        * run directory
+        * under RNO_G_DATA/stationX/calibration
+    """
+    # try finding a calibration file in the run directory
+    vc_list = glob.glob(f"{rundir}/volCalConst*.root/")
+
+    if not vc_list:
+        # look in VC constants directory
+        for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA"]:
+            if env_var in os.environ:
+                vc_dir = f"{os.environ[env_var]}/station{station}/calibration"
+                break
+        vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
+        if vc_dir is None:
+            logging.error(
+                "Could not find a directory for the calibration files." 
+                "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
+            return None
+    if not vc_list:
+        logging.error("Could not find any calibration files")
+        return None
+        
+    
+    # to marginally save time when there is only one file
+    if len(vc_list) == 1:
+        return vc_list[0]
+    vc_basenames = [os.path.basename(vc) for vc in vc_list]
+    # extracting bias scan start time from cal_file name
+    vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
+    closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
+    return vc_list[closest_idx]
