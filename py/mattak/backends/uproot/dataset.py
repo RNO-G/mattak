@@ -212,7 +212,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if voltage_calibration is None:
             # do find_VC here
             time = self._hds['trigger_time'].array()[0]
-            cal = mattak.Dataset.find_VC(self.rundir, self.station, time)
+            cal = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
             calibration_files = [cal] if cal is not None else []
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]

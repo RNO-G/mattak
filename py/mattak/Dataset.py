@@ -253,13 +253,28 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
         return None
 
-def find_VC(rundir, station, time):
+def find_voltage_calibration(rundir, station, time):
     """
     Function to find the calibration file that lays closest to given time.
     Returns None if no file was found
     The order of the search is:
         * run directory
         * under RNO_G_DATA/stationX/calibration
+    Parameters
+    ----------
+    rundir : str
+        run directory, found by each backend individually
+    station : int
+        station number, read from runfile to account for station = 0 case
+    time: float
+        time of run, read as first time in trigger times
+            
+    Returns
+    -------
+    vc_list[closest_idx] : str
+        location of calibration file closest ib time to run trigger time
+    None
+        if no calibration file was found
     """
     # try finding a calibration file in the run directory
     vc_list = glob.glob(f"{rundir}/volCalConst*.root/")
@@ -269,19 +284,20 @@ def find_VC(rundir, station, time):
         # look in VC constants directory
         for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA"]:
             if env_var in os.environ:
-                vc_dir = f"{os.environ[env_var]}/station{station}/calibration"
+                vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
                 vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
                 break
+        
         if vc_dir is None:
             logging.error(
                 "Could not find a directory for the calibration files." 
                 "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
             return None
+
         if not vc_list:
             logging.error("Could not find any calibration files")
             return None
         
-    
     # to marginally save time when there is only one file
     if len(vc_list) == 1:
         return vc_list[0]
