@@ -61,13 +61,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
                 self.ds.loadRun(station, run, opt)
 
-        if not isNully(voltage_calibration):
+        if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
+            # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
             if isinstance(voltage_calibration, str):
-                vc = ROOT.mattak.VoltageCalibration()
-                vc.readFitCoeffsFromFile(voltage_calibration)
-                voltage_calibration = vc
+                self.vc = ROOT.mattak.VoltageCalibration()
+                self.vc.readFitCoeffsFromFile(voltage_calibration)
+            else:
+                self.vc = voltage_calibration
 
-            self.ds.setCalibration(voltage_calibration)
+            self.ds.setCalibration(self.vc)
             self.has_calib = True
         else:
             self.has_calib = False
