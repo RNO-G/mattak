@@ -264,6 +264,7 @@ def find_VC(rundir, station, time):
     # try finding a calibration file in the run directory
     vc_list = glob.glob(f"{rundir}/volCalConst*.root/")
 
+    vc_dir = None
     if not vc_list:
         # look in VC constants directory
         for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA"]:
