@@ -14,12 +14,15 @@
 
 static double evalPars(double x, int order, const double * p)
 {
+  // calculate a polynominal of n order backwards
+  // a_n = p_n; a_n-1 = a_n * x + p_n-1; ...
   double ans = p[order];
   int i = order - 1;
   while (i >= 0)
   {
     ans = x * ans + p[i--];
   }
+
   return ans;
 }
 
@@ -1076,7 +1079,8 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
 
     isamp_lab4 = isamp_A + isamp_B;
 
-    const double *params = packed_fit_params + isamp_lab4 * (fit_order+1);
+    // creating a pointer which points to the first parameter of this particular sample
+    const double *params = packed_fit_params + isamp_lab4 * (fit_order + 1);
 
     double adc = in[i];
     if (isUsingResid)
