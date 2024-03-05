@@ -1,5 +1,5 @@
 import ROOT
-# import mattak.backends.pyroot.mattakloader
+import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
