@@ -1,5 +1,5 @@
 import ROOT
-import mattak.backends.pyroot.mattakloader
+#import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
@@ -22,7 +22,13 @@ except AttributeError:
 cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
-    return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
+    if isinstance(p, str):
+        return p is None
+    else:
+        try:
+            return ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
+        except:
+            raise ValueError("Did not recognize voltage_calibration format, accepted types are None, string or ROOT.VoltageCalibration object")
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
@@ -61,17 +67,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
                 self.ds.loadRun(station, run, opt)
 
-        if not isNully(voltage_calibration):
-            if isinstance(voltage_calibration, str):
-                vc = ROOT.mattak.VoltageCalibration()
-                vc.readFitCoeffsFromFile(voltage_calibration)
-                voltage_calibration = vc
-
-            self.ds.setCalibration(voltage_calibration)
-            self.has_calib = True
-        else:
-            self.has_calib = False
-
         if self.N() < 0:
             raise IOError("Could not load run [data_path: %s, %d %d]" % (data_path, station, run))
 
@@ -82,6 +77,33 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
+                
+        if not isNully(voltage_calibration):
+            if isinstance(voltage_calibration, str):
+                vc = ROOT.mattak.VoltageCalibration()
+                vc.readFitCoeffsFromFile(voltage_calibration)
+                voltage_calibration = vc
+            self.ds.setCalibration(voltage_calibration)
+            self.has_calib = True      
+        elif voltage_calibration is None:
+            if verbose:
+                print("Looking for a calibration file")
+            time = self.ds.header().trigger_time
+            cal_file = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)       
+            if cal_file is not None:
+                if verbose:
+                    print(f"Found calibration file {cal_file}")
+                vc = ROOT.mattak.VoltageCalibration()
+                vc.readFitCoeffsFromFile(cal_file)
+                voltage_calibration = vc
+                self.ds.setCalibration(voltage_calibration)
+                self.has_calib = True
+            else:
+                if verbose:
+                    print("No calibration file found")
+                self.has_calib = False
+        else:
+            self.has_calib = False
 
         self.data_path = data_path
         self.setEntries(0)
