@@ -1,5 +1,5 @@
 import ROOT
-import mattak.backends.pyroot.mattakloader
+# import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
 from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
 import numpy
@@ -23,12 +23,12 @@ cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
     if isinstance(p, str):
-        return p is None
+        return False
     else:
         try:
             return ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
         except:
-            raise ValueError("Did not recognize voltage_calibration format, accepted types are None, string or ROOT.VoltageCalibration object")
+            return None
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
@@ -83,8 +83,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 vc = ROOT.mattak.VoltageCalibration()
                 vc.readFitCoeffsFromFile(voltage_calibration)
                 voltage_calibration = vc
-            self.ds.setCalibration(voltage_calibration)
-            self.has_calib = True      
+                self.ds.setCalibration(voltage_calibration)
+                self.has_calib = True      
         elif voltage_calibration is None:
             if verbose:
                 print("Looking for a calibration file")
