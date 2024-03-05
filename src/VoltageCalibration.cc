@@ -39,10 +39,10 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
   return adcTable;
 }
 
-static double adcToVolt(double in_adc, int npoints, const double * resid_volt, const double * resid_adc)
+static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
 {
-  const double *volt_array = resid_volt;
-  const double *adc_array = resid_adc;
+  const double *volt_array = voltTable;
+  const double *adc_array = adcTable;
   double m;
   double out_volt = 0;
 
@@ -541,13 +541,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       int npoints = graph[ichan][i]->GetN();
       double *data_adc;
       double *data_v;
-      double *residTablePerSamp_adc;
+      double *adcTable;
 
       if (fit_isUsingResid)
       {
         data_adc = graph[ichan][i]->GetY();
         data_v = graph[ichan][i]->GetX();
-        residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
+        adcTable = adcTablePerSample(fit_order, nResidPoints[dacType], &fit_coeffs[ichan][i * (order+1)], &resid_volt[dacType][0], &resid_adc[dacType][0]);
       }
       else
       {
@@ -562,7 +562,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         double v_meas = data_v[j];
         double v_pred;
 
-        if (fit_isUsingResid) v_pred = adcToVolt(adc, nResidPoints[dacType], &resid_volt[dacType][0], &residTablePerSamp_adc[0]);
+        if (fit_isUsingResid) v_pred = adcToVolt(adc, nResidPoints[dacType], &resid_volt[dacType][0], &adcTable[0]);
         else v_pred = evalPars(adc, fit_order, &fit_coeffs[ichan][i * (order+1)]);
 
         double delta = fabs(v_meas-v_pred);
@@ -586,7 +586,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
       aveChisq[ichan] = aveChisq[ichan] + (fit_chisq[ichan][i]/fit_ndof[ichan][i]);
 
-      delete residTablePerSamp_adc;
+      delete adcTable;
     }
 
     // chi2 check for fit quality validation
@@ -805,7 +805,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
   int npoints = graph[chan][samp]->GetN();
   double *data_adc;
   double *data_v;
-  double *residTablePerSamp_adc;
+  double *adcTable;
 
   TF1 *fn;
 
@@ -813,7 +813,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
   {
     data_adc = graph[chan][samp]->GetY();
     data_v = graph[chan][samp]->GetX();
-    residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+    adcTable = adcTablePerSample(fit_order, nResidPoints[dacType], getFitCoeffs(chan,samp), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
   }
   else
   {
@@ -833,7 +833,7 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
     if (resid)
     {
-      if (fit_isUsingResid) v -= adcToVolt(adc, nResidPoints[dacType], getPackedAveResid_volt(chan), residTablePerSamp_adc);
+      if (fit_isUsingResid) v -= adcToVolt(adc, nResidPoints[dacType], getPackedAveResid_volt(chan), adcTable);
       else v -= fn->Eval(adc);
     }
 
@@ -1085,10 +1085,10 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
     double adc = in[i];
     if (isUsingResid)
     {
-      double *residTablePerSamp_adc;
-      residTablePerSamp_adc = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
-      out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, residTablePerSamp_adc);
-      delete residTablePerSamp_adc;
+      double *adcTable;
+      adcTable = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
+      out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, adcTable);
+      delete adcTable;
     }
     else
     {
