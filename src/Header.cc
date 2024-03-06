@@ -5,6 +5,19 @@
 
 ClassImp(mattak::Header); 
 
+//function for identifiying whether an event is a calibration pulse 
+bool mattak::Header::isCalpulser() {
+        uint32_t diff = this->sysclk - this->sysclk_last_pps;  //pulse arrives closely in time with pps clock 
+        unsigned long long two_to_the_32 = 4294967296; 
+        uint32_t sysclk_diff = diff%two_to_the_32; // diff is a 32 bit number, prevent integer overflow
+        uint32_t cutoff = 200*pow(10,3)
+        if (sysclk_diff <= cutoff) {
+                return true;
+        }
+        else {
+                return false;
+        }
+}
 
 mattak::Header::Header(const rno_g_header_t * head) 
   : mattak::Header() 
@@ -67,8 +80,6 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->trigger_info.lt_info.window = head->lt_simple_trigger_cfg.window;
   this->trigger_info.lt_info.num_coinc = head->lt_simple_trigger_cfg.num_coinc;
   this->trigger_info.lt_info.vppmode = head->lt_simple_trigger_cfg.vpp_mode;
-
-
 
 #else
   std::cerr << "Not compiled with librno-g support. "<< std::endl;
