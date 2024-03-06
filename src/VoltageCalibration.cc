@@ -45,13 +45,13 @@ static double adcToVolt(double in_adc, int npoints, const double * resid_volt, c
   // If in_adc is out of range...
   if (in_adc < resid_adc[0])
   {
-    m = (resid_volt[1] - resid_volt[0])/(resid_adc[1] - resid_adc[0]);
+    m = (resid_volt[1] - resid_volt[0]) / (resid_adc[1] - resid_adc[0]);
     out_volt = resid_volt[0] + (in_adc - resid_adc[0]) * m;
     return out_volt;
   }
   if (in_adc > resid_adc[npoints-1])
   {
-    m = (resid_volt[npoints-1] - resid_volt[npoints-2])/(resid_adc[npoints-1] - resid_adc[npoints-2]);
+    m = (resid_volt[npoints-1] - resid_volt[npoints-2]) / (resid_adc[npoints-1] - resid_adc[npoints-2]);
     out_volt = resid_volt[npoints-1] + (in_adc - resid_adc[npoints-1]) * m;
     return out_volt;
   }
@@ -69,7 +69,7 @@ static double adcToVolt(double in_adc, int npoints, const double * resid_volt, c
       // Most likely we will get out_volt from interpolation
       if (in_adc > resid_adc[i] && in_adc < resid_adc[i+1])
       {
-        m = (resid_volt[i+1] - resid_volt[i])/(resid_adc[i+1] - resid_adc[i]);
+        m = (resid_volt[i+1] - resid_volt[i]) / (resid_adc[i+1] - resid_adc[i]);
         out_volt = resid_volt[i] + (in_adc - resid_adc[i]) * m;
         return out_volt;
       }
