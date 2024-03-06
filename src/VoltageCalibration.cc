@@ -23,22 +23,18 @@ static double evalPars(double x, int order, const double * p)
 
 static double* adcTablePerSample(int order, int npoints, const double * par, const double * resid_volt, const double * resid_adc)
 {
-  const double *voltTable = resid_volt;
   double *adcTable = new double[npoints];
 
   for (int i = 0; i < npoints; i++)
   {
-    // When we perform a calibration with residuals, we fit f(V) -> ADC
-    adcTable[i] = evalPars(voltTable[i], order, par) + resid_adc[i];
+    adcTable[i] = evalPars(resid_volt[i], order, par) + resid_adc[i];
   }
 
   return adcTable;
 }
 
-static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
+static double adcToVolt(double in_adc, int npoints, const double * resid_volt, const double * resid_adc)
 {
-  const double *volt_array = voltTable;
-  const double *adc_array = adcTable;
   double m;
   double out_volt = 0;
 
@@ -46,34 +42,34 @@ static double adcToVolt(double in_adc, int npoints, const double * voltTable, co
   if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
-  if (in_adc < adc_array[0])
+  if (in_adc < resid_adc[0])
   {
-    m = (volt_array[1] - volt_array[0])/(adc_array[1] - adc_array[0]);
-    out_volt = volt_array[0] + (in_adc - adc_array[0]) * m;
+    m = (resid_volt[1] - resid_volt[0])/(resid_adc[1] - resid_adc[0]);
+    out_volt = resid_volt[0] + (in_adc - resid_adc[0]) * m;
     return out_volt;
   }
-  if (in_adc > adc_array[npoints-1])
+  if (in_adc > resid_adc[npoints-1])
   {
-    m = (volt_array[npoints-1] - volt_array[npoints-2]) / (adc_array[npoints-1] - adc_array[npoints-2]);
-    out_volt = volt_array[npoints-1] + (in_adc - adc_array[npoints-1]) * m;
+    m = (resid_volt[npoints-1] - resid_volt[npoints-2])/(resid_adc[npoints-1] - resid_adc[npoints-2]);
+    out_volt = resid_volt[npoints-1] + (in_adc - resid_adc[npoints-1]) * m;
     return out_volt;
   }
 
   for (int i = 0; i < npoints; i++)
   {
-    if (in_adc == adc_array[i])
+    if (in_adc == resid_adc[i])
     {
-      out_volt = volt_array[i]; // Lucky if this happens!
+      out_volt = resid_volt[i]; // Lucky if this happens!
       return out_volt;
     }
 
     if (i < npoints-1)
     {
       // Most likely we will get out_volt from interpolation
-      if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
+      if (in_adc > resid_adc[i] && in_adc < resid_adc[i+1])
       {
-        m = (volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
-        out_volt = volt_array[i] + (in_adc - adc_array[i]) * m;
+        m = (resid_volt[i+1] - resid_volt[i])/(resid_adc[i+1] - resid_adc[i]);
+        out_volt = resid_volt[i] + (in_adc - resid_adc[i]) * m;
         return out_volt;
       }
     }
