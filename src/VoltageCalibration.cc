@@ -285,12 +285,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   for (int j = 0; j < 2; j++)
   {
     nResidSets[j] = 0;
-    for (int i = 0; i < scanSize(); i++)
-    {
-      residAve_volt[j].push_back(0);
-      residAve_adc[j].push_back(0);
-      residVar_adc[j].push_back(0);
-    }
+    residAve_volt[j].resize(scanSize());
+    residAve_adc[j].resize(scanSize());
+    residVar_adc[j].resize(scanSize());
   }
 
 
