@@ -22,13 +22,7 @@ except AttributeError:
 cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
 def isNully(p):
-    if isinstance(p, str):
-        return False
-    else:
-        try:
-            return ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
-        except:
-            return None
+    return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
@@ -77,7 +71,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
-
 
         if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
