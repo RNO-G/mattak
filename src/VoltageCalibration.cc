@@ -2,11 +2,6 @@
 #include <iostream>
 #include <stdio.h>
 
-
-#ifdef MATTAK_VECTORIZE
-#include "vectorclass/vectorclass.h"
-#endif
-
 #ifdef LIBRNO_G_SUPPORT
 #include "rno-g.h"
 #endif
@@ -33,6 +28,7 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
 
   for (int i = 0; i < npoints; i++)
   {
+    // When we perform a calibration with residuals, we fit f(V) -> ADC
     adcTable[i] = evalPars(voltTable[i], order, par) + resid_adc[i];
   }
 
@@ -58,7 +54,7 @@ static double adcToVolt(double in_adc, int npoints, const double * voltTable, co
   }
   if (in_adc > adc_array[npoints-1])
   {
-    m = (volt_array[npoints-1] - volt_array[npoints-2])/(adc_array[npoints-1] - adc_array[npoints-2]);
+    m = (volt_array[npoints-1] - volt_array[npoints-2]) / (adc_array[npoints-1] - adc_array[npoints-2]);
     out_volt = volt_array[npoints-1] + (in_adc - adc_array[npoints-1]) * m;
     return out_volt;
   }
@@ -1092,6 +1088,7 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
     }
     else
     {
+      // When we perform a calibration without residuals, we directly fit f(ADC) -> V
       out[i] = evalPars(adc, fit_order, params);
     }
   }
