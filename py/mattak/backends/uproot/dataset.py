@@ -225,6 +225,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if "coeffs_tree" in self.cal_file:
                     self.__cal_param = unpack_cal_parameters(self.cal_file)
                     self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(self.cal_file)
+
+                    self.__cal_residuals_v = self.__cal_residuals_v.T
+                    self.__cal_residuals_adc = self.__cal_residuals_adc.T
+
+                    if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
+                        raise ValueError()
+
                 elif "pedestals" in self.cal_file:
                     self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
                 else:
@@ -234,6 +241,31 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.has_calib = self.__cal_param is not None
 
+        self.__adc_table = numpy.array([None] * 24, dtype=object)
+
+
+    def __get_adc_table(self, channel, sample):
+
+        if self.__adc_table[channel] is None:
+            param_channel = self.__cal_param[4096 * channel : 4096 * (channel + 1)]
+
+            if 1:
+                vsamples = numpy.arange(-1.3, 0.7, 0.005)
+                # residuals split over DACs
+                ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]), numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+
+                self.__cal_residuals_v = [vsamples, vsamples]
+                self.__cal_residuals_adc = ressamples
+
+            # checked that self.__cal_residuals_v is equal for both DACs
+            adcsamples = numpy.array([numpy.polyval(p[::-1], self.__cal_residuals_v[0]) for p in param_channel])
+
+            adcsamples[:2048] += self.__cal_residuals_adc[0]
+            adcsamples[2048:] += self.__cal_residuals_adc[1]
+
+            self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
+
+        return self.__adc_table[channel][sample]
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
         kw = dict(entry_start = self.first, entry_stop = self.last)
@@ -355,9 +387,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if self.__cal_param is None:
                 raise ValueError("Calibration not available")
 
-            w = numpy.array([calibrate(
-                ele, self.__cal_param, self.__cal_residuals_v, self.__cal_residuals_adc,  starting_window[i])
-                for i, ele in enumerate(w)])
+            w = numpy.array([self.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
 
         elif raw_calibration and self.__vbias is not None:
             if self.__vbias is None:
@@ -405,6 +435,47 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
+
+
+    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+                fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
+        """
+        The calibration function that transforms waveforms from ADC to voltage
+
+        Parameters
+        ----------
+        waveform_array : array of shape (24, 2048)
+            array of one waveform
+        starting_window : int | float
+            the sample on which the run started
+        fit_min : float
+            lower bound of original fit used on the bias scan
+        fit_max : float
+            upper bound of original fit used on the bias scan
+        accuracy : float
+            nr of voltage steps in table of the calibration function
+
+        Return
+        ------
+        waveform_volt : array of shape (24, 2048)
+            calibrated waveform in volt
+        """
+
+        waveform_volt = numpy.zeros((24, 2048))
+        for c, wf_channel in enumerate(waveform_array):
+            # residuals split over DACs
+
+            starting_window_channel = starting_window[c]
+            samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
+            if starting_window_channel >= 16:
+                samples_idx += 2048
+
+            for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
+                adcsamples = self.__get_adc_table(c, sample_lab)
+                volt = numpy.interp(adc, adcsamples, self.__cal_residuals_v[0], left = fit_min, right = fit_max)
+                waveform_volt[c, sample_wf] = volt
+
+        return waveform_volt
 
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
@@ -558,7 +629,7 @@ def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
     vsamples = numpy.arange(fit_min, fit_max, accuracy)
     waveform_volt = numpy.zeros((24, 2048))
     # residuals split over DACs
-    ressamples = (numpy.interp(vsamples, vres[:, 0], res[:, 0]), numpy.interp(vsamples, vres[:, 1], res[:, 1]))
+    ressamples = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
 
     for c, wf_channel in enumerate(waveform_array):
         starting_window_channel = starting_window[c]
