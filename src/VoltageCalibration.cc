@@ -27,6 +27,7 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
 
   for (int i = 0; i < npoints; i++)
   {
+    // When we perform a calibration with residuals, we fit f(V) -> ADC
     adcTable[i] = evalPars(resid_volt[i], order, par) + resid_adc[i];
   }
 
