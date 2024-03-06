@@ -256,7 +256,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # keep it hard-coded for the moment
         self.__upsample_residuals = True
 
-        if self.__upsample_residuals:
+        if self.__upsample_residuals and self.__cal_param is not None:
             vsamples = numpy.arange(-1.3, 0.7, 0.005)
             # residuals split over DACs
             ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
