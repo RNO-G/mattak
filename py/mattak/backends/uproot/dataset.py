@@ -492,7 +492,7 @@ def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref = 1.5) -> tuple
 
 
 def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : numpy.ndarray,
-                        starting_window : float | int) -> numpy.ndarray:
+                        starting_window : Union[float, int]) -> numpy.ndarray:
     """
     Function that interpolates raw bias scans to perform ADC to voltage conversion
     (for testing purposes)
@@ -526,7 +526,7 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
 
 
 def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
-              vres : numpy.ndarray, res : numpy.ndarray, starting_window : float | int,
+              vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
               fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
     """
     The calibration function that transforms waveforms from ADC to voltage
