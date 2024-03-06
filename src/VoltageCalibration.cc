@@ -34,7 +34,7 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
   return adcTable;
 }
 
-static double adcToVolt(double in_adc, int npoints, const double * resid_volt, const double * resid_adc)
+static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
 {
   double m;
   double out_volt = 0;
@@ -43,34 +43,34 @@ static double adcToVolt(double in_adc, int npoints, const double * resid_volt, c
   if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
-  if (in_adc < resid_adc[0])
+  if (in_adc < adcTable[0])
   {
-    m = (resid_volt[1] - resid_volt[0]) / (resid_adc[1] - resid_adc[0]);
-    out_volt = resid_volt[0] + (in_adc - resid_adc[0]) * m;
+    m = (voltTable[1] - voltTable[0]) / (adcTable[1] - adcTable[0]);
+    out_volt = voltTable[0] + (in_adc - adcTable[0]) * m;
     return out_volt;
   }
-  if (in_adc > resid_adc[npoints-1])
+  if (in_adc > adcTable[npoints-1])
   {
-    m = (resid_volt[npoints-1] - resid_volt[npoints-2]) / (resid_adc[npoints-1] - resid_adc[npoints-2]);
-    out_volt = resid_volt[npoints-1] + (in_adc - resid_adc[npoints-1]) * m;
+    m = (voltTable[npoints-1] - voltTable[npoints-2]) / (adcTable[npoints-1] - adcTable[npoints-2]);
+    out_volt = voltTable[npoints-1] + (in_adc - adcTable[npoints-1]) * m;
     return out_volt;
   }
 
   for (int i = 0; i < npoints; i++)
   {
-    if (in_adc == resid_adc[i])
+    if (in_adc == adcTable[i])
     {
-      out_volt = resid_volt[i]; // Lucky if this happens!
+      out_volt = voltTable[i]; // Lucky if this happens!
       return out_volt;
     }
 
     if (i < npoints-1)
     {
       // Most likely we will get out_volt from interpolation
-      if (in_adc > resid_adc[i] && in_adc < resid_adc[i+1])
+      if (in_adc > adcTable[i] && in_adc < adcTable[i+1])
       {
-        m = (resid_volt[i+1] - resid_volt[i]) / (resid_adc[i+1] - resid_adc[i]);
-        out_volt = resid_volt[i] + (in_adc - resid_adc[i]) * m;
+        m = (voltTable[i+1] - voltTable[i]) / (adcTable[i+1] - adcTable[i]);
+        out_volt = voltTable[i] + (in_adc - adcTable[i]) * m;
         return out_volt;
       }
     }
