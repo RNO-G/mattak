@@ -89,7 +89,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.setEntries(0)
 
         if verbose:
-            print("We think we found station %d run %d" % (self.station,self.run))
+            print("We think we found station %d run %d" % (self.station, self.run))
 
     def N(self) -> int:
         return self.ds.N()
