@@ -233,7 +233,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.__cal_residuals_adc = self.__cal_residuals_adc.T
 
                     if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
-                        raise ValueError()
+                        raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
+                                         "the code expects them to be the same!")
 
                 elif "pedestals" in self.cal_file:
                     self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
@@ -246,27 +247,46 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.__adc_table = numpy.array([None] * 24, dtype=object)
 
+        # keep it hard-coded for the moment
+        self.__upsample_residuals = True
+
 
     def __get_adc_table(self, channel, sample):
 
         if self.__adc_table[channel] is None:
-            param_channel = self.__cal_param[4096 * channel : 4096 * (channel + 1)]
+            if self.__cal_param is not None:
+                param_channel = self.__cal_param[4096 * channel : 4096 * (channel + 1)]
 
-            if 1:
-                vsamples = numpy.arange(-1.3, 0.7, 0.005)
-                # residuals split over DACs
-                ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]), numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+                if self.__upsample_residuals:
+                    vsamples = numpy.arange(-1.3, 0.7, 0.005)
+                    # residuals split over DACs
+                    ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
+                                numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
 
-                self.__cal_residuals_v = [vsamples, vsamples]
-                self.__cal_residuals_adc = ressamples
+                    self.__cal_residuals_v = [vsamples, vsamples]
+                    self.__cal_residuals_adc = ressamples
 
-            # checked that self.__cal_residuals_v is equal for both DACs
-            adcsamples = numpy.array([numpy.polyval(p[::-1], self.__cal_residuals_v[0]) for p in param_channel])
+                # checked that self.__cal_residuals_v is equal for both DACs
+                adcsamples = numpy.array([numpy.polyval(p[::-1], self.__cal_residuals_v[0]) for p in param_channel])
 
-            adcsamples[:2048] += self.__cal_residuals_adc[0]
-            adcsamples[2048:] += self.__cal_residuals_adc[1]
+                adcsamples[:2048] += self.__cal_residuals_adc[0]
+                adcsamples[2048:] += self.__cal_residuals_adc[1]
 
-            self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
+                self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
+
+        elif self.__vbias is not None:
+
+            vbias, adc = rescale_adc(self.__vbias, self.__adc)
+            adc_cut = [[] for i in range(24)]
+            adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
+            adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
+            adc = adc_cut
+            vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)]).T
+
+            self.__adc_table = adc
+
+        else:
+            raise ValueError("No calibration data available.")
 
         return self.__adc_table[channel][sample]
 
