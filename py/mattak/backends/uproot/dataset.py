@@ -2,6 +2,7 @@ import os
 import uproot
 import configparser
 import glob
+import re
 
 import mattak.Dataset
 from typing import Union, Optional, Tuple, Generator, Callable, Sequence
@@ -209,8 +210,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         if voltage_calibration is None:
-            # try finding a calibration file in the run directory
-            calibration_files = glob.glob(f"{self.rundir}/volCalConst*.root")
+            # do find_VC here
+            time = self._hds['trigger_time'].array()[0]
+            cal = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
+            calibration_files = [cal] if cal is not None else []
         elif isinstance(voltage_calibration, str):
             calibration_files = [voltage_calibration]
         else:
@@ -235,9 +238,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 elif "pedestals" in self.cal_file:
                     self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
                 else:
-                    raise ValueError()
+                    raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
             else:
-                raise ValueError()
+                raise ValueError(f"{calibration_files[0]} is not recognized as a root file")
 
         self.has_calib = self.__cal_param is not None
 
@@ -435,7 +438,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
-
 
     def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
                 fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
