@@ -386,7 +386,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def get_waveforms(self, kw):
         return self._wfs[f'radiant_data[{self.num_channels}][{self.num_wf_samples}]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False, raw_calibration = False) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, raw_calibration = False, channels=None) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
@@ -427,13 +427,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 w[wf_idxs] = self.get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                 starting_window[wf_idxs] = self.get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
 
+        if channels is not None:
+            w = w[:, channels]
+            starting_window = starting_window[:, channels]
+
         # calibration
         starting_window = starting_window[:, :, 0]
         if calibrated:
             if self.__cal_param is None and self.__adc is None:
                 raise ValueError("Calibration not available")
             # this can run now both normal and raw calibration
-            w = numpy.array([self.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
+            w = numpy.array([self.calibrate(ele, starting_window[i], channels=channels) for i, ele in enumerate(w)])
 
         elif raw_calibration:
             # This still uses the slow version of the raw calibration
@@ -482,7 +486,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 else:
                     yield e[idx], w[idx]
 
-    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int], channels=None,
                 fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage
