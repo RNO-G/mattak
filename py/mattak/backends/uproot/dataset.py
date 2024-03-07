@@ -1,8 +1,6 @@
 import os
 import uproot
 import configparser
-import glob
-import re
 
 import mattak.Dataset
 from typing import Union, Optional, Tuple, Generator, Callable, Sequence
@@ -10,10 +8,12 @@ import numpy
 import math
 import logging
 
+
 # Dublicated from Dataset.cc
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
 header_tree_names = ["hdr", "header", "hd", "hds", "headers"]
 daqstatus_tree_names = ["daqstatus", "ds", "status"]
+
 
 def read_tree(ur_file, tree_names):
     """
