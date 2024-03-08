@@ -97,7 +97,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.setEntries(0)
 
         if verbose:
-            print("We think we found station %d run %d" % (self.station,self.run))
+            print("We think we found station %d run %d" % (self.station, self.run))
 
     def set_calibration(self, path_or_object):
         if isinstance(path_or_object, str):
