@@ -510,19 +510,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
             calibrated waveform in volt
         """
 
-        channels = list(range(self.num_channels))
+        channels = channels or list(range(self.num_channels))
         waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
-        for c, starting_window_channel, wf_channel in zip(channels, starting_window, waveform_array):
+        for idx, (ch, starting_window_channel, wf_channel) in enumerate(zip(channels, starting_window, waveform_array)):
             # residuals split over DACs
             samples_idx = (128 * starting_window_channel + numpy.arange(self.num_wf_samples)) % self.num_wf_samples
             if starting_window_channel >= 16:
                 samples_idx += self.num_wf_samples
 
             for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
-                adcsamples = self.__get_adc_table(c, sample_lab)
+                adcsamples = self.__get_adc_table(ch, sample_lab)
                 volt = numpy.interp(adc, adcsamples, self.__adc_table_voltage, left = fit_min, right = fit_max)
-                waveform_volt[c, sample_wf] = volt
+                waveform_volt[idx, sample_wf] = volt
 
         return waveform_volt
 
