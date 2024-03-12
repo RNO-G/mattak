@@ -386,7 +386,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def get_waveforms(self, kw):
         return self._wfs[f'radiant_data[{self.num_channels}][{self.num_wf_samples}]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False, raw_calibration = False, channels=None) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, list[int]]] = None) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
@@ -428,6 +428,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 starting_window[wf_idxs] = self.get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
 
         if channels is not None:
+            if isinstance(channels, int):
+                channels = [channels]
+
             w = w[:, channels]
             starting_window = starting_window[:, channels]
 
@@ -438,13 +441,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 raise ValueError("Calibration not available")
             # this can run now both normal and raw calibration
             w = numpy.array([self.calibrate(ele, starting_window[i], channels=channels) for i, ele in enumerate(w)])
-
-        elif raw_calibration:
-            # This still uses the slow version of the raw calibration
-            if self.__adc is None:
-                raise ValueError("Calibration not available")
-            w = numpy.array([
-                raw_calibrate(ele, self.__vbias, self.__adc, starting_window[i]) for i, ele in enumerate(w)])
 
         w = numpy.asarray(w, dtype=float)
 
@@ -486,28 +482,28 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 else:
                     yield e[idx], w[idx]
 
-    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int], channels=None,
-                fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
+    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+                  channels : Optional[list[int]] = None, fit_min : float = -1.3, fit_max : float = 0.7) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage
 
         Parameters
         ----------
         waveform_array : array of shape (num_channels, num_wf_samples)
-            array of one waveform
+            Array of one waveform
         starting_window : int | float
-            the sample on which the run started
-        fit_min : float
-            lower bound of original fit used on the bias scan
-        fit_max : float
-            upper bound of original fit used on the bias scan
-        accuracy : float
-            nr of voltage steps in table of the calibration function
+            The sample on which the run started
+        channels : list(int) (Default: None -> range(self.num_channels))
+            List of channels. Length need to match with first dimension of waveform_array
+        fit_min : float (Default: -1.3)
+            Lower bound of original fit used on the bias scan
+        fit_max : float (Default: 0.7)
+            Upper bound of original fit used on the bias scan
 
         Returns
         -------
         waveform_volt : array of shape (num_channels, num_wf_samples)
-            calibrated waveform in volt
+            Calibrated waveform in volt
         """
 
         channels = channels or list(range(self.num_channels))
