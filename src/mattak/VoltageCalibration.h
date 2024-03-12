@@ -22,7 +22,7 @@ namespace mattak
   // @param in the input (raw samples, pedestal subtracted)
   //
   double * applyVoltageCalibration(int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
-                        int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
+                        int n_resid_points, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
 #ifndef MATTAK_NOROOT
@@ -46,28 +46,28 @@ namespace mattak
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
 
-      int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
-      const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
-      const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
+      int getNresidPoints(int chan) const { return n_resid_points[chan>=mattak::k::num_radiant_channels/2]; }
+      const double * getPackedAveResidVolt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * getPackedAveResidAdc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
       double getFitMax() const { return fit_max; }
       double getFitVref() const { return fit_vref; }
       const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
-      double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
+      double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan, sample)[coeff]; }
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
       double * apply(int chan, int nSamples_wf, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
       {
         return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
-                                       getPackedFitCoeffs(chan), isResid(), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+                                       getPackedFitCoeffs(chan), isResid(), getPackedAveResidVolt(chan), getPackedAveResidAdc(chan));
       }
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraph * getAveResidGraph_dac1() const { return graph_residAve[0]; }
-      TGraph * getAveResidGraph_dac2() const { return graph_residAve[1]; }
-      TH2S * getResidHist_dac1() const { return hist_resid[0]; }
-      TH2S * getResidHist_dac2() const { return hist_resid[1]; }
+      TGraph * getAveResidGraphDac1() const { return graph_residAve[0]; }
+      TGraph * getAveResidGraphDac2() const { return graph_residAve[1]; }
+      TH2S * getResidHistDac1() const { return hist_resid[0]; }
+      TH2S * getResidHistDac2() const { return hist_resid[1]; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -78,9 +78,11 @@ namespace mattak
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
       const double * scanBias(int chan) const  { return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
-      bool isResid() const { return fit_isUsingResid; }
+      bool isResid() const { return fit_is_using_residual; }
 
     private:
+      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
+
       std::array<std::vector<double>, 2> vbias;  //Left, Right
       std::vector<std::array<std::array<int16_t, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>> scan_result;
       std::array<std::vector<double>, mattak::k::num_radiant_channels> fit_coeffs;  //packed format, per channel
@@ -93,11 +95,11 @@ namespace mattak
       std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
       std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
       std::array<TGraph*, 2> graph_residAve; // 2 DACs
-      std::array<int, 2> nResidPoints; // 2 DACs
+      std::array<int, 2> n_resid_points; // 2 DACs
       std::array<TH2S*, 2> hist_resid; // 2 DACs
-      std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
-      std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
-      std::array<std::array<bool, 4>, 2> isResidOutOfBoxFrame; // 4 thresholds for each DAC
+      std::array<bool, mattak::k::num_radiant_channels> is_bad_channel_ave_chisq_per_dof;
+      std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> is_bad_samp_chisq_per_dof;
+      std::array<std::array<bool, 4>, 2> is_resid_out_of_box_frame; // 4 thresholds for each DAC
       int fit_order;
       int station_number;
       double fit_vref;
@@ -105,12 +107,12 @@ namespace mattak
       double fit_max;
       uint32_t start_time;
       int turnover_threshold;
-      void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
       uint32_t end_time;
       bool hasBiasScanData;
-      bool fit_isUsingResid = true;
+      bool fit_is_using_residual = true;
       bool left_equals_right;
-    ClassDef(VoltageCalibration, 2);
+
+    ClassDef(VoltageCalibration, 3);
   };
 #endif
 
