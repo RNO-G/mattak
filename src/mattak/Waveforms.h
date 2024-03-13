@@ -118,7 +118,7 @@ namespace mattak
       ClassDef(CalibratedWaveforms, 1);
   };
 
-  /** Lazy version of claibrated waveforms.
+  /** Lazy version of calibrated waveforms.
    *
    * This does the calibration on demand.
    *
@@ -129,6 +129,9 @@ namespace mattak
    *   unexpected things will happen.
    *
    *   - For similar reasons, this class is not serializable.
+   *   
+   *   - This prevents a const interface, but has internal mutable data members. 
+  *      It is NOT thread-safe (two threads concurrently doing calibration on demand will likely wreak havoc). 
    *
    */
   class LazyCalibratedWaveforms : public IWaveforms
