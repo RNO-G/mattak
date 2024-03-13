@@ -9,7 +9,28 @@ class VoltageCalibration(object):
 
     def __init__(self, path : str, upsample_residuals : bool = True,
                  fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005):
+        """ Helper class to apply the voltage calibration for the uproot backend.
 
+        Parameters
+        ----------
+
+        path : str
+            Path to the calibration root file. You can either pass a bias scan file or a
+            voltage calibration constant file.
+
+        upsample_residuals : bool (Default: True)
+            If true, upsample the residuals used in the calibration. Not used when passing a
+            bias scan file.
+
+        fit_min : float (Default: -1.3 V)
+            Lower bound for the upsample voltage range (in Volt).
+
+        fit_max : float (Default: 0.7 V)
+            Upper bound for the upsample voltage range (in Volt).
+
+        accuracy : float (Default: 0.005)
+            Step width of the upsampled voltage vector.
+        """
 
         self.NUM_CHANNELS = mattak.Dataset.AbstractDataset.NUM_CHANNELS
         self.NUM_WF_SAMPLES = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES
@@ -34,7 +55,7 @@ class VoltageCalibration(object):
                         vsamples = numpy.arange(fit_min, fit_max, accuracy)
                         # residuals split over DACs
                         ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                                    numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+                                      numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
 
                         self.__set_adc_table_voltage(vsamples)
                         self.__cal_residuals_adc = ressamples
