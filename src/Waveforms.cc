@@ -50,6 +50,46 @@ mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Hea
     vc.apply( i, buffer_length, wf.radiant_data[i], hdr.trigger_info.radiant_info.start_windows[i][0], radiant_data[i], isOldFirmware);
   }
 }
+mattak::CalibratedWaveforms::CalibratedWaveforms(const LazyCalibratedWaveforms & lazy)
+{
+  run_number = lazy.run_number;
+  event_number = lazy.event_number;
+  station_number = lazy.station_number;
+  buffer_length = lazy.buffer_length;
+
+  for (int i = 0; i < mattak::k::num_radiant_channels; i++)
+    memcpy(&radiant_data[i][0],  lazy.radiant_data[i], buffer_length * sizeof(double));
+}
+
+
+mattak::LazyCalibratedWaveforms::LazyCalibratedWaveforms(const Waveforms & wf, const Header & hdr,  const VoltageCalibration & vc, bool is_old_firmware)
+  : radiant_data(wf,hdr,vc,is_old_firmware)
+{
+  run_number = wf.run_number;
+  event_number = wf.event_number;
+  station_number = wf.station_number;
+  buffer_length = wf.buffer_length;
+
+  if (hdr.run_number != wf.run_number && hdr.event_number != wf.run_number && hdr.station_number != wf.station_number)
+  {
+    std::cerr << "WARNING: Possible event-header mismatch" << std::endl;
+  }
+}
+
+void mattak::LazyCalibratedWaveforms::LazyDataStore::calibrate(size_t chan) const
+{
+  if (calibrated.test(chan)) return;
+  vc.apply(chan, wf.buffer_length, wf.radiant_data[chan], h.trigger_info.radiant_info.start_windows[chan][0], calibrated_radiant_data[chan], old_firmware);
+  calibrated.set(chan);
+
+}
+
+
+void mattak::LazyCalibratedWaveforms::LazyDataStore::calibrateAll() const
+{
+  for (size_t i = 0; i < mattak::k::num_radiant_channels; i++) calibrate(i);
+}
+
 
 template <typename T>
 static const char * getYaxisLabel () { return "amplitude [arb]" ; }
@@ -225,6 +265,10 @@ TVirtualPad * mattak::CalibratedWaveforms::drawWaveforms(const WaveformPlotOptio
   return drawImpl(*this, opt, where);
 }
 
+TVirtualPad * mattak::LazyCalibratedWaveforms::drawWaveforms(const WaveformPlotOptions & opt, TVirtualPad * where)  const
+{
+  return drawImpl(*this, opt, where);
+}
 
 TGraph * mattak::Waveforms::makeGraph(int chan, bool ns)  const
 {
@@ -232,6 +276,11 @@ TGraph * mattak::Waveforms::makeGraph(int chan, bool ns)  const
 }
 
 TGraph * mattak::CalibratedWaveforms::makeGraph(int chan, bool ns)  const
+{
+  return graphImpl(*this, chan,ns);
+}
+
+TGraph * mattak::LazyCalibratedWaveforms::makeGraph(int chan, bool ns)  const
 {
   return graphImpl(*this, chan,ns);
 }

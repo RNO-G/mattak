@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include "TObject.h"
+#include <bitset>
 class TVirtualPad;
 class TGraph;
 
@@ -83,6 +84,7 @@ namespace mattak
 
   };
 
+  class LazyCalibratedWaveforms;
 
   /** This stores calibrated data with the voltage calibration applied.
    *
@@ -96,12 +98,14 @@ namespace mattak
    *
    **/
 
+
   class CalibratedWaveforms : public IWaveforms {
 
     public:
 
       CalibratedWaveforms() { ; }
-      CalibratedWaveforms(const Waveforms & wf, const Header & h,  const VoltageCalibration & vc, bool isOldFirmware = false);
+      CalibratedWaveforms(const Waveforms & wf, const Header & h,  const VoltageCalibration & vc, bool is_old_firmware = false);
+      CalibratedWaveforms(const LazyCalibratedWaveforms & wf);
 
       virtual TGraph * makeGraph(int chan, bool ns = true) const;
       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const;
@@ -109,7 +113,60 @@ namespace mattak
       ClassDef(CalibratedWaveforms, 1);
   };
 
+  /** Lazy version of claibrated waveforms.
+   *
+   * This does the calibration on demand.
+   *
+   * There are a few big caveats:
+   *
+   *   - The Waveforms/Header/VoltageCalibration are not copied, just held by reference,
+   *   this means that they should outlive this object to be useful, and if they change underneath us,
+   *   unexpected things will happen.
+   *
+   *   - For similar reasons, this class is not serializable.
+   *
+   */
+  class LazyCalibratedWaveforms : public IWaveforms
+  {
 
+    public:
+      LazyCalibratedWaveforms(const Waveforms & wf, const Header &h, const VoltageCalibration & vc, bool is_old_firmware = false);
+
+
+      virtual TGraph * makeGraph(int chan, bool ns = true) const;
+      virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const;
+
+      class LazyDataStore
+      {
+
+        friend class LazyCalibratedWaveforms;
+        public:
+         const double *  operator[](size_t chan) const
+         {
+           if (!calibrated.test(chan)) calibrate(chan);
+           return &calibrated_radiant_data[chan][0];
+         }
+
+         void calibrate(size_t chan) const;
+         void calibrateAll() const;
+
+
+        private:
+          LazyDataStore(const Waveforms & wf, const Header &h, const VoltageCalibration & vc, bool is_old_firmware)
+            : wf(wf), h(h), vc(vc), old_firmware(is_old_firmware) {;}
+          mutable std::bitset<mattak::k::num_radiant_channels> calibrated;
+          mutable double calibrated_radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples];
+          const Waveforms & wf;
+          const Header &h;
+          const VoltageCalibration &vc;
+          bool old_firmware;
+      } radiant_data;
+
+    private:
+
+      //not serializable, convert to CalibratedWaveforms to serialize
+    ClassDef(LazyCalibratedWaveforms, 0);
+  };
 }
 
 #endif

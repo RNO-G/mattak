@@ -4,14 +4,16 @@
 #pragma link off all namespaces;
 
 
-#pragma link C++ namespace mattak+; 
-#pragma link C++ namespace mattak::k+; 
-#pragma link C++ namespace mattak::convert+; 
+#pragma link C++ namespace mattak+;
+#pragma link C++ namespace mattak::k+;
+#pragma link C++ namespace mattak::convert+;
 
 #pragma link C++ class mattak::Header+;
 #pragma link C++ class mattak::IWaveforms+;
 #pragma link C++ class mattak::Waveforms+;
 #pragma link C++ class mattak::CalibratedWaveforms+;
+#pragma link C++ class mattak::LazyCalibratedWaveforms+;
+#pragma link C++ class mattak::LazyCalibratedWaveforms::LazyDataStore+;
 #pragma link C++ struct mattak::WaveformPlotOptions+;
 #pragma link C++ class mattak::VoltageCalibration+;
 #pragma link C++ class mattak::Pedestals+;
@@ -31,8 +33,8 @@
 #pragma link C++ class mattak::LTScalerGroup+;
 #pragma link C++ class mattak::CalpulserInfo+;
 #pragma link C++ class mattak::RadiantVoltages+;
-#pragma link C++ enum mattak::CalpulserOutput; 
-#pragma link C++ enum mattak::CalpulserMode; 
+#pragma link C++ enum mattak::CalpulserOutput;
+#pragma link C++ enum mattak::CalpulserMode;
 
 
 #pragma link C++ class mattak::Dataset+;
