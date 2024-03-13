@@ -88,6 +88,7 @@ namespace mattak
       mattak::Header * header(bool force_reload = false);
       mattak::Waveforms * raw(bool force_reload = false);
       mattak::CalibratedWaveforms * calibrated(bool force_reload = false); //will be nullptr if no calibration is passed
+      mattak::LazyCalibratedWaveforms * lazy_calibrated(bool force_reload = false); //will be nullptr if no calibration is passed
       mattak::DAQStatus * status(bool force_reload = false);
       mattak::RunInfo * info() const { return runinfo.ptr; }
       mattak::Pedestals * peds(bool force_reload = false, int entry = 0);
@@ -137,6 +138,7 @@ namespace mattak
       tree_field<Pedestals> pd;
       file_field<RunInfo> runinfo;
       field<CalibratedWaveforms> calib_wf;
+      field<LazyCalibratedWaveforms> lazy_calib_wf;
 
       void unload();
       int current_entry = 0;

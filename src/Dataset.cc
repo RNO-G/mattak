@@ -505,39 +505,52 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   return ds.missing_entry ? nullptr: ds.ptr;
 }
 
-mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
+// same implementation for CalibratedWaveforms and LazyCalibratedwaveforms
+template <typename T>
+static T * calib_impl(mattak::Dataset & d, int current_entry, mattak::Dataset::field<T> & f, bool force)
 {
   //no calibration? we can't calibrate.
-  if (!opt.calib) return nullptr;
+  if (!d.getCalibration()) return nullptr;
 
-  if (force || calib_wf.loaded_entry != current_entry)
+  if (force || f.loaded_entry != current_entry)
   {
-    mattak::Waveforms * r = raw(force);
-    mattak::Header * h = header(force);
+    mattak::Waveforms * r = d.raw(force);
+    mattak::Header * h = d.header(force);
 
     // if tehre is no raw waveform, we can't do this
     if (!r|| !h)
     {
-      calib_wf.missing_entry = true;
+      f.missing_entry = true;
     }
     else
     {
-      calib_wf.missing_entry = false;
+      f.missing_entry = false;
 
-      if (!calib_wf.ptr)
+      if (!f.ptr)
       {
-        calib_wf.ptr = new CalibratedWaveforms(*r, *h, *opt.calib);
+        f.ptr = new T(*r, *h, *d.getCalibration());
       }
       else
       {
-        new (calib_wf.ptr) CalibratedWaveforms(*r, *h, *opt.calib);
+        new (f.ptr) T(*r, *h, *d.getCalibration());
       }
     }
 
-    calib_wf.loaded_entry = current_entry;
+    f.loaded_entry = current_entry;
   }
 
-  return calib_wf.missing_entry ? nullptr : calib_wf.ptr;
+  return f.missing_entry ? nullptr : f.ptr;
+}
+
+
+mattak::LazyCalibratedWaveforms * mattak::Dataset::lazy_calibrated(bool force)
+{
+  return calib_impl(*this, current_entry, lazy_calib_wf, force);
+}
+
+mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
+{
+  return calib_impl(*this, current_entry, calib_wf, force);
 }
 
 
