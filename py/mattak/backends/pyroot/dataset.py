@@ -61,18 +61,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
                 self.ds.loadRun(station, run, opt)
 
-        if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
-            if isinstance(voltage_calibration, str):
-                vc = ROOT.mattak.VoltageCalibration()
-                vc.readFitCoeffsFromFile(voltage_calibration)
-                voltage_calibration = vc
-                self.vc = vc #prevent wanton destruction
-
-            self.ds.setCalibration(voltage_calibration)
-            self.has_calib = True
-        else:
-            self.has_calib = False
-
         if self.N() < 0:
             raise IOError("Could not load run [data_path: %s, %d %d]" % (data_path, station, run))
 
