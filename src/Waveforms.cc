@@ -227,7 +227,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       }
     }
 
-    ->SetLineColor(opt.color); 
+    g->SetLineColor(opt.color);
     g->Draw(use_same ? "lsame" : "al");
 
     if (!use_same)
