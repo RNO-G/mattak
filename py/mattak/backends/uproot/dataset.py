@@ -349,7 +349,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         starting_window = starting_window[:, :, 0]
         if calibrated:
             # this can run now both normal and raw calibration
-            w = numpy.array([self.vs.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
+            w = numpy.array([self.vc.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
 
         w = numpy.asarray(w, dtype=float)
 

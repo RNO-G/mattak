@@ -14,10 +14,12 @@ class VoltageCalibration(object):
         self.NUM_CHANNELS = mattak.Dataset.AbstractDataset.NUM_CHANNELS
         self.NUM_WF_SAMPLES = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES
         self.NUM_DIGI_SAMPLES = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+        self.__upsample_residuals = upsample_residuals
 
         if path.endswith(".root"):
             self.cal_file = uproot.open(path)
             if "coeffs_tree" in self.cal_file:
+                self.full_bias_scan = False
                 self.__cal_param = unpack_cal_parameters(self.cal_file)
                 self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(self.cal_file)
 
@@ -28,7 +30,19 @@ class VoltageCalibration(object):
                     raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
                                         "the code expects them to be the same!")
 
+                    if self.__upsample_residuals:
+                        vsamples = numpy.arange(fit_min, fit_max, accuracy)
+                        # residuals split over DACs
+                        ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
+                                    numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+
+                        self.__set_adc_table_voltage(vsamples)
+                        self.__cal_residuals_adc = ressamples
+                    else:
+                        self.__set_adc_table_voltage(self.__cal_residuals_v[0])
+
             elif "pedestals" in self.cal_file:
+                self.full_bias_scan = True
                 self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
 
                 if numpy.any(self.__vbias[:, 0] != self.__vbias[:, 1]):
@@ -43,20 +57,6 @@ class VoltageCalibration(object):
 
         self.__adc_table_voltage = None
         self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
-
-        # keep it hard-coded for the moment
-        self.__upsample_residuals = upsample_residuals
-
-        if self.__upsample_residuals:
-            vsamples = numpy.arange(-1.3, 0.7, 0.005)
-            # residuals split over DACs
-            ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                          numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
-
-            self.__set_adc_table_voltage(vsamples)
-            self.__cal_residuals_adc = ressamples
-        else:
-            self.__set_adc_table_voltage(self.__cal_residuals_v[0])
 
 
     def __set_adc_table_voltage(self, value):
@@ -73,7 +73,7 @@ class VoltageCalibration(object):
 
         if self.__adc_table[channel] is None:
 
-            if self.__cal_param is not None:
+            if not self.full_bias_scan:
                 param_channel = self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)]
                 # checked that self.__cal_residuals_v is equal for both DACs
                 adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
@@ -83,8 +83,7 @@ class VoltageCalibration(object):
 
                 self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
 
-            elif self.__adc is not None:
-
+            else:
                 vbias, adc = rescale_adc(self.__vbias, self.__adc)
                 adc_cut = [[] for i in range(self.NUM_CHANNELS)]
                 adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
@@ -94,9 +93,6 @@ class VoltageCalibration(object):
 
                 self.__set_adc_table_voltage(vbias[0])
                 self.__adc_table = adc
-
-            else:
-                raise ValueError("No calibration data available.")
 
         return self.__adc_table[channel][sample]
 
