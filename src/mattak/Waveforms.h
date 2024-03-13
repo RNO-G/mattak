@@ -42,6 +42,11 @@ namespace mattak
     int width=1800;
     int height = 900;
 
+    int color = kAzure +2; 
+
+    // only applicable with existing pad
+    bool same = false; 
+
     //time base
     bool ns = true;
   };
