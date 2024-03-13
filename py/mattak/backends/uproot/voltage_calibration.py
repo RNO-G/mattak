@@ -119,6 +119,7 @@ class VoltageCalibration(object):
 
 
     def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+                  channels : Optional[list[int]] = None,
                   fit_min : float = -1.3, fit_max : float = 0.7) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage
@@ -129,6 +130,8 @@ class VoltageCalibration(object):
             array of one waveform
         starting_window : int | float
             the sample on which the run started
+        channels : list(int) (Default: None -> range(self.num_channels))
+            List of channels. Length need to match with first dimension of waveform_array
         fit_min : float
             lower bound of original fit used on the bias scan
         fit_max : float
@@ -140,7 +143,7 @@ class VoltageCalibration(object):
             calibrated waveform in volt
         """
 
-        channels = list(range(self.NUM_CHANNELS))
+        channels = channels or list(range(self.NUM_CHANNELS))
         waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
         for c, starting_window_channel, wf_channel in zip(channels, starting_window, waveform_array):

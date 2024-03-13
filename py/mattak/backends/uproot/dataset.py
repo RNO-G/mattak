@@ -304,7 +304,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         """ Helper to access uproot file """
         return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, list[int]]] = None) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
@@ -344,6 +344,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if len(wf_idxs):
                 w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                 starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+
+
+        if channels is not None:
+            if isinstance(channels, int):
+                channels = [channels]
+
+            w = w[:, channels]
+            starting_window = starting_window[:, channels]
 
         # calibration
         starting_window = starting_window[:, :, 0]
