@@ -160,7 +160,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
         radiantStartWindows = numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
-            dtype='uint8', count=self.num_channels * 2).reshape(self.num_channels, 2)
+            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
 
         return mattak.Dataset.EventInfo(eventNumber = eventNumber,
                                         station = station,
@@ -196,7 +196,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
                                 dtype = 'float64' if calibrated else 'int16',
-                                count=self.num_channels * self.num_wf_samples).reshape(self.num_channels, self.num_wf_samples)
+                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
 
 
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
@@ -210,7 +210,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, self.num_channels, self.num_wf_samples), dtype='float64' if calibrated else 'int16')
+        out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:

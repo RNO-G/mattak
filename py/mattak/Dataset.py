@@ -35,9 +35,9 @@ class AbstractDataset(ABC):
     """
 
     # Define some contants
-    num_lab4d_samples = 4096
-    num_wf_samples = 2048
-    num_channels = 24
+    NUM_DIGI_SAMPLES = 4096
+    NUM_WF_SAMPLES = 2048
+    NUM_CHANNELS = 24
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
