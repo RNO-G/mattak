@@ -84,11 +84,42 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
+        if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
+            # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
+            self.set_calibration(voltage_calibration)
+        else:
+            if verbose:
+                print("Looking for a calibration file")
+
+            time = self.ds.header().trigger_time
+            cal_file = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
+
+            if cal_file is not None:
+                if verbose:
+                    print(f"Found calibration file {cal_file}")
+
+                self.set_calibration(voltage_calibration)
+            else:
+                if verbose:
+                    print("No calibration file found")
+
+                self.has_calib = False
+
         self.data_path = data_path
         self.setEntries(0)
 
         if verbose:
-            print("We think we found station %d run %d" % (self.station,self.run))
+            print("We think we found station %d run %d" % (self.station, self.run))
+
+    def set_calibration(self, path_or_object):
+        if isinstance(path_or_object, str):
+            self.vc = ROOT.mattak.VoltageCalibration()
+            self.vc.readFitCoeffsFromFile(path_or_object)
+        else:
+            self.vc = path_or_object
+
+        self.ds.setCalibration(self.vc)
+        self.has_calib = True
 
     def N(self) -> int:
         return self.ds.N()

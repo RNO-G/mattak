@@ -6,6 +6,7 @@
 #include "TH2.h"
 #include "TTree.h"
 #include "TGraph.h"
+#include "TGraphErrors.h"
 #endif
 
 
@@ -21,7 +22,7 @@ namespace mattak
   // @param N number of samples (must be multiple of window size!)
   // @param in the input (raw samples, pedestal subtracted)
   //
-  double * applyVoltageCalibration(int N, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+  double * applyVoltageCalibration(int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
                         int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
 
 
@@ -45,9 +46,9 @@ namespace mattak
        */
       VoltageCalibration(const char * bias_scan_file_or_saved_coeff_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
-      VoltageCalibration(const VoltageCalibration & vc) = delete; 
-      VoltageCalibration & operator=(const VoltageCalibration & vc) = delete; 
-      virtual ~VoltageCalibration(); 
+      VoltageCalibration(const VoltageCalibration & vc) = delete;
+      VoltageCalibration & operator=(const VoltageCalibration & vc) = delete;
+      virtual ~VoltageCalibration();
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool isUsingResid = true, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
       void readFitCoeffsFromFile(const char * inFile);
@@ -63,16 +64,16 @@ namespace mattak
       const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
       double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
-      double * apply(int chan, int N, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
+      double * apply(int chan, int nSamples_wf, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(N, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
+        return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
                                        getPackedFitCoeffs(chan), isResid(), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
       }
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      const TGraph * getAveResidGraph_dac1() const { return &graph_residAve[0]; }
-      const TGraph * getAveResidGraph_dac2() const { return &graph_residAve[1]; }
+      const TGraphErrors * getAveResidGraph_dac1() const { return &graph_residAve[0]; }
+      const TGraphErrors * getAveResidGraph_dac2() const { return &graph_residAve[1]; }
       TH2S * getResidHist_dac1() const { return hist_resid[0]; }
       TH2S * getResidHist_dac2() const { return hist_resid[1]; }
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
@@ -99,7 +100,7 @@ namespace mattak
       std::array<std::array<TGraph, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> *graphs = 0;
       std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
       std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
-      std::array<TGraph, 2> graph_residAve; // 2 DACs
+      std::array<TGraphErrors, 2> graph_residAve; // 2 DACs
       std::array<int, 2> nResidPoints; // 2 DACs
       std::array<TH2S*, 2> hist_resid = {}; // 2 DACs
       std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
@@ -117,7 +118,7 @@ namespace mattak
       bool hasBiasScanData = false;
       bool fit_isUsingResid = true;
       bool left_equals_right = false;
-    ClassDef(VoltageCalibration, 2);
+    ClassDef(VoltageCalibration, 3);
   };
 #endif
 
