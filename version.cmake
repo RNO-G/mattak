@@ -1,5 +1,5 @@
 
-execute_process ( COMMAND git describe --always --dirty --match 'notatag' OUTPUT_VARIABLE GIT_VERSION ERROR_QUIET)
+execute_process ( COMMAND git describe --tags --always --dirty OUTPUT_VARIABLE GIT_VERSION ERROR_QUIET)
 
 string(STRIP "${GIT_VERSION}" GIT_VERSION) 
 SET(GIT_VERSION "\"${GIT_VERSION}\"")
