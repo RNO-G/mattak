@@ -1008,6 +1008,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
     {
       // Interpolating the average residuals
       int npoints_residGraph = graph_residAve[j]->GetN();
+      graph_residAve[j]->SetBit(TGraph::kIsSortedX);  // We can do that because our data are sorted. Makes later Eval calls faster
       const double dV = graph_residAve[j]->GetPointX(1) - graph_residAve[j]->GetPointX(0);
       resid_volt[j].resize(npoints_residGraph * 2 - 1);
       resid_adc[j].resize(npoints_residGraph * 2 - 1);
