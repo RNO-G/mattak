@@ -220,7 +220,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
 
         if voltage_calibration is not None:
-            self.vc = VoltageCalibration(voltage_calibration)
+            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
             self.has_calib = True
         else:
             self.has_calib = False
@@ -357,7 +357,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         starting_window = starting_window[:, :, 0]
         if calibrated:
             # this can run now both normal and raw calibration
-            w = numpy.array([self.vc.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
+            w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
 
         w = numpy.asarray(w, dtype=float)
 
