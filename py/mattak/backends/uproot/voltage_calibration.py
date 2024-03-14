@@ -37,6 +37,9 @@ class VoltageCalibration(object):
         self.NUM_DIGI_SAMPLES = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
         self.__upsample_residuals = upsample_residuals
 
+        self.__adc_table_voltage = None
+        self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
+
         if path.endswith(".root"):
             self.cal_file = uproot.open(path)
             if "coeffs_tree" in self.cal_file:
@@ -51,16 +54,16 @@ class VoltageCalibration(object):
                     raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
                                         "the code expects them to be the same!")
 
-                    if self.__upsample_residuals:
-                        vsamples = numpy.arange(fit_min, fit_max, accuracy)
-                        # residuals split over DACs
-                        ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                                      numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+                if self.__upsample_residuals:
+                    vsamples = numpy.arange(fit_min, fit_max, accuracy)
+                    # residuals split over DACs
+                    ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
+                                    numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
 
-                        self.__set_adc_table_voltage(vsamples)
-                        self.__cal_residuals_adc = ressamples
-                    else:
-                        self.__set_adc_table_voltage(self.__cal_residuals_v[0])
+                    self.__set_adc_table_voltage(vsamples)
+                    self.__cal_residuals_adc = ressamples
+                else:
+                    self.__set_adc_table_voltage(self.__cal_residuals_v[0])
 
             elif "pedestals" in self.cal_file:
                 self.full_bias_scan = True
@@ -74,10 +77,6 @@ class VoltageCalibration(object):
                 raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
         else:
             raise ValueError(f"{path} is not recognized as a root file")
-
-
-        self.__adc_table_voltage = None
-        self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
 
     def __set_adc_table_voltage(self, value):
@@ -97,6 +96,7 @@ class VoltageCalibration(object):
             if not self.full_bias_scan:
                 param_channel = self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)]
                 # checked that self.__cal_residuals_v is equal for both DACs
+
                 adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
 
                 adcsamples[:2048] += self.__cal_residuals_adc[0]
