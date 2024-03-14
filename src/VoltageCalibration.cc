@@ -43,34 +43,34 @@ static double adcToVolt(double in_adc, int npoints, const double * volt_array, c
   if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
-  if (in_adc < adcTable[0])
+  if (in_adc < adc_array[0])
   {
-    m = (voltTable[1] - voltTable[0]) / (adcTable[1] - adcTable[0]);
-    out_volt = voltTable[0] + (in_adc - adcTable[0]) * m;
+    m = (volt_array[1] - volt_array[0]) / (adc_array[1] - adc_array[0]);
+    out_volt = volt_array[0] + (in_adc - adc_array[0]) * m;
     return out_volt;
   }
-  if (in_adc > adcTable[npoints-1])
+  if (in_adc > adc_array[npoints-1])
   {
-    m = (voltTable[npoints-1] - voltTable[npoints-2]) / (adcTable[npoints-1] - adcTable[npoints-2]);
-    out_volt = voltTable[npoints-1] + (in_adc - adcTable[npoints-1]) * m;
+    m = (volt_array[npoints-1] - volt_array[npoints-2]) / (adc_array[npoints-1] - adc_array[npoints-2]);
+    out_volt = volt_array[npoints-1] + (in_adc - adc_array[npoints-1]) * m;
     return out_volt;
   }
 
   for (int i = 0; i < npoints; i++)
   {
-    if (in_adc == adcTable[i])
+    if (in_adc == adc_array[i])
     {
-      out_volt = voltTable[i]; // Lucky if this happens!
+      out_volt = volt_array[i]; // Lucky if this happens!
       return out_volt;
     }
 
     if (i < npoints-1)
     {
       // Most likely we will get out_volt from interpolation
-      if (in_adc > adcTable[i] && in_adc < adcTable[i+1])
+      if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
       {
-        m = (voltTable[i+1] - voltTable[i]) / (adcTable[i+1] - adcTable[i]);
-        out_volt = voltTable[i] + (in_adc - adcTable[i]) * m;
+        m = (volt_array[i+1] - volt_array[i]) / (adc_array[i+1] - adc_array[i]);
+        out_volt = volt_array[i] + (in_adc - adc_array[i]) * m;
         return out_volt;
       }
     }
