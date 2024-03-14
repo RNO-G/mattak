@@ -266,6 +266,16 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
         return None
 
+
+def find_voltage_calibration_for_dataset(dataset):
+    """ Wrapper around find_voltage_calibration """
+    rundir = dataset.rundir
+    station = dataset.station
+    dataset.setEntries(0)
+    time = dataset.eventInfo().triggerTime
+    return find_voltage_calibration(rundir, station, time)
+
+
 def find_voltage_calibration(rundir, station, time):
     """
     Function to find the calibration file that lays closest to given time.

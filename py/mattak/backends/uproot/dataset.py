@@ -211,9 +211,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         if voltage_calibration is None:
-            # do find_VC here
-            time = self._hds['trigger_time'].array()[0]
-            voltage_calibration = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
+            voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
         elif isinstance(voltage_calibration, str):
             pass
         else:

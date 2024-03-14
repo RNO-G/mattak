@@ -80,9 +80,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if verbose:
                 print("Looking for a calibration file")
 
-            time = self.ds.header().trigger_time
-            cal_file = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
-
+            cal_file = mattak.Dataset.find_voltage_calibration_for_dataset(self)
             if cal_file is not None:
                 if verbose:
                     print(f"Found calibration file {cal_file}")
