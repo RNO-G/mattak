@@ -44,7 +44,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None):
+                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),

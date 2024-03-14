@@ -31,7 +31,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None):
+                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+                 cache_calibration : Optional[bool] = True):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset`.
@@ -74,7 +75,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
-            self.set_calibration(voltage_calibration)
+            self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
         else:
             if verbose:
                 print("Looking for a calibration file")
@@ -86,7 +87,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if verbose:
                     print(f"Found calibration file {cal_file}")
 
-                self.set_calibration(voltage_calibration)
+                self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
             else:
                 if verbose:
                     print("No calibration file found")
@@ -99,10 +100,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
 
-    def set_calibration(self, path_or_object):
+    def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
             self.vc = ROOT.mattak.VoltageCalibration()
-            self.vc.readFitCoeffsFromFile(path_or_object)
+            self.vc.readFitCoeffsFromFile(path_or_object, cache_tables=cache_calibration)
         else:
             self.vc = path_or_object
 

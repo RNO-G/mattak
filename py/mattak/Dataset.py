@@ -129,6 +129,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
             voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+            cache_calibration : Optional[bool] = True,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
 
@@ -198,6 +199,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         `ROOT.mattak.VoltageCalibration`, but this is not possible to
         implement in uproot.)
 
+    cache_calibration : bool
+        If True, the adc tables used in the calibration are cached. This increases performance when calibrating
+        more than two events, typically. This comes with the cost of higher memory consumption.
+
     data_dir : deprecated
         Left here for backwards compatibility
     """
@@ -247,13 +252,15 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         import mattak.backends.uproot.dataset
         return mattak.backends.uproot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
-            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
+            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration,
+            cache_calibration=cache_calibration)
 
     elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
         return mattak.backends.pyroot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
-            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
+            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration,
+            cache_calibration=cache_calibration)
 
     else:
         print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
