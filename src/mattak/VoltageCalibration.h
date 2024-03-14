@@ -12,17 +12,32 @@
 #include "mattak/Constants.h"
 #include <vector>
 #include <array>
+#include <iostream>
 namespace mattak
 {
 
   constexpr int max_voltage_calibration_fit_order = 9;
 
   // Free apply voltage calibration so we can call it without ROOT
-  // @param N number of samples (must be multiple of window size!)
-  // @param in the input (raw samples, pedestal subtracted)
+  // @param nSamples_wf: number of samples (must be multiple of window size!)
+  // @param in: input waveform (raw samples, pedestal subtracted)
+  // @param out: output waveform
+  // @param start_window: Index of the starting window
   //
-  double * applyVoltageCalibration(int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
-                        int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt, const double * packed_aveResid_adc);
+  double * applyVoltageCalibration(
+    int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int fit_order,
+    int nResidPoints, const double * packed_fit_params, bool isUsingResid, const double * packed_aveResid_volt,
+    const double * packed_aveResid_adc);
+
+  // Free apply voltage calibration so we can call it without ROOT
+  // @param nSamples_wf: number of samples (must be multiple of window size!)
+  // @param in: input waveform (raw samples, pedestal subtracted)
+  // @param out: output waveform
+  // @param start_window: Index of the starting window
+
+  double * applyVoltageCalibration(
+    int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int nResidPoints, const double * voltage_table,
+    const std::array<std::vector<double>, 4096>* adc_table);
 
 
 #ifndef MATTAK_NOROOT
@@ -44,9 +59,9 @@ namespace mattak
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool isUsingResid = true, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
-      void readFitCoeffsFromFile(const char * inFile);
+      void readFitCoeffsFromFile(const char * inFile, const bool cache_tables = true);
 
-      int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
+      int getNresidPoints(int chan) const { return nResidPoints[chan >= mattak::k::num_radiant_channels / 2]; }
       const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
       const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
       int getFitOrder() const { return fit_order; }
@@ -56,11 +71,22 @@ namespace mattak
       const double * getFitCoeffs(int chan, int sample) const { return getPackedFitCoeffs(chan) + sample * (getFitOrder()+1); }
       double getFitCoeff(int chan, int sample, int coeff) const { return getFitCoeffs(chan,sample)[coeff]; }
       const double * getPackedFitCoeffs(int chan) const { return &fit_coeffs[chan][0]; }
+
       double * apply(int chan, int nSamples_wf, const int16_t * in, int start_window, double * out = 0, bool isOldFirmware = false) const
       {
-        return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
-                                       getPackedFitCoeffs(chan), isResid(), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+        if (has_cache_tables_)
+        {
+          const std::array<std::vector<double>, 4096>* adc_table_channel = &cached_adc_tables_[chan];
+          return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getNresidPoints(chan), &resid_volt[int(chan / 12)][0], adc_table_channel);
+        }
+        else
+        {
+          return applyVoltageCalibration(
+            nSamples_wf, in, out, start_window, isOldFirmware, getFitOrder(), getNresidPoints(chan),
+            getPackedFitCoeffs(chan), isResid(), getPackedAveResid_volt(chan), getPackedAveResid_adc(chan));
+        }
       }
+
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
@@ -110,6 +136,10 @@ namespace mattak
       bool hasBiasScanData;
       bool fit_isUsingResid = true;
       bool left_equals_right;
+
+      bool has_cache_tables_ = false;
+      std::array<std::array<std::vector<double>, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> cached_adc_tables_;
+
     ClassDef(VoltageCalibration, 2);
   };
 #endif

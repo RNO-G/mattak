@@ -35,10 +35,9 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
   return adcTable;
 }
 
-static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
+static double adcToVolt(double in_adc, int npoints, const double * volt_array, const double * adc_array)
 {
-  const double *volt_array = voltTable;
-  const double *adc_array = adcTable;
+
   double m;
   double out_volt = 0;
 
@@ -99,10 +98,10 @@ ClassImp(mattak::VoltageCalibration);
 
 mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
-  setupFromTree(tree,branch_name,vref,fit_order,min,max,isUsingResid);
+  setupFromTree(tree, branch_name, vref, fit_order, min, max, isUsingResid);
 }
 
-//almost copy-pasted from raw file reader...
+// almost copy-pasted from raw file reader...
 void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
 
@@ -920,12 +919,13 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   f.Close();
 }
 
-void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
+void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, const bool cache_tables)
 {
   //
   // Get information about the bias scan and fit coefficients from the input root file
   //
   hasBiasScanData = false;
+  has_cache_tables_ = cache_tables;
 
   TFile *inputFile = new TFile(inFile);
 
@@ -938,7 +938,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   general_tree->GetEntry(0);
 
   TTree *fitCoeffs_tree = (TTree*)inputFile->Get("coeffs_tree");
-  std::vector<float> coeff(fit_order+1);
+  std::vector<float> coeff(fit_order + 1);
   std::vector<float> *p_coeff = &coeff;
   fitCoeffs_tree->SetBranchAddress("coeff", &p_coeff);
 
@@ -967,20 +967,27 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   {
     chisqValidation_tree->GetEntry(iChan);
     isBad_channelAveChisqPerDOF[iChan] = channelAveChisqPerDOF;
-    if (isBad_channelAveChisqPerDOF[iChan]) printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+
+    if (isBad_channelAveChisqPerDOF[iChan])
+    {
+      printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+    }
 
     fit_coeffs[iChan].clear();
-    fit_coeffs[iChan].resize((fit_order+1)*mattak::k::num_lab4_samples, 0);
+    fit_coeffs[iChan].resize((fit_order + 1) * mattak::k::num_lab4_samples, 0);
+
     for(int iSamp = 0; iSamp < mattak::k::num_lab4_samples; iSamp++)
     {
       isBad_sampChisqPerDOF[iChan][iSamp] = sampChisqPerDOF[iSamp];
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
-      printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+      {
+        printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+      }
 
       fitCoeffs_tree->GetEntry(iChan*mattak::k::num_lab4_samples+iSamp);
       for(int iOrder = 0; iOrder < fit_order+1; iOrder++)
       {
-        fit_coeffs[iChan][iSamp*(fit_order+1)+iOrder] = coeff[iOrder];
+        fit_coeffs[iChan][iSamp * (fit_order + 1) + iOrder] = coeff[iOrder];
       }
     }
   }
@@ -1027,6 +1034,24 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   }
 
   inputFile->Close();
+
+  if (has_cache_tables_)
+  {
+    for(int channel = 0; channel < mattak::k::num_radiant_channels; channel++)
+    {
+      int dac = int(channel / 12);
+      for(int sample = 0; sample < mattak::k::num_lab4_samples; sample++)
+      {
+        const double *params = &fit_coeffs[channel][sample * (fit_order + 1)];
+        const double* adcTable = adcTablePerSample(fit_order, nResidPoints[dac], params, &resid_volt[dac][0], &resid_adc[dac][0]);
+        for (int i = 0; i < nResidPoints[dac]; i ++)
+        {
+          cached_adc_tables_[channel][sample].push_back(adcTable[i]);
+        }
+          // std::cout << adcTable[100] << std::endl;
+      }
+    }
+  }
 }
 
 
@@ -1078,6 +1103,7 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
 
     // creating a pointer which points to the first parameter of this particular sample
     const double *params = packed_fit_params + isamp_lab4 * (fit_order + 1);
+    // const double *params = &packed_fit_params[isamp_lab4 * (fit_order + 1)][0];
 
     double adc = in[i];
     if (isUsingResid)
@@ -1092,6 +1118,50 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
       // When we perform a calibration without residuals, we directly fit f(ADC) -> V
       out[i] = evalPars(adc, fit_order, params);
     }
+  }
+
+  return out;
+}
+
+double * mattak::applyVoltageCalibration(
+  int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int nResidPoints, const double * voltage_table, const std::array<std::vector<double>, 4096>* adc_table)
+
+{
+  if (!out) out = new double[nSamples_wf];
+
+  if (nSamples_wf % mattak::k::radiant_window_size)
+  {
+    std::cerr << "Not multiple of window size!" << std::endl;
+    return 0;
+  }
+
+  int nSamplesPerGroup = mattak::k::num_radiant_samples;
+  int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
+  int sample_lab4, sample_A, sample_B;
+
+  sample_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
+
+  if (isOldFirmware)
+  {
+    nSamplesPerGroup /= 2;
+    nWindowsPerGroup /= 2;
+  }
+
+
+  for (int sample_wf = 0; sample_wf < nSamples_wf; sample_wf++)
+  {
+    sample_B = (sample_wf + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+
+    if (isOldFirmware)
+    {
+      sample_B += (sample_wf >= nSamplesPerGroup) * nSamplesPerGroup;
+    }
+
+    sample_lab4 = sample_A + sample_B;
+
+    // Get table for correct sample from pointer. Get pointer to point to address of first ele of table
+    const double * adc_table_sample = &adc_table->at(sample_lab4)[0];
+    out[sample_wf] = adcToVolt(in[sample_wf], nResidPoints, voltage_table, adc_table_sample);
   }
 
   return out;
