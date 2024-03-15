@@ -8,6 +8,7 @@ import uproot
 class VoltageCalibration(object):
 
     def __init__(self, path : str, upsample_residuals : bool = True,
+                 caching : bool = True,
                  fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005):
         """ Helper class to apply the voltage calibration for the uproot backend.
 
@@ -21,6 +22,9 @@ class VoltageCalibration(object):
         upsample_residuals : bool (Default: True)
             If true, upsample the residuals used in the calibration. Not used when passing a
             bias scan file.
+
+        caching : bool (Default: True)
+            If True, the adc tables for the calibration are cached.
 
         fit_min : float (Default: -1.3 V)
             Lower bound for the upsample voltage range (in Volt).
@@ -36,6 +40,11 @@ class VoltageCalibration(object):
         self.NUM_WF_SAMPLES = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES
         self.NUM_DIGI_SAMPLES = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
         self.__upsample_residuals = upsample_residuals
+        self.__caching = caching
+
+        self.__adc_table_voltage = None
+        if self.__caching:
+            self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
         self.__adc_table_voltage = None
         self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
@@ -52,13 +61,13 @@ class VoltageCalibration(object):
 
                 if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
                     raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
-                                        "the code expects them to be the same!")
+                                     "the code expects them to be the same!")
 
                 if self.__upsample_residuals:
                     vsamples = numpy.arange(fit_min, fit_max, accuracy)
                     # residuals split over DACs
                     ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                                    numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+                                  numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
 
                     self.__set_adc_table_voltage(vsamples)
                     self.__cal_residuals_adc = ressamples
@@ -102,7 +111,7 @@ class VoltageCalibration(object):
                 adcsamples[:2048] += self.__cal_residuals_adc[0]
                 adcsamples[2048:] += self.__cal_residuals_adc[1]
 
-                self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
+                self.__adc_table[channel] = numpy.asarray(adcsamples, dtype=float)
 
             else:
                 vbias, adc = rescale_adc(self.__vbias, self.__adc)
@@ -122,7 +131,7 @@ class VoltageCalibration(object):
                   channels : Optional[list[int]] = None,
                   fit_min : float = -1.3, fit_max : float = 0.7) -> numpy.ndarray:
         """
-        The calibration function that transforms waveforms from ADC to voltage
+        The calibration function that transforms waveforms from ADC to voltage. Uses caching.
 
         Parameters
         ----------
@@ -161,7 +170,11 @@ class VoltageCalibration(object):
 
 
     def __call__(self, waveform_array : numpy.ndarray, starting_window : Union[float, int]) -> numpy.ndarray:
-        return self.calibrate(waveform_array, starting_window)
+        if self.__caching:
+            return self.calibrate(waveform_array, starting_window)
+        else:
+            return calibrate(waveform_array, self.__cal_param, [self.__adc_table_voltage, self.__adc_table_voltage],
+                             self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
 
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
@@ -302,12 +315,13 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
 
 def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
               vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
+              upsampling : bool = True,
               fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005,
               num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
               num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
               ) -> numpy.ndarray:
     """
-    The calibration function that transforms waveforms from ADC to voltage
+    The calibration function that transforms waveforms from ADC to voltage. Uses no caching
 
     Parameters
     ----------
@@ -333,12 +347,15 @@ def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
     waveform_volt : array of shape (24, 2048)
         calibrated waveform in volt
     """
-
-    # "discrete" inverse
-    vsamples = numpy.arange(fit_min, fit_max, accuracy)
     waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
-    # residuals split over DACs
-    ressamples = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
+
+    if upsampling:
+        # "discrete" inverse
+        vsamples = numpy.arange(fit_min, fit_max, accuracy)
+        # residuals split over DACs
+        res = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
+    else:
+        vsamples = vres[0]  # assuming both are the same
 
     for c, wf_channel in enumerate(waveform_array):
         starting_window_channel = starting_window[c]
@@ -350,11 +367,11 @@ def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
         if starting_window_channel >= 16:
             samples_idx += num_wf_samples
 
+        dac = int(c / 12)
         param_channel = param_channel[samples_idx]
-
         for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
             # discrete inverse
-            adcsamples = numpy.polyval(p[::-1], vsamples) + ressamples[int(c/12)]
+            adcsamples = numpy.polyval(p[::-1], vsamples) + res[dac]
             volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
             waveform_volt[c, s] = volt
 

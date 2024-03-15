@@ -512,11 +512,11 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 
   if (force || calib_wf.loaded_entry != current_entry)
   {
-    mattak::Waveforms * r = raw(force);
-    mattak::Header * h = header(force);
+    mattak::Waveforms * raw_wf = raw(force);
+    mattak::Header * head = header(force);
 
-    // if tehre is no raw waveform, we can't do this
-    if (!r|| !h)
+    // if there is no raw waveform, we can't do this
+    if (!raw_wf || !head)
     {
       calib_wf.missing_entry = true;
     }
@@ -526,11 +526,11 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 
       if (!calib_wf.ptr)
       {
-        calib_wf.ptr = new CalibratedWaveforms(*r, *h, *opt.calib);
+        calib_wf.ptr = new CalibratedWaveforms(*raw_wf, *head, *opt.calib);
       }
       else
       {
-        new (calib_wf.ptr) CalibratedWaveforms(*r, *h, *opt.calib);
+        new (calib_wf.ptr) CalibratedWaveforms(*raw_wf, *head, *opt.calib);
       }
     }
 

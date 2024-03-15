@@ -44,7 +44,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None):
+                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
@@ -211,16 +211,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         if voltage_calibration is None:
-            # do find_VC here
-            time = self._hds['trigger_time'].array()[0]
-            voltage_calibration = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
+            voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
         elif isinstance(voltage_calibration, str):
             pass
         else:
             raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
 
         if voltage_calibration is not None:
-            self.vc = VoltageCalibration(voltage_calibration)
+            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
             self.has_calib = True
         else:
             self.has_calib = False
@@ -357,7 +355,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         starting_window = starting_window[:, :, 0]
         if calibrated:
             # this can run now both normal and raw calibration
-            w = numpy.array([self.vc.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
+            w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
 
         w = numpy.asarray(w, dtype=float)
 
