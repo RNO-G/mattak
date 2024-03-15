@@ -1058,13 +1058,13 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, cons
       int dac = int(channel / 12);
       for(int sample = 0; sample < mattak::k::num_lab4_samples; sample++)
       {
+        cached_adc_tables_[channel][sample].resize(nResidPoints[dac]);
         const double *params = &fit_coeffs[channel][sample * (fit_order + 1)];
         const double* adcTable = adcTablePerSample(fit_order, nResidPoints[dac], params, &resid_volt[dac][0], &resid_adc[dac][0]);
-        for (int i = 0; i < nResidPoints[dac]; i ++)
+        for (int idx = 0; idx < nResidPoints[dac]; idx++)
         {
-          cached_adc_tables_[channel][sample].push_back(adcTable[i]);
+          cached_adc_tables_[channel][sample][idx] = adcTable[idx];
         }
-          // std::cout << adcTable[100] << std::endl;
       }
     }
   }
