@@ -23,13 +23,12 @@ static double evalPars(double x, int order, const double * p)
 
 static double* adcTablePerSample(int order, int npoints, const double * par, const double * resid_volt, const double * resid_adc)
 {
-  const double *voltTable = resid_volt;
   double *adcTable = new double[npoints];
 
   for (int i = 0; i < npoints; i++)
   {
     // When we perform a calibration with residuals, we fit f(V) -> ADC
-    adcTable[i] = evalPars(voltTable[i], order, par) + resid_adc[i];
+    adcTable[i] = evalPars(resid_volt[i], order, par) + resid_adc[i];
   }
 
   return adcTable;
@@ -37,8 +36,6 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
 
 static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
 {
-  const double *volt_array = voltTable;
-  const double *adc_array = adcTable;
   double m;
   double out_volt = 0;
 
@@ -46,34 +43,34 @@ static double adcToVolt(double in_adc, int npoints, const double * voltTable, co
   if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
-  if (in_adc < adc_array[0])
+  if (in_adc < adcTable[0])
   {
-    m = (volt_array[1] - volt_array[0])/(adc_array[1] - adc_array[0]);
-    out_volt = volt_array[0] + (in_adc - adc_array[0]) * m;
+    m = (voltTable[1] - voltTable[0]) / (adcTable[1] - adcTable[0]);
+    out_volt = voltTable[0] + (in_adc - adcTable[0]) * m;
     return out_volt;
   }
-  if (in_adc > adc_array[npoints-1])
+  if (in_adc > adcTable[npoints-1])
   {
-    m = (volt_array[npoints-1] - volt_array[npoints-2]) / (adc_array[npoints-1] - adc_array[npoints-2]);
-    out_volt = volt_array[npoints-1] + (in_adc - adc_array[npoints-1]) * m;
+    m = (voltTable[npoints-1] - voltTable[npoints-2]) / (adcTable[npoints-1] - adcTable[npoints-2]);
+    out_volt = voltTable[npoints-1] + (in_adc - adcTable[npoints-1]) * m;
     return out_volt;
   }
 
   for (int i = 0; i < npoints; i++)
   {
-    if (in_adc == adc_array[i])
+    if (in_adc == adcTable[i])
     {
-      out_volt = volt_array[i]; // Lucky if this happens!
+      out_volt = voltTable[i]; // Lucky if this happens!
       return out_volt;
     }
 
     if (i < npoints-1)
     {
       // Most likely we will get out_volt from interpolation
-      if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
+      if (in_adc > adcTable[i] && in_adc < adcTable[i+1])
       {
-        m = (volt_array[i+1] - volt_array[i])/(adc_array[i+1] - adc_array[i]);
-        out_volt = volt_array[i] + (in_adc - adc_array[i]) * m;
+        m = (voltTable[i+1] - voltTable[i]) / (adcTable[i+1] - adcTable[i]);
+        out_volt = voltTable[i] + (in_adc - adcTable[i]) * m;
         return out_volt;
       }
     }
@@ -275,14 +272,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   int nResidSets[2]; // 2 DAC
   std::array<std::vector<double>, 2> residAve_volt;
   std::array<std::vector<double>, 2> residAve_adc;
+  std::array<std::vector<double>, 2> residVar_adc;
   for (int j = 0; j < 2; j++)
   {
     nResidSets[j] = 0;
-    for (int i = 0; i < scanSize(); i++)
-    {
-      residAve_volt[j].push_back(0);
-      residAve_adc[j].push_back(0);
-    }
+    residAve_volt[j].resize(scanSize());
+    residAve_adc[j].resize(scanSize());
+    residVar_adc[j].resize(scanSize());
   }
 
 
@@ -425,6 +421,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         {
           residAve_volt[dacType].resize(npoints);
           residAve_adc[dacType].resize(npoints);
+          residVar_adc[dacType].resize(npoints);
         }
 
         for (int j = 0 ; j < npoints; j++)
@@ -434,6 +431,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           double adcResid = adc - evalPars(v, fit_order, &fit_coeffs[ichan][i * (order+1)]);
           residAve_volt[dacType][j] += v;
           residAve_adc[dacType][j] += adcResid;
+          residVar_adc[dacType][j] += pow(adcResid, 2);
         }
       }
 
@@ -453,7 +451,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   for (int j = 0; j < 2; j++)
   {
     TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
-    graph_residAve[j] = new TGraph();
+    graph_residAve[j] = new TGraphErrors();
     graph_residAve[j]->SetNameTitle(graphNameTitle);
     graph_residAve[j]->GetXaxis()->SetTitle("VBias [Volt]");
     graph_residAve[j]->GetYaxis()->SetTitle("ADC Residual");
@@ -465,7 +463,9 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       {
         residAve_volt[j][ipoint] /= nResidSets[j];
         residAve_adc[j][ipoint] /= nResidSets[j];
-        graph_residAve[j]->SetPoint(graph_residAve[j]->GetN(), residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+        residVar_adc[j][ipoint] = abs(residVar_adc[j][ipoint]/nResidSets[j] - pow(residAve_adc[j][ipoint], 2)); 
+        graph_residAve[j]->SetPoint(ipoint, residAve_volt[j][ipoint], residAve_adc[j][ipoint]);
+        graph_residAve[j]->SetPointError(ipoint, 0, sqrt(residVar_adc[j][ipoint]));
       }
 
       resid_volt[j].resize(npoints_residGraph*2-1);
@@ -1002,7 +1002,22 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
 
     // Average residuals for both types of DACs
     TString graphNameTitle = TString::Format("aveResid_dac%d", j+1);
-    graph_residAve[j] = (TGraph*)inputFile->Get(graphNameTitle);
+
+    // In older data, this may be a TGraph
+    TObject * obj = inputFile->Get(graphNameTitle); 
+    if (obj->InheritsFrom("TGraphErrors") )
+    {
+      graph_residAve[j] = (TGraphErrors*) obj; 
+    }
+    else 
+    {
+      TGraph * g = (TGraph*) obj; 
+      graph_residAve[j] = new TGraphErrors(g->GetN(), g->GetX(), g->GetY()); 
+      g->TNamed::Copy(*graph_residAve[j]); 
+      g->TAttMarker::Copy(*graph_residAve[j]); 
+      g->TAttLine::Copy(*graph_residAve[j]); 
+      g->TAttFill::Copy(*graph_residAve[j]); 
+    }
 
     if (fit_isUsingResid)
     {
