@@ -93,6 +93,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   int nplots = __builtin_popcount(opt.mask); 
   if (!nplots) return nullptr; 
 
+  bool use_same = opt.same && where; 
   if (!where ) 
   {
     where = new TCanvas(Form("c_s%d_r%d_ev%d", wf.station_number, wf.run_number, wf.event_number), Form("Station %d, Run %d, Event %d", wf.station_number, wf.run_number, wf.event_number), opt.width, opt.height); 
@@ -101,7 +102,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
   //figure out how to divide the canvases
 
-  if (nplots > 1)
+  if (nplots > 1 && !use_same)
   {
 
     int nrows = nplots < 4 ? 1: 
@@ -111,6 +112,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
     int ncols = ceil (nplots / nrows); 
 
+    where->Clear(); 
     where->Divide(ncols,nrows,0.001,0.001); 
   }
 
@@ -185,26 +187,30 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       }
     }
 
-    g->SetLineColor(kAzure+2); 
-    g->Draw("al"); 
+    g->SetLineColor(opt.color); 
+    g->Draw(use_same ? "lsame" : "al"); 
 
-    g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]); 
-    gPad->SetGridx();
-    gPad->SetGridy();
-    gPad->SetRightMargin(0.01); 
+    if (!use_same) 
+    {
+      g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]); 
+      gPad->SetGridx();
+      gPad->SetGridy();
+      gPad->SetRightMargin(0.01); 
 
-    g->GetXaxis()->SetTitleSize(0.05);
-    g->GetXaxis()->SetLabelSize(0.04);
+      g->GetXaxis()->SetTitleSize(0.05);
+      g->GetXaxis()->SetLabelSize(0.04);
 
-    g->GetYaxis()->SetTitleSize(0.05);
-    g->GetYaxis()->SetLabelSize(0.04);
-    g->GetYaxis()->SetTitleOffset(0.9);
+      g->GetYaxis()->SetTitleSize(0.05);
+      g->GetYaxis()->SetLabelSize(0.04);
+      g->GetYaxis()->SetTitleOffset(0.9);
+    }
     if (opt.stats) 
     {
-      TPaveText * pt = new TPaveText(0.75,0.7,0.99,0.9,"NB NDC"); 
+      TPaveText * pt = new TPaveText(0.75,use_same ? 0.4 : 0.7,0.99, use_same ? 0.7 : 0.9,"NB NDC"); 
       pt->SetFillStyle(0); 
       pt->SetLineWidth(0); 
       pt->SetBit(TObject::kCanDelete); 
+      pt->SetTextColor(opt.color); 
       pt->AddText(Form("#mu: %g",g->GetMean(2)));
       pt->AddText(Form("#sigma: %g",g->GetRMS(2)));
       pt->AddText(Form("V_{pp}: %g",this_max-this_min));
