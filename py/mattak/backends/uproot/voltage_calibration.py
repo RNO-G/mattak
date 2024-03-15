@@ -46,6 +46,9 @@ class VoltageCalibration(object):
         if self.__caching:
             self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
+        self.__adc_table_voltage = None
+        self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
+
         if path.endswith(".root"):
             self.cal_file = uproot.open(path)
             if "coeffs_tree" in self.cal_file:
@@ -102,6 +105,7 @@ class VoltageCalibration(object):
             if not self.full_bias_scan:
                 param_channel = self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)]
                 # checked that self.__cal_residuals_v is equal for both DACs
+
                 adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
 
                 adcsamples[:2048] += self.__cal_residuals_adc[0]
