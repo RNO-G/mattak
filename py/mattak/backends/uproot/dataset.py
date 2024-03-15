@@ -251,7 +251,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.has_calib = self.__cal_param is not None or self.__adc is not None
 
         self.__adc_table_voltage = None
-        self.__adc_table = numpy.array([None] * 24, dtype=object)
+        self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
         # keep it hard-coded for the moment
         self.__upsample_residuals = True
@@ -282,9 +282,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         """ Returns the cached table of ADC counts for a given voltage """
 
         if self.__adc_table[channel] is None:
-            if self.__cal_param is not None:
-                param_channel = self.__cal_param[4096 * channel : 4096 * (channel + 1)]
 
+            if self.__cal_param is not None:
+                param_channel = self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)]
                 # checked that self.__cal_residuals_v is equal for both DACs
                 adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
 
@@ -296,7 +296,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             elif self.__adc is not None:
 
                 vbias, adc = rescale_adc(self.__vbias, self.__adc)
-                adc_cut = [[] for i in range(24)]
+                adc_cut = [[] for i in range(self.NUM_CHANNELS)]
                 adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
                 adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
                 adc = numpy.array(adc_cut)
@@ -325,7 +325,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(**kw)
 
         if self.__read_daq_status:
-            radiantThrs = numpy.array(self._dss['radiant_thresholds[24]'])
+            radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
             lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
 
         if self.run_info is not None:
@@ -334,7 +334,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = None
 
         # um... yeah, that's obvious
-        radiantStartWindows = self.get_windows(kw)
+        radiantStartWindows = self._get_windows(kw)
 
         infos = []
         info = None  # if range(0)
@@ -380,8 +380,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int:
         return self._hds.num_entries
 
-    def get_windows(self, kw):
-        return self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw)
+    def _get_windows(self, kw):
+        """ Helper to access uproot file """
+        return self._hds[f'trigger_info/trigger_info.radiant_info.start_windows[{self.NUM_CHANNELS}][2]'].array(**kw)
+
+    def _get_waveforms(self, kw):
+        """ Helper to access uproot file """
+        return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
 
     def wfs(self, calibrated : bool = False, raw_calibration = False) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
@@ -392,18 +397,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         w = None
         if self.full or self.skip_incomplete:
-            w = self._wfs['radiant_data[24][2048]'].array(**kw)
-            starting_window = self.get_windows(kw)
+            w = self._get_waveforms(kw)
+            starting_window = self._get_windows(kw)
         elif not self.multiple:
             # if you only selected one event and have an incomplete dataset
             if self.first in self.events_with_waveforms:
                 idx = self.events_with_waveforms[self.first]
-                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np')
-                starting_window = self.get_windows(dict(entry_start=idx, entry_stop=idx+1, library='np'))
+                w = self._get_waveforms(dict(entry_start=idx, entry_stop=idx+1, library='np'))
+                starting_window = self._get_windows(dict(entry_start=idx, entry_stop=idx+1, library='np'))
         else:
             # so ... we need to loop through and find which things we have actually have waveforms
             # start by allocating the output
-            w = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
+            w = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
             starting_window = numpy.zeros((self.last - self.first))
             # now figure out how much of the data array we need
             wf_start = None
@@ -421,8 +426,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     wf_end = self.events_with_waveforms[i] + 1
 
             if len(wf_idxs):
-                w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop=wf_end, library='np')
-                starting_window[wf_idxs] = self.get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
 
         # calibration
         starting_window = starting_window[:, :, 0]
@@ -446,12 +451,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         return None if w is None else w[0]
 
-    def _iterate(self, start : int , stop : int , calibrated: bool,  max_in_mem : int,
+    def _iterate(self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
                  selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) \
-                    -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+                    -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
-       # cache current values given by setEntries(..)
-        original_entry : Union[int, Tuple[int,int]] = (self.first, self.last) if self.multiple else self.entry
+        # cache current values given by setEntries(..)
+        original_entry : Union[int, Tuple[int, int]] = (self.first, self.last) if self.multiple else self.entry
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
@@ -486,7 +491,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         Parameters
         ----------
-        waveform_array : array of shape (24, 2048)
+        waveform_array : array of shape (num_channels, num_wf_samples)
             array of one waveform
         starting_window : int | float
             the sample on which the run started
@@ -499,18 +504,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         Returns
         -------
-        waveform_volt : array of shape (24, 2048)
+        waveform_volt : array of shape (num_channels, num_wf_samples)
             calibrated waveform in volt
         """
 
-        waveform_volt = numpy.zeros((24, 2048))
-        for c, wf_channel in enumerate(waveform_array):
-            # residuals split over DACs
+        channels = list(range(self.NUM_CHANNELS))
+        waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
-            starting_window_channel = starting_window[c]
-            samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
+        for c, starting_window_channel, wf_channel in zip(channels, starting_window, waveform_array):
+            # residuals split over DACs
+            samples_idx = (128 * starting_window_channel + numpy.arange(self.NUM_WF_SAMPLES)) % self.NUM_WF_SAMPLES
             if starting_window_channel >= 16:
-                samples_idx += 2048
+                samples_idx += self.NUM_WF_SAMPLES
 
             for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
                 adcsamples = self.__get_adc_table(c, sample_lab)
@@ -552,10 +557,24 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
         numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
 
 
-def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory) -> tuple:
+def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory,
+                         num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
+                         num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
     """
     Parser for the raw bias scans, used when performing a "raw" voltage calibration
     (for testing purposes)
+
+    Parameters
+    ----------
+
+    bias_scan : uproot.ReadOnlyDirectory
+        Uproot file containing the bias scan data
+
+    num_samples : int
+        Number of samples of the digitizer
+
+    num_channels : int
+        Number of channels
 
     Returns
     -------
@@ -566,13 +585,16 @@ def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory) -> tuple:
     """
 
     vbias = bias_scan["pedestals/vbias[2]"].array(library = "np")
-    adc = bias_scan["pedestals/pedestals[24][4096]"].array(library = "np").astype(numpy.float32)
+    adc = bias_scan[f"pedestals/pedestals[{num_channels}][{num_samples}]"].array(library = "np").astype(numpy.float32)
     # (v_ped, channel, sample) -> (channel, sample, v_ped)
     adc = numpy.moveaxis(adc, (0, 1, 2), (2, 0, 1))
     return vbias, adc
 
 
-def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref = 1.5) -> tuple:
+def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref : float = 1.5,
+                num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
+                num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
+
     """
     Rescaling function to set the base pedestal ( 1.5 V ) as the origin
 
@@ -591,9 +613,9 @@ def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref = 1.5) -> tuple
     # The mattak src rescaled according to the first value GREATER than Vref, hence this function does the same
     vidx = [min([idx for idx, _ in enumerate(vbias[:, dac]) if vbias[idx, dac] >= Vref]) for dac in range(2)]
     adc_rescaled = numpy.zeros_like(adc)
-    for ch in range(24):
+    for ch in range(num_channels):
         dac = int(ch / 12)
-        for s in range(4096):
+        for s in range(num_samples):
             two_bins_around_pedestal = [vidx[dac] - 1, vidx[dac]]
             adc_rescaled[ch, s, :] = \
                 adc[ch, s, :] - numpy.interp(Vref, vbias[two_bins_around_pedestal, dac], adc[ch, s, two_bins_around_pedestal])
@@ -603,16 +625,19 @@ def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref = 1.5) -> tuple
 
 
 def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : numpy.ndarray,
-                        starting_window : Union[float, int]) -> numpy.ndarray:
+                  starting_window : Union[float, int],
+                  num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
+                  num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+                  )-> numpy.ndarray:
     """
     Function that interpolates raw bias scans to perform ADC to voltage conversion
     (for testing purposes)
     """
 
-    waveform_volt = numpy.zeros((24, 2048))
+    waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
     vbias, adc = rescale_adc(vbias, adc)
-    adc_cut = [[] for i in range(24)]
+    adc_cut = [[] for i in range(len(waveform_volt))]
     adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
     adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
     adc = adc_cut
@@ -624,9 +649,9 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
         # (calibration is done per sample)
         adc_channel = adc[c]
 
-        samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
+        samples_idx = (128 * starting_window_channel + numpy.arange(num_wf_samples)) % num_wf_samples
         if starting_window_channel >= 16:
-            samples_idx += 2048
+            samples_idx += num_wf_samples
         adc_channel = adc_channel[samples_idx]
 
         for s, (adc_wf, adc_bias) in enumerate(zip(wf_channel, adc_channel)):
@@ -638,7 +663,10 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
 
 def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
               vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
-              fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
+              fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005,
+              num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
+              num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+              ) -> numpy.ndarray:
     """
     The calibration function that transforms waveforms from ADC to voltage
 
@@ -669,7 +697,7 @@ def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
 
     # "discrete" inverse
     vsamples = numpy.arange(fit_min, fit_max, accuracy)
-    waveform_volt = numpy.zeros((24, 2048))
+    waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
     # residuals split over DACs
     ressamples = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
 
@@ -677,11 +705,12 @@ def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
         starting_window_channel = starting_window[c]
         # Reordering the parameters to match the correct starting window
         # (calibration is done per sample)
-        param_channel = param[4096 * c : 4096 * (c + 1)]
+        param_channel = param[num_phys_samples * c : num_phys_samples * (c + 1)]
 
-        samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
+        samples_idx = (128 * starting_window_channel + numpy.arange(num_wf_samples)) % num_wf_samples
         if starting_window_channel >= 16:
-            samples_idx += 2048
+            samples_idx += num_wf_samples
+
         param_channel = param_channel[samples_idx]
 
         for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):

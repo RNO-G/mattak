@@ -34,6 +34,11 @@ class AbstractDataset(ABC):
     To see how to initalize a dataset object see the fuction `Dataset` defined below.
     """
 
+    # Define some contants
+    NUM_DIGI_SAMPLES = 4096
+    NUM_WF_SAMPLES = 2048
+    NUM_CHANNELS = 24
+
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
         Select entries to read out with wfs or eventInfo. Can either be a
@@ -76,7 +81,7 @@ class AbstractDataset(ABC):
         """ implementation-defined part of iterator"""
         pass
 
-    def iterate(self, start : int = 0, stop : Union[int,None] = None,
+    def iterate(self, start : int = 0, stop : Union[int, None] = None,
                 calibrated: bool = False, max_entries_in_mem : int = 256,
                 selector: Optional[Callable[[EventInfo], bool]] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
@@ -85,6 +90,7 @@ class AbstractDataset(ABC):
         """
         if start < 0:
             start += self.N()
+
         if start < 0 or start > self.N():
             return
 
@@ -260,6 +266,7 @@ def find_voltage_calibration(rundir, station, time):
     The order of the search is:
         * run directory
         * under RNO_G_DATA/stationX/calibration
+
     Parameters
     ----------
     rundir : str
@@ -268,7 +275,7 @@ def find_voltage_calibration(rundir, station, time):
         station number, read from runfile to account for station = 0 case
     time: float
         time of run, read as first time in trigger times
-            
+
     Returns
     -------
     vc_list[closest_idx] : str
@@ -277,7 +284,7 @@ def find_voltage_calibration(rundir, station, time):
         if no calibration file was found
     """
     # try finding a calibration file in the run directory
-    vc_list = glob.glob(f"{rundir}/volCalConst*.root/")
+    vc_list = glob.glob(f"{rundir}/volCalConst*.root")
 
     vc_dir = None
     if not vc_list:
@@ -287,22 +294,24 @@ def find_voltage_calibration(rundir, station, time):
                 vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
                 vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
                 break
-        
+
         if vc_dir is None:
             logging.error(
-                "Could not find a directory for the calibration files." 
+                "Could not find a directory for the calibration files."
                 "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
             return None
 
         if not vc_list:
             logging.error("Could not find any calibration files")
             return None
-        
+
     # to marginally save time when there is only one file
     if len(vc_list) == 1:
         return vc_list[0]
+
     vc_basenames = [os.path.basename(vc) for vc in vc_list]
     # extracting bias scan start time from cal_file name
     vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
+
     return vc_list[closest_idx]
