@@ -1,3 +1,4 @@
+from __future__ import annotations
 import mattak.Dataset
 
 from typing import Union, Optional

@@ -1,4 +1,5 @@
 ### Python dataset class, agnostic to backend
+from __future__ import annotations
 import os
 import glob
 import re

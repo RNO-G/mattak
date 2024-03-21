@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
