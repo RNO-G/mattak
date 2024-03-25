@@ -1,6 +1,6 @@
 import mattak.Dataset
 
-from typing import Union, Optional
+from typing import Union, Optional, List
 import numpy
 import uproot
 
@@ -128,7 +128,7 @@ class VoltageCalibration(object):
 
 
     def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
-                  channels : Optional[list[int]] = None,
+                  channels : Optional[List[int]] = None,
                   fit_min : float = -1.3, fit_max : float = 0.7) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage. Uses caching.
