@@ -31,7 +31,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None):
+                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+                 cache_calibration : Optional[bool] = True):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset`.
@@ -74,19 +75,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
-            self.set_calibration(voltage_calibration)
+            self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
         else:
             if verbose:
                 print("Looking for a calibration file")
 
-            time = self.ds.header().trigger_time
-            cal_file = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
-
+            cal_file = mattak.Dataset.find_voltage_calibration_for_dataset(self)
             if cal_file is not None:
                 if verbose:
                     print(f"Found calibration file {cal_file}")
 
-                self.set_calibration(voltage_calibration)
+                self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
             else:
                 if verbose:
                     print("No calibration file found")
@@ -97,12 +96,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.setEntries(0)
 
         if verbose:
-            print("We think we found station %d run %d" % (self.station,self.run))
+            print("We think we found station %d run %d" % (self.station, self.run))
 
-    def set_calibration(self, path_or_object):
+    def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
             self.vc = ROOT.mattak.VoltageCalibration()
-            self.vc.readFitCoeffsFromFile(path_or_object)
+            self.vc.readFitCoeffsFromFile(path_or_object, cache_tables=cache_calibration)
         else:
             self.vc = path_or_object
 
@@ -158,7 +157,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         pps = hdr.pps_num
         sysclk = hdr.sysclk
         sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
-        radiantStartWindows = numpy.frombuffer(cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24 * 2).reshape(24, 2)
+        radiantStartWindows = numpy.frombuffer(
+            cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
+            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
 
         return mattak.Dataset.EventInfo(eventNumber = eventNumber,
                                         station = station,
@@ -193,7 +194,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
 
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
-                                dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24, 2048)
+                                dtype = 'float64' if calibrated else 'int16',
+                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
 
 
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
@@ -207,7 +209,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
+        out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
