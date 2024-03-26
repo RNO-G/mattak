@@ -47,7 +47,7 @@ namespace mattak
       double readout_time = 0;
 
       /* The number of PPS (pulse per second) received since the start of the run by the RADIANT. WARNING: this can slip */
-      uint32_t pps_num= 0;.
+      uint32_t pps_num= 0;
 
       /* The number of cycles in the nominally 100 MHz clock for the current event. Note that this wraps every 53 seconds or so.
        * WARNING: this can slip.
