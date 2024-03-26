@@ -4,7 +4,7 @@ import configparser
 
 import mattak.Dataset
 from .voltage_calibration import VoltageCalibration
-from typing import Union, Optional, Tuple, Generator, Callable, Sequence
+from typing import Union, Optional, Tuple, Generator, Callable, Sequence, List
 import numpy
 import math
 import logging
@@ -302,7 +302,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         """ Helper to access uproot file """
         return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, list[int]]] = None) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None) -> Optional[numpy.ndarray]:
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
