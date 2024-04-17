@@ -70,9 +70,10 @@ TGraph* graphImpl(const T & wf, int chan, bool ns)
   g->SetBit(TGraph::kNotEditable);
   g->SetBit(TGraph::kIsSortedX);
 
+  double rate = wf.radiant_sampling_rate / 1000.;
   for (int isamp = 0; isamp < wf.buffer_length; isamp++)
   {
-    double x = ns ? isamp/3.2 : isamp;
+    double x = ns ? isamp/rate : isamp;
     g->GetX()[isamp] = x;
     g->GetY()[isamp] = wf.radiant_data[chan][isamp];
   }
