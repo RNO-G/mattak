@@ -242,17 +242,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
             lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
 
-        if self.run_info is not None:
-            sampleRate = float(self.run_info['radiant-samplerate']) / 1000
-        else:
-            sampleRate = None
+        try:
+            sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
+            print("test")
+        except uproot.exceptions.KeyInFileError:
+            if self.run_info is not None:
+                sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+            else:
+                sampleRate = 3.2  # GHz
+
+            sampleRate = [sampleRate] * (self.last - self.first)
 
         # um... yeah, that's obvious
         radiantStartWindows = self._get_windows(kw)
 
         infos = []
         info = None  # if range(0)
-        for i in range(self.last-self.first):
+        for i in range(self.last - self.first):
 
             triggerType  = "UNKNOWN"
             if triggerInfo[i]['trigger_info.radiant_trigger']:
@@ -278,7 +284,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 sysclkLastPPS = (sysclk_lastpps[i], sysclk_lastlastpps[i]),
                 pps = pps[i],
                 radiantStartWindows = radiantStartWindows[i],
-                sampleRate = sampleRate,
+                sampleRate = sampleRate[i],
                 radiantThrs=radiantThrs[i] if self.__read_daq_status else None,
                 lowTrigThrs=lowTrigThrs[i] if self.__read_daq_status else None
             )
