@@ -49,6 +49,7 @@ class VoltageCalibration(object):
         self.__adc_table_voltage = None
         self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
+        self.__path = path
         if path.endswith(".root"):
             self.cal_file = uproot.open(path)
             if "coeffs_tree" in self.cal_file:
@@ -176,6 +177,38 @@ class VoltageCalibration(object):
             return calibrate(waveform_array, self.__cal_param, [self.__adc_table_voltage, self.__adc_table_voltage],
                              self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
 
+    def plot_ch(self, xs=numpy.linspace(-1000, 1000, 100), ch=0):
+
+        from matplotlib import pyplot as plt
+
+        fig, (ax, ax2) = plt.subplots(2, 1, height_ratios=[3, 1], sharex=True)
+
+        tables = numpy.array([self.__get_adc_table(ch, i) for i in range(self.NUM_DIGI_SAMPLES)])
+        out = []
+        out2 = []
+        for x in xs:
+            # vs = [numpy.interp(x, t, self.__adc_table_voltage) * 1000 for t in tables]
+            # out.append([numpy.mean(vs), numpy.std(vs)])
+            vs2 = self.calibrate([numpy.full(self.NUM_WF_SAMPLES, x)], [0], channels=[ch]) * 1000
+            out2.append([numpy.mean(vs2), numpy.std(vs2)])
+
+        out = numpy.array(out2)
+
+        ax.errorbar(xs, out[:, 0], out[:, 1], ls="", label=f"Ch {ch} (mean over all samples)")
+        ax.plot(xs, xs * 2500 / 4096, "k--", lw=1, label="2500 / 4096")
+        ax2.set_xlabel("input ADC")
+        ax.set_ylabel("output voltage / mV")
+
+        ax2.errorbar(xs, out[:, 0] - xs * 2500 / 4096, out[:, 1], ls="", label=f"Ch {ch}")
+        ax2.set_ylabel("residual / mV")
+
+        ax.grid()
+        ax2.grid()
+        ax.legend()
+        fig.tight_layout()
+        name = self.__path.replace('.root', f'_ch{ch}_test.png')
+        plt.savefig(name, transparent=False)
+
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
     """
@@ -200,11 +233,17 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
         both v_residuals and residuals have shape (points, 2)
 
     """
+    try:
+        vres_dac1 = cal_file["aveResid_dac1"].values(axis = 0)
+        vres_dac2 = cal_file["aveResid_dac2"].values(axis = 0)
+        residual_dac1 = cal_file["aveResid_dac1"].values(axis = 1)
+        residual_dac2 = cal_file["aveResid_dac2"].values(axis = 1)
+    except AttributeError:
+        vres_dac1 = cal_file["aveResid_dac1"].member("fX")
+        vres_dac2 = cal_file["aveResid_dac2"].member("fX")
+        residual_dac1 = cal_file["aveResid_dac1"].member("fY")
+        residual_dac2 = cal_file["aveResid_dac2"].member("fY")
 
-    vres_dac1 = cal_file["aveResid_dac1"].values(axis = 0)
-    vres_dac2 = cal_file["aveResid_dac2"].values(axis = 0)
-    residual_dac1 = cal_file["aveResid_dac1"].values(axis = 1)
-    residual_dac2 = cal_file["aveResid_dac2"].values(axis = 1)
     return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), \
         numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
 
