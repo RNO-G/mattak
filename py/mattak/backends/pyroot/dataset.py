@@ -127,11 +127,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
             lowTrigThrs = None
 
         sampleRate = self.ds.raw().radiant_sampling_rate / 1000
-        # if self.__read_run_info:
-        #     runinfo = self.ds.info()
-        #     sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2
-        # else:
-        #     sampleRate = 3.2  # GHz
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)

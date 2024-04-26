@@ -51,7 +51,10 @@ namespace mattak
      uint32_t event_number = 0;
      uint16_t station_number = 0;
      uint16_t buffer_length = 0;
-     uint32_t radiant_sampling_rate = 2400;
+     // This has to stay 3200 MHz forever. This value will be used for all data taken with the
+     // board manager version < 2.18(or 19), when we did not read out the sampling rate from the
+     // radiant directly.
+     uint32_t radiant_sampling_rate = 3200;  // MHz
      float digitizer_readout_delay_ns[mattak::k::num_radiant_channels]={};
 
      virtual TGraph * makeGraph(int chan, bool ns = true) const = 0;
