@@ -236,16 +236,10 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
         both v_residuals and residuals have shape (points, 2)
 
     """
-    try:
-        vres_dac1 = cal_file["aveResid_dac1"].values(axis = 0)
-        vres_dac2 = cal_file["aveResid_dac2"].values(axis = 0)
-        residual_dac1 = cal_file["aveResid_dac1"].values(axis = 1)
-        residual_dac2 = cal_file["aveResid_dac2"].values(axis = 1)
-    except AttributeError:
-        vres_dac1 = cal_file["aveResid_dac1"].member("fX")
-        vres_dac2 = cal_file["aveResid_dac2"].member("fX")
-        residual_dac1 = cal_file["aveResid_dac1"].member("fY")
-        residual_dac2 = cal_file["aveResid_dac2"].member("fY")
+    vres_dac1 = cal_file["aveResid_dac1"].member("fX")
+    vres_dac2 = cal_file["aveResid_dac2"].member("fX")
+    residual_dac1 = cal_file["aveResid_dac1"].member("fY")
+    residual_dac2 = cal_file["aveResid_dac2"].member("fY")
 
     return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), \
         numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
