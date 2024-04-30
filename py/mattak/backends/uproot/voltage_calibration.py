@@ -183,7 +183,7 @@ class VoltageCalibration(object):
 
         fig, (ax, ax2) = plt.subplots(2, 1, height_ratios=[3, 1], sharex=True)
 
-        tables = numpy.array([self.__get_adc_table(ch, i) for i in range(self.NUM_DIGI_SAMPLES)])
+        # tables = numpy.array([self.__get_adc_table(ch, i) for i in range(self.NUM_DIGI_SAMPLES)])
         out = []
         out2 = []
         for x in xs:
@@ -205,9 +205,12 @@ class VoltageCalibration(object):
         ax.grid()
         ax2.grid()
         ax.legend()
+        title = self.__path.replace('.root', f'_ch{ch}')
+        ax.set_title(title)
         fig.tight_layout()
-        name = self.__path.replace('.root', f'_ch{ch}_test.png')
-        plt.savefig(name, transparent=False)
+        plt.show()
+        # name = self.__path.replace('.root', f'_ch{ch}_test.png')
+        # plt.savefig(name, transparent=False)
 
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
