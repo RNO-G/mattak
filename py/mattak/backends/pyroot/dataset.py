@@ -126,11 +126,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs = None
             lowTrigThrs = None
 
-        if self.__read_run_info:
-            runinfo = self.ds.info()
-            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2
-        else:
-            sampleRate = None
+        # the default value for the sampling rate (3.2 GHz) which is used
+        # for data which does not contain this information in the waveform files
+        # is set in the header fils Waveforms.h
+        sampleRate = self.ds.raw().radiant_sampling_rate / 1000
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
