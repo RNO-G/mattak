@@ -38,6 +38,10 @@ if not loaded:
         print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
         loaded_path = mattak_path
         loaded = True
+        include_path = mattak_path + "../include"
+        if 'ROOT_INCLUDE_PATH' in os.environ:
+            include_path += ":" + os.environ['ROOT_INCLUDE_PATH']
+        os.environ['ROOT_INCLUDE_PATH'] = include_path
     else:
         for path in sys.path:
             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
