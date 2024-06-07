@@ -5,6 +5,7 @@ import os
 from mattak import __path__ as mattak_path
 
 # this is where pip puts the compiled files
+mattak_include_path = os.path.join(mattak_path[0], 'build/include/')
 mattak_path = os.path.join(mattak_path[0], 'build/lib/')
 
 loaded = False
@@ -34,21 +35,19 @@ if not loaded:
         # print('Successsfully found ' + libmattakName + ' in build')
         loaded_path = "build"
         loaded = True
-    elif not silent_load(os.path.join(mattak_path, libmattakName)):
-        print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
-        loaded_path = mattak_path
-        loaded = True
-        include_path = mattak_path + "../include"
-        if 'ROOT_INCLUDE_PATH' in os.environ:
-            include_path += ":" + os.environ['ROOT_INCLUDE_PATH']
-        os.environ['ROOT_INCLUDE_PATH'] = include_path
     else:
-        for path in sys.path:
-            if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
-                # print('Successsfully found ' + libmattakName + ' in ', path)
-                loaded_path = path
-                loaded = True
-                break
+        ROOT.gInterpreter.AddIncludePath(mattak_include_path)
+        if not silent_load(os.path.join(mattak_path, libmattakName)):
+            print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
+            loaded_path = mattak_path
+            loaded = True
+        else:
+          for path in sys.path:
+             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
+                 # print('Successsfully found ' + libmattakName + ' in ', path)
+                 loaded_path = path
+                 loaded = True
+                 break
 
 if not loaded:
     raise Exception('Could not load '+ libmattakName)
