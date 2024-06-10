@@ -16,6 +16,21 @@ header_tree_names = ["hdr", "header", "hd", "hds", "headers"]
 daqstatus_tree_names = ["daqstatus", "ds", "status"]
 
 
+def find_daq_status_index(event_readout_time, daq_readout_times):
+    """
+    Find the corresponding entry in the daq status for a particular event (readout time).
+    Looking or the cloest entry before the event.
+    """
+
+    closest_idx = numpy.argmin(numpy.abs(daq_readout_times - event_readout_time))
+
+    if daq_readout_times[closest_idx] > event_readout_time:
+        closest_idx -= 1
+
+    return closest_idx
+
+
+
 def read_tree(ur_file, tree_names):
     """
     Parameters
@@ -86,6 +101,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
+
+        self._radiantThrs = None
+        self._lowTrigThrs = None
 
         # special case where data_dir is a file
         if os.path.isfile(data_path):
@@ -238,9 +256,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(**kw)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(**kw)
 
-        if self.__read_daq_status:
-            radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
-            lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+        if self.__read_daq_status and self._radiantThrs is None:
+            # The daq status is read asynchronously w.r.t. the events. Hence,
+            # we always read all information at once and associate the to the
+            # event below.
+            self._radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
+            self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
+            self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
         try:
             sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
@@ -273,6 +296,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
             elif triggerInfo[i]['trigger_info.pps_trigger']:
                 triggerType = "PPS"
 
+            radiantThrs = None
+            lowTrigThrs = None
+            if self.__read_daq_status:
+                # associate daq infomation of event based on readout times
+                readout_time = readoutTime[i]
+                radiant_idx = find_daq_status_index(readout_time, self._readout_time_radiant)
+                lt_idx = find_daq_status_index(readout_time, self._readout_time_lt)
+                radiantThrs = self._radiantThrs[radiant_idx]
+                lowTrigThrs = self._lowTrigThrs[lt_idx]
+
             info = mattak.Dataset.EventInfo(
                 eventNumber = eventNumber[i],
                 station = station[i],
@@ -285,8 +318,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 pps = pps[i],
                 radiantStartWindows = radiantStartWindows[i],
                 sampleRate = sampleRate[i],
-                radiantThrs=radiantThrs[i] if self.__read_daq_status else None,
-                lowTrigThrs=lowTrigThrs[i] if self.__read_daq_status else None
+                radiantThrs=radiantThrs,
+                lowTrigThrs=lowTrigThrs
             )
 
             infos.append(info)
