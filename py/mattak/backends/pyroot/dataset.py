@@ -220,12 +220,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+                 selectors: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
 
-        if selector is not None:
+        if not isinstance(selectors, (list, numpy.ndarray)):
+            selectors = [selectors]
+
+        if selectors is not None:
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
-                if evinfo is not None and selector(evinfo):
+                if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
                     yield evinfo, self._wfs(i, calibrated)
         else:
             for i in range(start, stop):
