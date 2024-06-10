@@ -380,7 +380,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
 
-        if not isinstance(selectors, (list, numpy.ndarray, None)) and selectors is not None:
+        if not isinstance(selectors, (list, numpy.ndarray)) and selectors is not None:
             selectors = [selectors]
 
         for i_batch in range(n_batches):
