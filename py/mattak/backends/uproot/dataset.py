@@ -409,7 +409,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return None if w is None else w[0]
 
     def _iterate(self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) \
+                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
+                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) \
                     -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
         # cache current values given by setEntries(..)
@@ -417,6 +418,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
+
+        if not isinstance(selectors, (list, numpy.ndarray)) and selectors is not None:
+            selectors = [selectors]
 
         for i_batch in range(n_batches):
 
@@ -435,8 +439,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.setEntries(original_entry)
 
             for idx in range(batch_stop - batch_start):
-                if selector is not None:
-                    if selector(e[idx]):
+                if selectors is not None:
+                    if numpy.all([selector(e[idx]) for selector in selectors]):
                         yield e[idx], w[idx]
                 else:
                     yield e[idx], w[idx]
