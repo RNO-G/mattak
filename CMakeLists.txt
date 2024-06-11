@@ -24,7 +24,7 @@ set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
 
 
-if (NOT DEFINED ROOTLESS) 
+if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 #---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
   find_package(ROOT COMPONENTS Matrix Minuit)
@@ -38,7 +38,7 @@ if (NOT DEFINED ROOTLESS)
 
     option (LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
 
-    set (LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path  to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" )
+    set (LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" )
 
 
     set(H_FILES
@@ -151,4 +151,4 @@ if(NOT DEFINED PYBINDLESS)
   )
 
 
-endif() 
+endif()

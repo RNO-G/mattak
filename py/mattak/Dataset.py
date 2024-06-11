@@ -273,7 +273,7 @@ def find_voltage_calibration_for_dataset(dataset):
     return find_voltage_calibration(dataset.rundir, dataset.station, dataset.eventInfo().triggerTime)
 
 
-def find_voltage_calibration(rundir, station, time):
+def find_voltage_calibration(rundir, station, time, log_error=False):
     """
     Function to find the calibration file that lays closest to given time.
     Returns None if no file was found
@@ -287,8 +287,10 @@ def find_voltage_calibration(rundir, station, time):
         run directory, found by each backend individually
     station : int
         station number, read from runfile to account for station = 0 case
-    time: float
+    time : float
         time of run, read as first time in trigger times
+    log_error : bool (Default: False)
+        If True, log error if you can not find a calibration file. If False, only log a debug message.
 
     Returns
     -------
@@ -310,9 +312,13 @@ def find_voltage_calibration(rundir, station, time):
                 break
 
         if vc_dir is None:
-            logging.error(
-                "Could not find a directory for the calibration files."
-                "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
+            msg = ("Could not find a directory for the calibration files. "
+                "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?")
+            if log_error:
+                logging.error(msg)
+            else:
+                logging.debug(msg)
+
             return None
 
         if not vc_list:

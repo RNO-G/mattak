@@ -214,12 +214,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
         elif isinstance(voltage_calibration, str):
             pass
+        elif isinstance(voltage_calibration, VoltageCalibration):
+            self.vc = voltage_calibration
+            self.has_calib = True
+
         else:
             raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
 
         if voltage_calibration is not None:
-            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
-            self.has_calib = True
+            if not self.has_calib:
+                self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
+                self.has_calib = True
         else:
             self.has_calib = False
 
