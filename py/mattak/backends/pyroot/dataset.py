@@ -220,7 +220,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
-                 selectors: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
+                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):

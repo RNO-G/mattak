@@ -371,7 +371,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return None if w is None else w[0]
 
     def _iterate(self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
-                 selectors: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) \
+                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
+                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) \
                     -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
         # cache current values given by setEntries(..)
