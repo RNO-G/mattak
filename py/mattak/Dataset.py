@@ -281,7 +281,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     Returns None if no file was found
     The order of the search is:
         * run directory
-        * under RNO_G_DATA/stationX/calibration
+        * under RNO_G_DATA/calibration/stationX
 
     Parameters
     ----------
