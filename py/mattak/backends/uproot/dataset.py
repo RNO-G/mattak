@@ -272,7 +272,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         try:
             sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
-            print("test")
         except uproot.exceptions.KeyInFileError:
             if self.run_info is not None:
                 sampleRate = float(self.run_info['radiant-samplerate']) / 1000
