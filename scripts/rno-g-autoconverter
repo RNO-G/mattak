@@ -6,14 +6,18 @@ ROOTIFIED=/data/rootified/
 OUTBOX=/data/outbox 
 STAGING=/data/staging
 TRASH=/data/staging/trash
-FRAC=0.025
 EVENTLISTS=/data/eventlists
+
+FRAC=0.025
 STATIONS="23 11 22 12 21 13 24"
 
-if [ -f /rno-g/etc/stations ]
+if [ -f /rno-g/etc/autoconverter.env ]
 then
-  STATIONS=`cat /rno-g/etc/stations`
+  source /rno-g/etc/autoconverter.env
 fi
+
+echo "Stations to process: $STATIONS"
+echo "Fraction: $FRAC"
 
 #TODO, make this work in parallel
 
