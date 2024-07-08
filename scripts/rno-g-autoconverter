@@ -10,6 +10,10 @@ FRAC=0.025
 EVENTLISTS=/data/eventlists
 STATIONS="23 11 22 12 21 13 24"
 
+if [ -f /rno-g/etc/stations ]
+then
+  STATIONS=`cat /rno-g/etc/stations`
+fi
 
 #TODO, make this work in parallel
 
