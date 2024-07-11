@@ -132,6 +132,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             preferred_file : Optional[str] = None,
             voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
             cache_calibration : Optional[bool] = True,
+            not_read_waveforms  : Optional[bool] = False,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
 
@@ -205,6 +206,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         If True, the adc tables used in the calibration are cached. This increases performance when calibrating
         more than two events, typically. This comes with the cost of higher memory consumption.
 
+    not_read_waveforms : bool
+        If True, only read header and daqstatus files. (Default: False)
+        NOTE: Only implemented for the uproot backend
+
     data_dir : deprecated
         Left here for backwards compatibility
     """
@@ -255,9 +260,12 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         return mattak.backends.uproot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
             read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration,
-            cache_calibration=cache_calibration)
+            cache_calibration=cache_calibration, not_read_waveforms=not_read_waveforms)
 
     elif backend == "pyroot":
+        if not_read_waveforms:
+            logging.error("The option `not_read_waveforms` is not implemented for the pyroot backend.")
+
         import mattak.backends.pyroot.dataset
         return mattak.backends.pyroot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,

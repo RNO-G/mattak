@@ -59,7 +59,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
+                 voltage_calibration : Optional[str] = None,
+                 cache_calibration : Optional[bool] = True,
+                 not_read_waveforms : Optional[bool] = False):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
@@ -95,12 +97,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         voltage_calibration : str
             Path to a voltage calibration file. If None, check for file in run directory.
+
+        cache_calibration : bool
+            If True, cache calibration tables. This will increase memory consumption. (Default: True)
+
+        not_read_waveforms : bool
+            If True, only read header and daqstatus files. (Default: False)
         """
 
         self.backend = "uproot"
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
+        self.__not_read_waveforms = not_read_waveforms
 
         self._radiantThrs = None
         self._lowTrigThrs = None
@@ -152,14 +161,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # if we didn't load the combined_tree already, try to load full tree
         if self.combined_tree is None:
             try:
-                self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-                if self.__verbose:
-                    print ("Open waveforms.root (Found full run folder) ...")
+                if not self.__not_read_waveforms:
+                    self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
+                    if self.__verbose:
+                        print ("Open waveforms.root (Found full run folder) ...")
+
+                    self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
+                    self._wfs = self.wf_tree[self.wf_branch]
 
                 self.full = True
-
-                self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
-                self._wfs = self.wf_tree[self.wf_branch]
 
                 self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
                 self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
@@ -169,6 +179,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
                     self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
                     self._dss = self.ds_tree[self.ds_branch]
+
             except Exception:
                 self.full = False
         else:
@@ -270,15 +281,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
-        try:
-            sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
-        except uproot.exceptions.KeyInFileError:
-            if self.run_info is not None:
-                sampleRate = float(self.run_info['radiant-samplerate']) / 1000
-            else:
-                sampleRate = 3.2  # GHz
+        if self.__not_read_waveforms:
+            sampleRate = [None] * (self.last - self.first)
+        else:
+            try:
+                sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
+            except uproot.exceptions.KeyInFileError:
+                if self.run_info is not None:
+                    sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+                else:
+                    sampleRate = 3.2  # GHz
 
-            sampleRate = [sampleRate] * (self.last - self.first)
+                sampleRate = [sampleRate] * (self.last - self.first)
 
         # um... yeah, that's obvious
         radiantStartWindows = self._get_windows(kw)
