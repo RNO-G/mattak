@@ -24,11 +24,11 @@ echo "Fraction: $FRAC"
 for st in ${STATIONS} ; do
   echo "STATION $st"
   for run in $INGRESS/station${st}/run* ; do
-    brun=`basename $run`
+    brun=$(basename $run)
     echo "RUN  $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
-    rno-g-convert-run $run $rootdir &> log/$st/$brun/convert.log
+    rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
     if [ $updated -eq 1 ] ; then
       echo "COPYING TO STAGING"
