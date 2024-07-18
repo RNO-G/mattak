@@ -238,16 +238,16 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             import ROOT
             import mattak.backends.pyroot.mattakloader
             if verbose:
-                print('Using pyroot backend')
+                logging.debug('Using pyroot backend')
             backend = "pyroot"
-        except:
+        except ImportError:
             try:
                 import uproot
                 backend = "uproot"
                 if verbose:
-                    print('Using uproot backend')
-            except:
-                print("No backends available")
+                    logging.debug('Using uproot backend')
+            except ImportError:
+                logging.error("No backends available")
                 return None
 
     if backend == "uproot":

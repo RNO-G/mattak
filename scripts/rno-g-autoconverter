@@ -1,38 +1,46 @@
-#! /bin/bash 
+#! /bin/bash
 
 INGRESS=/data/ingress/
 ARCHIVED=/data/archived/
 ROOTIFIED=/data/rootified/
-OUTBOX=/data/outbox 
+OUTBOX=/data/outbox
 STAGING=/data/staging
 TRASH=/data/staging/trash
-FRAC=0.025
 EVENTLISTS=/data/eventlists
-STATIONS="23 11 22 12 21 13 24"
 
+FRAC=0.025
+STATIONS="23 11 22 12 21 13 24 14"
+
+if [ -f /rno-g/etc/autoconverter.env ]
+then
+  source /rno-g/etc/autoconverter.env
+fi
+
+echo "Stations to process: $STATIONS"
+echo "Fraction: $FRAC"
 
 #TODO, make this work in parallel
 
-for st in ${STATIONS} ; do 
-  echo "STATION $st" 
+for st in ${STATIONS} ; do
+  echo "STATION $st"
   for run in $INGRESS/station${st}/run* ; do
-    brun=`basename $run`
-    echo "RUN  $brun" 
+    brun=$(basename $run)
+    echo "RUN  $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
-    rno-g-convert-run $run $rootdir &> log/$st/$brun/convert.log
+    rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
-    if [ $updated -eq 1 ] ; then 
-      echo "COPYING TO STAGING" 
+    if [ $updated -eq 1 ] ; then
+      echo "COPYING TO STAGING"
       outdir=${OUTBOX}/station${st}/$brun
 
-      #if the outdir already exists, move out of the outbox, and delete it 
+      #if the outdir already exists, move out of the outbox, and delete it
       if [ -d $outdir ] ; then
-        echo "RUN EXISTS IN OUTBOX, TRASHING" 
-        mkdir -p ${TRASH} 
-        mv $outdir ${TRASH} 
+        echo "RUN EXISTS IN OUTBOX, TRASHING"
+        mkdir -p ${TRASH}
+        mv $outdir ${TRASH}
         rm -rf ${TRASH}/$brun
-      fi 
+      fi
 
       stagedir=${STAGING}/station${st}/$brun
       mkdir -p $stagedir
@@ -43,10 +51,10 @@ for st in ${STATIONS} ; do
       cp -p -r $rootdir/aux $stagedir
       cp -p -r $rootdir/cfg $stagedir
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
-      mkdir -p $EVENTLISTS/station${st} 
+      mkdir -p $EVENTLISTS/station${st}
       rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
-      mv $stagedir $outdir 
+      mv $stagedir $outdir
     fi
   done
 done
@@ -55,12 +63,4 @@ done
 rsync -a $INGRESS $ARCHIVED
 
 
-#eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations 
-
-
-
-
-
-
-
-
+#eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations
