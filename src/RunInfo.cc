@@ -184,3 +184,14 @@ const std::string & mattak::RunInfo::lookup(const std::string & key) const
   if (it == kvp.end()) return empty; 
   else return it->second;
 }
+
+float mattak::FlowerGainCode::gain(unsigned chan)
+{
+  if (chan >= k::num_lt_channels) return -1; 
+
+  const float table[] = { 1, 1.25, 2, 2.5, 4, 5, 8, 10,12.5, 16,20,25,32,50}; 
+
+  if (codes[chan] >= sizeof(table)/sizeof(*table)) return -1; 
+  return table[codes[chan]]; 
+}
+
