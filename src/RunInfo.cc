@@ -191,7 +191,7 @@ float mattak::FlowerGainCode::gain(unsigned chan)
 
   const float table[] = { 1, 1.25, 2, 2.5, 4, 5, 8, 10,12.5, 16,20,25,32,50}; 
 
-  if (codes[chan] >= sizeof(table)/sizeof(*table)) return -1; 
+  if (codes[chan] >= sizeof(table)/sizeof(*table)) return 50; 
   return table[codes[chan]]; 
 }
 
