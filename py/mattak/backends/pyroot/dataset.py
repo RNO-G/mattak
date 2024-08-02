@@ -129,7 +129,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # the default value for the sampling rate (3.2 GHz) which is used
         # for data which does not contain this information in the waveform files
         # is set in the header fils Waveforms.h
-        sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        try:
+            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        except ReferenceError:
+            sampleRate = None
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
