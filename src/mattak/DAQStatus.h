@@ -24,10 +24,10 @@ namespace mattak
     uint16_t trig_per_chan[mattak::k::num_lt_channels] = {0};
     uint16_t servo_coinc = 0;
     uint16_t servo_per_chan[mattak::k::num_lt_channels] = {0};
-    uint16_t trig_phased;
-    uint16_t trig_per_beam[RNO_G_NUM_LT_BEAMS];
-    uint16_t servo_phased;
-    uint16_t servo_per_beam[RNO_G_NUM_LT_BEAMS];
+    uint16_t trig_phased = 0;
+    uint16_t trig_per_beam[mattak::k::num_lt_beams] = {0};
+    uint16_t servo_phased = 0;
+    uint16_t servo_per_beam[mattak::k::num_lt_beams] = {0};
 
   }; 
 

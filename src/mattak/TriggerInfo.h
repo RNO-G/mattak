@@ -24,6 +24,8 @@ namespace mattak
     uint8_t window = 0; 
     uint8_t num_coinc = 0; 
     bool vppmode = 0; 
+    uint8_t channel_mask=0;
+    uint16_t beam_mask=0;
     ClassDef(LTTriggerInfo,1); 
   }; 
 
