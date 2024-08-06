@@ -26,7 +26,7 @@ namespace mattak
     bool vppmode = 0; 
     uint8_t channel_mask=0;
     uint16_t beam_mask=0;
-    ClassDef(LTTriggerInfo,1); 
+    ClassDef(LTTriggerInfo,2); 
   }; 
 
   struct TriggerInfo
