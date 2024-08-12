@@ -2,6 +2,7 @@
 #include "TPad.h"
 #include "TCanvas.h"
 #include "TGraph.h"
+#include "TLatex.h"
 #include "TPaveText.h"
 #include <iostream>
 
@@ -79,7 +80,7 @@ TGraph* graphImpl(const T & wf, int chan, bool ns)
   }
 
 
-  g->GetXaxis()->SetTitle(ns ? "ns" : "sample");
+  g->GetXaxis()->SetTitle(ns ? "time [ns]" : "sample number");
   g->GetXaxis()->SetLimits(g->GetX()[0], g->GetX()[wf.buffer_length-1]);
   g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]);
   g->GetYaxis()->SetTitle(getYaxisLabel<T>());
@@ -104,17 +105,57 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
   //figure out how to divide the canvases
 
+  int nrows = 1;
+  int ncols = 1;
+
+  double left_margin =opt.left_margin < 0.02 ? 0.02 : opt.left_margin;
+
   if (nplots > 1)
   {
 
-    int nrows = nplots < 4 ? 1:
+    nrows =opt.rows ?:
+                nplots < 4 ? 1:
                 nplots < 9 ? 2:
                 nplots < 12? 3:
                 4;
 
-    int ncols = ceil (nplots / nrows);
+    ncols = ceil (nplots / (float(nrows)));
 
-    where->Divide(ncols,nrows,0.001,0.001);
+    if (!opt.share_xaxis && !opt.share_yaxis)
+    {
+      where->Divide(ncols,nrows,0.0001,0.0001);
+    }
+    else
+    {
+      where->cd();
+      double eps = 0.0001;
+      double first_col_ratio = 1. /( 1- (left_margin - 0.02));
+      double first_row_ratio = 1. /( 1- (0.09));
+
+      double total_x = first_col_ratio + ncols-1;
+      double total_y = first_row_ratio + nrows-1;
+      double first_col_width = first_col_ratio / total_x;
+      double first_row_width = first_row_ratio / total_y;
+      double row_width = 1. / total_y;
+      double col_width = 1. / total_x;
+
+      for (int irow = 0; irow < nrows; irow++)
+      {
+        double y = (irow > 0 ) * (first_row_width + (irow-1) * row_width);
+        double ynext =  first_row_width + (irow) * row_width;
+        for (int icol = 0; icol < ncols; icol++)
+        {
+          double x = (icol > 0 ) * (first_col_width + (icol-1) * col_width);
+          double xnext =  first_col_width + (icol) * col_width;
+
+          TPad * p = new TPad(Form("%s_%d_%d", where->GetName(),irow,icol), Form("%d%d", irow,icol), x+eps,y+eps, xnext-eps,ynext-eps);
+          p->SetNumber(1+icol+ ncols * irow);
+          p->Draw();
+        }
+      }
+      where->Modified();
+    }
+
   }
 
 
@@ -141,6 +182,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   }
 
 
+  int chan_counter = 0;
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
 
@@ -150,6 +192,10 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
 //    TGraph * g  = new TGraph(wf.buffer_length);
     TGraph * g =graphImpl(wf, ichan, opt.ns);
+
+    if (opt.titles_map.count(ichan)) g->SetTitle(opt.titles_map.at(ichan));
+
+    if (!opt.show_title || opt.share_xaxis) g->SetTitle("");
 
     g->SetBit(TGraph::kCanDelete);
 
@@ -188,22 +234,73 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       }
     }
 
-    g->SetLineColor(opt.line_color);
+    int min_sample = opt.min_sample;
+    int max_sample = opt.max_sample;
+
+    while (min_sample < 0) min_sample += g->GetN();
+    while (max_sample < 0) max_sample += g->GetN();
+    if (min_sample >= g->GetN()) min_sample = 0;
+    if (max_sample >= g->GetN()) max_sample = g->GetN()-1;
+
+    double min_t = g->GetX()[min_sample];
+    double max_t = g->GetX()[max_sample];
+    g->GetXaxis()->SetRangeUser(min_t,max_t);
+
+    g->SetLineColor(opt.line_colors_map.count(ichan) ? opt.line_colors_map.at(ichan) : opt.line_color);
     g->SetLineWidth(opt.line_width);
     g->SetLineStyle(opt.line_style);
     g->Draw("al");
 
-    g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]);
     gPad->SetGridx();
     gPad->SetGridy();
-    gPad->SetRightMargin(0.01);
 
-    g->GetXaxis()->SetTitleSize(0.05);
-    g->GetXaxis()->SetLabelSize(0.04);
+    int row = chan_counter / ncols;
+    int col = chan_counter % ncols;
 
-    g->GetYaxis()->SetTitleSize(0.05);
-    g->GetYaxis()->SetLabelSize(0.04);
-    g->GetYaxis()->SetTitleOffset(0.9);
+    if (!opt.show_title || opt.share_xaxis) gPad->SetTopMargin(0.01);
+    if (opt.annotations_map.count(ichan))
+    {
+      TLatex ltx;
+      ltx.DrawLatexNDC(opt.share_yaxis && col > 0 ? 0.1 : 0.1 + opt.left_margin, 0.8, opt.annotations_map.at(ichan));
+    }
+
+
+
+    gPad->SetRightMargin(0.02);
+
+    if (!opt.share_yaxis || col == 0)
+    {
+      gPad->SetLeftMargin(opt.left_margin);
+      g->GetYaxis()->SetTitleSize(opt.ytitle_size);
+      g->GetYaxis()->SetLabelSize(opt.ylabel_size);
+      g->GetYaxis()->CenterTitle(opt.ytitle_center);
+      g->GetYaxis()->SetTitleOffset(opt.ytitle_offset);
+    }
+    else
+    {
+      gPad->SetLeftMargin(0.02);
+      g->GetYaxis()->SetTitle("");
+      g->GetYaxis()->SetLabelSize(0);
+    }
+
+
+    if (!opt.share_xaxis || row == nrows - 1)
+    {
+      g->GetXaxis()->SetTitleSize(opt.xtitle_size);
+      g->GetXaxis()->SetTitleOffset(opt.xtitle_offset);
+      g->GetXaxis()->SetLabelSize(opt.xlabel_size);
+      g->GetXaxis()->CenterTitle(opt.xtitle_center);
+    }
+    else
+    {
+      g->GetXaxis()->SetTitle("");
+      g->GetXaxis()->SetLabelSize(0);
+      gPad->SetBottomMargin(0.01);
+    }
+
+    g->GetYaxis()->SetNdivisions(opt.yndivisions);
+    g->GetXaxis()->SetNdivisions(opt.xndivisions);
+
     if (opt.stats)
     {
       TPaveText * pt = new TPaveText(0.75,0.7,0.99,0.9,"NB NDC");
@@ -215,6 +312,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       pt->AddText(Form("V_{pp}: %g",this_max-this_min));
       pt->Draw();
     }
+    chan_counter++;
   }
   return where;
 }
