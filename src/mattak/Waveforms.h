@@ -41,6 +41,11 @@ namespace mattak
 
     //time base
     bool ns = true;
+
+    // style
+    int line_color = kAzure +2;
+    int line_width = 1;
+    int line_style = 1;
   };
 
 

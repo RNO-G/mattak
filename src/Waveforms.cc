@@ -188,7 +188,9 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       }
     }
 
-    g->SetLineColor(kAzure+2);
+    g->SetLineColor(opt.line_color);
+    g->SetLineWidth(opt.line_width);
+    g->SetLineStyle(opt.line_style);
     g->Draw("al");
 
     g->GetXaxis()->SetRangeUser(g->GetX()[0], g->GetX()[wf.buffer_length-1]);
