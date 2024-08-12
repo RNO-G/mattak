@@ -29,6 +29,8 @@ namespace mattak
     double scale_fact = 1.1;
     bool symmetric_scale = true;
 
+    int rows = 0; // 0 = auto
+
     //only used when not autoscaling
     float min = -200;
     float max = 200;
@@ -41,11 +43,40 @@ namespace mattak
 
     //time base
     bool ns = true;
+    int min_sample = 0;
+    int max_sample = -1;
 
     // style
     int line_color = kAzure +2;
     int line_width = 1;
     int line_style = 1;
+
+     // map from CHANNEL NUMBER (not plotted waveform) to override line color
+    std::map<int,int> line_colors_map;
+
+    bool show_title = true;
+    bool share_yaxis = false;//if true, rows will share y axis
+    bool share_xaxis = false;//if true, columns will share x axis (implies show_title = false)
+
+    double xlabel_size = 0.045;
+    double xtitle_size = 0.065;
+    double xtitle_offset = 0.75;
+    bool xtitle_center = false;
+    int xndivisions = 505;
+
+    double ylabel_size = 0.045;
+    double ytitle_size = 0.065;
+    double ytitle_offset = 1.15;
+    bool ytitle_center = false;
+    int yndivisions = 510;
+
+    double left_margin = 0.15; // not used if share_yaxis and col > 0
+
+
+   //map from CHANNEL NUMBER (not plotted waveform) to annotation
+    std::map<int,const char *> annotations_map;
+    //map from CHANNEL NUMBER (not plotted waveform) to title
+    std::map<int,const char *> titles_map;
   };
 
 
