@@ -58,15 +58,19 @@ namespace mattak
     bool share_yaxis = false;//if true, rows will share y axis
     bool share_xaxis = false;//if true, columns will share x axis (implies show_title = false)
 
+    double title_size = 0.1;
+
     double xlabel_size = 0.045;
     double xtitle_size = 0.065;
     double xtitle_offset = 0.75;
+    double xlabel_offset = 0.0025;
     bool xtitle_center = false;
     int xndivisions = 505;
 
     double ylabel_size = 0.045;
     double ytitle_size = 0.065;
     double ytitle_offset = 1.15;
+    double ylabel_offset = 0.0035;
     bool ytitle_center = false;
     int yndivisions = 510;
 

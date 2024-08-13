@@ -1,4 +1,5 @@
 #include "mattak/Waveforms.h"
+#include "TStyle.h"
 #include "TPad.h"
 #include "TCanvas.h"
 #include "TGraph.h"
@@ -109,6 +110,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   int ncols = 1;
 
   double left_margin =opt.left_margin < 0.02 ? 0.02 : opt.left_margin;
+  double first_col_ratio = 1;
 
   if (nplots > 1)
   {
@@ -129,7 +131,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     {
       where->cd();
       double eps = 0.0001;
-      double first_col_ratio = 1. /( 1- (left_margin - 0.02));
+      first_col_ratio = 1. /( 1- (left_margin - 0.02));
       double first_row_ratio = 1. /( 1- (0.09));
 
       double total_x = first_col_ratio + ncols-1;
@@ -249,18 +251,36 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     g->SetLineColor(opt.line_colors_map.count(ichan) ? opt.line_colors_map.at(ichan) : opt.line_color);
     g->SetLineWidth(opt.line_width);
     g->SetLineStyle(opt.line_style);
+
+    int row = chan_counter / ncols;
+    int col = chan_counter % ncols;
+    double text_scale_factor = col == 0 ? 1. / first_col_ratio : 1 ;
+
+    TString the_title = g->GetTitle();
+    g->SetTitle(""); // we'll draw it ourselves...
+
     g->Draw("al");
 
     gPad->SetGridx();
     gPad->SetGridy();
 
-    int row = chan_counter / ncols;
-    int col = chan_counter % ncols;
+
+    TLatex ltx;
+    ltx.SetTextFont(42);
+    ltx.SetTextSize(opt.title_size * text_scale_factor);
+
 
     if (!opt.show_title || opt.share_xaxis) gPad->SetTopMargin(0.01);
+    else
+    {
+      ltx.SetTextAlign(22);
+      ltx.DrawLatexNDC(0.5, 0.95, the_title.Data());
+    }
+
+
     if (opt.annotations_map.count(ichan))
     {
-      TLatex ltx;
+      ltx.SetTextAlign(11);
       ltx.DrawLatexNDC(opt.share_yaxis && col > 0 ? 0.1 : 0.1 + opt.left_margin, 0.8, opt.annotations_map.at(ichan));
     }
 
@@ -268,13 +288,15 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
     gPad->SetRightMargin(0.02);
 
+
     if (!opt.share_yaxis || col == 0)
     {
       gPad->SetLeftMargin(opt.left_margin);
-      g->GetYaxis()->SetTitleSize(opt.ytitle_size);
-      g->GetYaxis()->SetLabelSize(opt.ylabel_size);
-      g->GetYaxis()->CenterTitle(opt.ytitle_center);
-      g->GetYaxis()->SetTitleOffset(opt.ytitle_offset);
+      g->GetYaxis()->SetTitleSize(opt.ytitle_size * text_scale_factor);
+      g->GetYaxis()->SetLabelSize(opt.ylabel_size * text_scale_factor);
+      g->GetYaxis()->SetLabelOffset(opt.ylabel_offset / text_scale_factor);
+      g->GetYaxis()->CenterTitle(opt.ytitle_center * text_scale_factor);
+      g->GetYaxis()->SetTitleOffset(opt.ytitle_offset / text_scale_factor);
     }
     else
     {
@@ -286,10 +308,11 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
     if (!opt.share_xaxis || row == nrows - 1)
     {
-      g->GetXaxis()->SetTitleSize(opt.xtitle_size);
-      g->GetXaxis()->SetTitleOffset(opt.xtitle_offset);
-      g->GetXaxis()->SetLabelSize(opt.xlabel_size);
-      g->GetXaxis()->CenterTitle(opt.xtitle_center);
+      g->GetXaxis()->SetTitleSize(opt.xtitle_size * text_scale_factor);
+      g->GetXaxis()->SetTitleOffset(opt.xtitle_offset / text_scale_factor);
+      g->GetXaxis()->SetLabelOffset(opt.xlabel_offset / text_scale_factor);
+      g->GetXaxis()->SetLabelSize(opt.xlabel_size * text_scale_factor);
+      g->GetXaxis()->CenterTitle(opt.xtitle_center * text_scale_factor);
     }
     else
     {
