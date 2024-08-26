@@ -81,6 +81,9 @@ if __name__ == "__main__":
 
     for file in filelist:
         run_info = read_runinfo_txt(file)
+        if not len(run_info):
+            print(f"File {file} seems empty. Skip this run")
+            continue
 
         for key in run_info_keys:
             value = run_info.get(key, None)
