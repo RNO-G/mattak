@@ -74,19 +74,26 @@ if __name__ == "__main__":
 
     data = collections.defaultdict(list)
 
+    run_info_keys = [
+        'station', 'run', 'run-start-time', 'librno-g-git-hash', 'rno-g-ice-software-git-hash', 'free-space-mb-output-partition',
+        'free-space-mb-runfile-partition', 'radiant-fwver', 'radiant-fwdate', 'radiant-bm-fwver', 'radiant-bm-fwdate', 'radiant-samplerate',
+        'flower-fwver', 'flower-fwdate', 'run-end-time', 'flower_gain_codes', 'comment', 'total-number-of-events-written']
+
     for file in filelist:
         run_info = read_runinfo_txt(file)
 
-        for key, value in run_info.items():
+        for key in run_info_keys:
+            value = run_info.get(key, None)
             data[key].append(value)
 
         flower_gain_codes = read_flower_gain_code(file)
-
-        if flower_gain_codes["flower_gain_codes"] is not None:
-            data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
-
+        data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
         comment = read_comment(file)
         data["comment"].append(comment["comment"])
+
+    for key in run_info:
+        if key not in run_info_keys:
+            print(f"Found unknown key {key} in runinfo files.... skipping.")
 
     if args.output_file is None:
         runs = sorted([int(run) for run in data["run"]])
