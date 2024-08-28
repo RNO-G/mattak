@@ -412,16 +412,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
             w = w[:, channels]
             starting_window = starting_window[:, channels]
 
-        # calibration
-        starting_window = starting_window[:, :, 0]
-        if calibrated:
-            # this can run now both normal and raw calibration
-            w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
+        if w is not None:
+            # calibration
+            starting_window = starting_window[:, :, 0]
+            if calibrated:
+                # this can run now both normal and raw calibration
+                w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
 
-        w = numpy.asarray(w, dtype=float)
+            w = numpy.asarray(w, dtype=float)
 
-        if self.multiple:
-            return w
+            if self.multiple:
+                return w
 
         return None if w is None else w[0]
 
