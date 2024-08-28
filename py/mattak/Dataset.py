@@ -26,6 +26,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
+    hasWaveforms: bool
 
 
 class AbstractDataset(ABC):
@@ -84,6 +85,7 @@ class AbstractDataset(ABC):
 
     def iterate(self, start : int = 0, stop : Union[int, None] = None,
                 calibrated: bool = False, max_entries_in_mem : int = 256,
+                overwrite_skip_incomplete : Optional[bool] = None,
                 selectors: Optional[Union[Callable[[EventInfo], bool],
                                           Sequence[Callable[[EventInfo], bool]]]] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
@@ -105,7 +107,7 @@ class AbstractDataset(ABC):
         if stop < 0 or start > self.N():
             return
 
-        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors)
+        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, overwrite_skip_incomplete, selectors)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
