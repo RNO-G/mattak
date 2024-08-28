@@ -272,14 +272,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         try:
             sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
+            if not self.skip_incomplete:
+                rate = numpy.unique(sampleRate)
+                
+                if len(rate) == 0:  # no waveforms available
+                    raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
+                assert len(rate) == 1, "Sampling rate derived from waveforms in not unique. Can not extend to incomplete events ..."
+                sampleRate = [rate[0]] * (self.last - self.first)
+
         except uproot.exceptions.KeyInFileError:
             if self.run_info is not None:
                 sampleRate = float(self.run_info['radiant-samplerate']) / 1000
             else:
                 sampleRate = 3.2  # GHz
-
+            
             sampleRate = [sampleRate] * (self.last - self.first)
-
+        
         # um... yeah, that's obvious
         radiantStartWindows = self._get_windows(kw)
 
@@ -366,22 +375,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # so ... we need to loop through and find which things we have actually have waveforms
             # start by allocating the output
             w = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
-            starting_window = numpy.zeros((self.last - self.first))
+            starting_window = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, 2))
             # now figure out how much of the data array we need
             wf_start = None
             wf_end = None
 
             # store the indices that will be non-zero
             wf_idxs = []
-            for i in range(self.first, self.last):
-                if i in self.events_with_waveforms:
-                    wf_idxs.append(i - self.first)
+            for idx in range(self.first, self.last):
+                if idx in self.events_with_waveforms:
+                    wf_idxs.append(idx - self.first)
                     # these are the start and stop of our array we need to load
                     if wf_start is None:
-                        wf_start = self.events_with_waveforms[i]
+                        wf_start = self.events_with_waveforms[idx]
 
-                    wf_end = self.events_with_waveforms[i] + 1
-
+                    wf_end = self.events_with_waveforms[idx] + 1
+            
             if len(wf_idxs):
                 w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                 starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
