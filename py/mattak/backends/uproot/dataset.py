@@ -456,6 +456,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # this is intransparent for the outside world and has to be reverted
             self.setEntries(original_entry)
 
+            # can happen if we skip incomplete events
+            if wfs is None:
+                continue
+
             for e, w in zip(es, wfs):
                 if selectors is not None:
                     if numpy.all([selector(e) for selector in selectors]):
