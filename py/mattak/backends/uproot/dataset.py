@@ -187,7 +187,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if not self.skip_incomplete:
                 wfs_included = self._wfs['event_number'].array()
                 self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
-                print(self.events_with_waveforms)
+
                 self.full_head_file = uproot.open(f"{self.rundir}/headers.root")
                 self.full_head_tree,_ = read_tree(self.full_head_file, header_tree_names)
 
