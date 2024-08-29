@@ -219,14 +219,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return out
 
 
-    def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
-                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
-                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+    def _iterate(
+            self, start : int, stop : int, calibrated : bool , max_in_mem : int,
+            selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+
+        if override_skip_incomplete is not None:
+            warnings.NotImplemented("`override_skip_incomplete` is not implemented for the pyroot backend")
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
                 selectors = [selectors]
-                
+
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
