@@ -228,10 +228,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
-                    wfs = self._wfs(i, calibrated)
-                    if skip_incomplete and wfs is None:
-                        continue
                     yield evinfo, wfs
         else:
             for i in range(start, stop):
