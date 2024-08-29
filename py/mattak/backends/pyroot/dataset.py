@@ -129,8 +129,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # the default value for the sampling rate (3.2 GHz) which is used
         # for data which does not contain this information in the waveform files
         # is set in the header fils Waveforms.h
-        sampleRate = self.ds.raw().radiant_sampling_rate / 1000
-
+        try:
+            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        except ReferenceError:
+            # Fall back to runinfo (as in uproot backend)
+            sampleRate = self.ds.info().radiant_sample_rate / 1000
+        
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
 
@@ -159,7 +163,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         radiantStartWindows = numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
             dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
-
+        
         return mattak.Dataset.EventInfo(eventNumber = eventNumber,
                                         station = station,
                                         run = run,
@@ -172,7 +176,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                         radiantStartWindows = radiantStartWindows,
                                         sampleRate = sampleRate,
                                         radiantThrs=radiantThrs,
-                                        lowTrigThrs=lowTrigThrs)
+                                        lowTrigThrs=lowTrigThrs,
+                                        hasWaveforms=not isNully(self.ds.raw()))
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -224,8 +229,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
-        if override_skip_incomplete is not None:
-            warnings.NotImplemented("`override_skip_incomplete` is not implemented for the pyroot backend")
+        skip_incomplete = override_skip_incomplete or self.ds.options().partial_skip_incomplete
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
@@ -234,8 +238,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
-                    yield evinfo, self._wfs(i, calibrated)
+                    wfs = self._wfs(i, calibrated)
+                    if skip_incomplete and wfs is None:
+                        continue
+                    yield evinfo, wfs
         else:
             for i in range(start, stop):
-                yield self._eventInfo(i), self._wfs(i, calibrated)
-        return
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
+                yield self._eventInfo(i), wfs
+
