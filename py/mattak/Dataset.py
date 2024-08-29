@@ -26,7 +26,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
-    hasWaveforms: bool
+    hasWaveforms: bool = True
 
 
 class AbstractDataset(ABC):
