@@ -247,7 +247,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.has_calib = False
 
 
-    def eventInfo(self, overwrite_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
+    def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
         kw = dict(entry_start = self.first, entry_stop = self.last)
 
         station = self._hds['station_number'].array(**kw)
@@ -296,7 +296,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         info = None  # if range(0)
         for i in range(self.last - self.first):
 
-            if overwrite_skip_incomplete is not None and overwrite_skip_incomplete:
+            if override_skip_incomplete is not None and override_skip_incomplete:
                 if eventNumber[i] not in self.events_with_waveforms.keys():
                     continue
 
@@ -359,7 +359,30 @@ class Dataset(mattak.Dataset.AbstractDataset):
         """ Helper to access uproot file """
         return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, overwrite_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
+    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, override_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
+        """
+        Returns the waveform data for the selected event(s).
+
+        Parameters
+        ----------
+
+        calibrated : bool (default: False)
+            If True, return the calibrated waveform data in units of volt. If False, return the raw waveform data in units of ADC counts.
+
+        channels : int or list(int) (default: None)
+            If None, return all channels. If int, return only the specified channel. If list(int), return only the specified channels.
+            This is in particular useful if you are only interested in a subset of calibrated channels.
+
+        override_skip_incomplete : bool (default: None)
+            If not None override behaviour set in the contructor.
+
+        Returns
+        -------
+
+        wfs : numpy.ndarray
+            An array containing the waveform data with the shape (n_events, n_channels, n_samples).
+        """
+
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
@@ -395,7 +418,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             if len(wf_idxs):
                 # take the overwrite if it is not None
-                skip_incomplete = overwrite_skip_incomplete or self.skip_incomplete
+                skip_incomplete = override_skip_incomplete or self.skip_incomplete
                 if skip_incomplete:
                     w = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                     starting_window = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
@@ -426,11 +449,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         return None if w is None else w[0]
 
-    def _iterate(self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
-                 overwrite_skip_incomplete : Optional[bool] = None,
-                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
-                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) \
-                    -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+    def _iterate(
+            self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
+            selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
+            Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) \
+            -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
         # cache current values given by setEntries(..)
         original_entry : Union[int, Tuple[int, int]] = (self.first, self.last) if self.multiple else self.entry
@@ -449,8 +473,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.setEntries((batch_start, batch_stop))
 
             # load events from file
-            wfs = self.wfs(calibrated, overwrite_skip_incomplete=overwrite_skip_incomplete)
-            es = self.eventInfo(overwrite_skip_incomplete=overwrite_skip_incomplete)
+            wfs = self.wfs(calibrated, override_skip_incomplete=override_skip_incomplete)
+            es = self.eventInfo(override_skip_incomplete=override_skip_incomplete)
 
             # we modified the internal data pointers with the prev. call of self.setEntries(...)
             # this is intransparent for the outside world and has to be reverted

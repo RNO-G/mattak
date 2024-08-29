@@ -83,11 +83,11 @@ class AbstractDataset(ABC):
         """ implementation-defined part of iterator"""
         pass
 
-    def iterate(self, start : int = 0, stop : Union[int, None] = None,
-                calibrated: bool = False, max_entries_in_mem : int = 256,
-                overwrite_skip_incomplete : Optional[bool] = None,
-                selectors: Optional[Union[Callable[[EventInfo], bool],
-                                          Sequence[Callable[[EventInfo], bool]]]] = None) \
+    def iterate(
+            self, start : int = 0, stop : Union[int, None] = None,
+            calibrated: bool = False, max_entries_in_mem : int = 256,
+            selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
             Returns a tuple of EventInfo and the event waveforms (potentially calibrated).
@@ -107,7 +107,7 @@ class AbstractDataset(ABC):
         if stop < 0 or start > self.N():
             return
 
-        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, overwrite_skip_incomplete, selectors)
+        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors, override_skip_incomplete=override_skip_incomplete)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
