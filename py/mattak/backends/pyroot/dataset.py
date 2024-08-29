@@ -229,7 +229,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
-        skip_incomplete = override_skip_incomplete or self.ds.options().partial_skip_incomplete
+        skip_incomplete = override_skip_incomplete or self.ds.getOpt().partial_skip_incomplete
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
@@ -248,4 +248,3 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if skip_incomplete and wfs is None:
                     continue
                 yield self._eventInfo(i), wfs
-
