@@ -98,6 +98,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
 
+        self.run_info = mattak.Dataset.RunInfo(
+            station=self.ds.info().station,
+            run=self.ds.info().run,
+            run_start_time=self.ds.info().run_start_time,
+            run_end_time=self.ds.info().run_end_time,
+            sampling_rate=self.ds.info().radiant_sample_rate,
+            run_config=f"{self.rundir}/cfg/acq.cfg"
+        )
+
     def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
             self.vc = ROOT.mattak.VoltageCalibration()
@@ -226,7 +235,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
                 selectors = [selectors]
-                
+
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
