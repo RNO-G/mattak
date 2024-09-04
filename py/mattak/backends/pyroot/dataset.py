@@ -116,31 +116,28 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.ds.setEntry(i):
             return None
 
-        hdr = self.ds.header()
-
+        radiantThrs = None
+        lowTrigThrs = None
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
             lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
-        else:
-            radiantThrs = None
-            lowTrigThrs = None
 
         # the default value for the sampling rate (3.2 GHz) which is used
         # for data which does not contain this information in the waveform files
         # is set in the header fils Waveforms.h
-        sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        try:
+            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        except ReferenceError:
+            # Fall back to runinfo (as in uproot backend)
+            sampleRate = self.ds.info().radiant_sample_rate / 1000
+
+        hdr = self.ds.header()
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
 
-        station = hdr.station_number
-        run = hdr.run_number
-        eventNumber = hdr.event_number
-        readoutTime = hdr.readout_time
-        triggerTime = hdr.trigger_time
         triggerType = "UNKNOWN"
-
         if hdr.trigger_info.radiant_trigger:
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
@@ -153,26 +150,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
 
-        pps = hdr.pps_num
-        sysclk = hdr.sysclk
-        sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
         radiantStartWindows = numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
             dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
 
-        return mattak.Dataset.EventInfo(eventNumber = eventNumber,
-                                        station = station,
-                                        run = run,
-                                        readoutTime=readoutTime,
-                                        triggerTime=triggerTime,
-                                        triggerType=triggerType,
-                                        sysclk=sysclk,
-                                        sysclkLastPPS=sysclkLastPPS,
-                                        pps=pps,
-                                        radiantStartWindows = radiantStartWindows,
-                                        sampleRate = sampleRate,
-                                        radiantThrs=radiantThrs,
-                                        lowTrigThrs=lowTrigThrs)
+        return mattak.Dataset.EventInfo(
+            eventNumber=hdr.event_number,
+            station=self.station,
+            run=self.run,
+            readoutTime=hdr.readout_time,
+            triggerTime=hdr.trigger_time,
+            triggerType=triggerType,
+            sysclk=hdr.sysclk,
+            sysclkLastPPS=(hdr.sysclk_last_pps, hdr.sysclk_last_last_pps),
+            pps=hdr.pps_num,
+            radiantStartWindows=radiantStartWindows,
+            sampleRate=sampleRate,
+            radiantThrs=radiantThrs,
+            lowTrigThrs=lowTrigThrs,
+            hasWaveforms=not isNully(self.ds.raw()))
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -219,19 +215,27 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return out
 
 
-    def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
-                 selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
-                                           Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+    def _iterate(
+            self, start : int, stop : int, calibrated : bool , max_in_mem : int,
+            selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+
+        skip_incomplete = override_skip_incomplete or self.ds.getOpt().partial_skip_incomplete
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
                 selectors = [selectors]
-                
+
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
-                    yield evinfo, self._wfs(i, calibrated)
+                    yield evinfo, wfs
         else:
             for i in range(start, stop):
-                yield self._eventInfo(i), self._wfs(i, calibrated)
-        return
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
+                yield self._eventInfo(i), wfs
