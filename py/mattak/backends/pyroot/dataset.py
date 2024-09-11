@@ -121,7 +121,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
-            lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+            lowTrigThrs = numpy.array(daq_status.lt_coinc_trigger_thresholds)
 
         # the default value for the sampling rate (3.2 GHz) which is used
         # for data which does not contain this information in the waveform files
@@ -149,6 +149,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             triggerType = "FORCE"
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
+        elif hdr.trigger_info.lt_trigger:
+            triggerType = "LT"
 
         radiantStartWindows = numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
