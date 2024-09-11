@@ -37,3 +37,13 @@
 
 #pragma link C++ class mattak::Dataset+;
 #pragma link C++ struct mattak::DatasetOptions+;
+
+#pragma read                                                                                                                                   \
+sourceClass="mattak::DAQStatus"                                                                                                                \
+source="uint32_t lt_trigger_thresholds[mattak::k::num_lt_channels]; uint32_t lt_servo_thresholds[mattak::k::num_lt_channels];"                 \
+version="[0-4]"                                                                                                                                \
+targetClass="mattak::DAQStatus"                                                                                                                \
+target="lt_coinc_trigger_thresholds,lt_coinc_servo_thresholds"                                                                                 \
+embed="true"                                                                                                                                   \
+include="cstdlib,cstdint"                                                                                                                      \
+code="{  for(int i=0;i<mattak::k::num_lt_channels;i++){ lt_coinc_trigger_thresholds[i]=onfile.lt_trigger_thresholds[i]; lt_coinc_servo_thresholds[i]=onfile.lt_servo_thresholds[i];}  }"
