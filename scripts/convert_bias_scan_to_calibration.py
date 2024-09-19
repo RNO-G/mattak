@@ -3,8 +3,8 @@ import os
 import logging
 import ROOT
 
-#Loads mattak
-ROOT.gSystem.Load('/home/ruben/Documents/software/mattak/install/libmattak.so')
+#Loads mattak, make sure env variable LD_LIBRARY_PATH includes path to your mattak install
+ROOT.gSystem.Load('libmattak.so')
 
 def get_vref(run_folder:str):
     """
@@ -40,7 +40,8 @@ def get_vref(run_folder:str):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog = '%(prog)s',
-                                    description = "Script to convert bias scans (in root format) to voltage calibration constants")
+                                    description = "Script to convert bias scans (in root format) to voltage calibration constants,\
+                                                   using PYROOT")
     parser.add_argument("bias_scan",
                         help = "path to bias scan file")
     parser.add_argument("--destination_folder", required = False,
@@ -53,11 +54,6 @@ if __name__ == '__main__':
                         help = "Reference of the bias scan, the fit will cross the bias scan at the vref.\
                                 by default the script looks for the pedestal in the pedestal.root file of the run.")
     args = parser.parse_args()
-
-    if args.bias_scan.split(".")[-1] != "root":
-        logging.debug("Detected non-root format of bias scan, loading librno-g")
-        # Loads librno-g
-        ROOT.gSystem.Load('/home/ruben/Documents/software/librno-g/build/librno-g.so')
 
     bias_scan_path = os.path.abspath(args.bias_scan)
     bias_scan_directory =  os.path.dirname(bias_scan_path)
