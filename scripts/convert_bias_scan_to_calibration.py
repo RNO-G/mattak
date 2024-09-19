@@ -62,7 +62,7 @@ if __name__ == '__main__':
         if "run" in bias_scan_directory:
             vref = get_vref(bias_scan_directory)
         else:
-            logging.warning("Provides bias scan was found not to be in a run folder.\
+            logging.warning("Provided bias scan was found not to be in a run folder.\
                             An associated pedestal.root file can hence not be found. \
                             Using default value of vref = 1.5")
             vref = 1.5
