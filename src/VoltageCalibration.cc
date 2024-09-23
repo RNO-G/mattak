@@ -310,16 +310,16 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j];
           if (v >= vref)
           {
-             if (v == vref || j == 0)
-             {
-               adc_offset[ichan] = scan_result[j][ichan][i];
-             }
-             else //have to interpolate
-             {
-               double frac_low = (v - vref) / (v-last_v);
-               adc_offset[ichan] = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i];
-             }
-             break;
+            if (v == vref || j == 0)
+            {
+              adc_offset[ichan] = scan_result[j][ichan][i];
+            }
+            else //have to interpolate
+            {
+              double frac_low = (v - vref) / (v-last_v);
+              adc_offset[ichan] = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i];
+            }
+            break;
           }
           last_v = v;
 
