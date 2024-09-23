@@ -5,6 +5,7 @@ import ROOT
 
 #Loads mattak, make sure env variable LD_LIBRARY_PATH includes path to your mattak install
 ROOT.gSystem.Load('libmattak.so')
+ROOT.gSystem.Load('librno-g.so')
 
 def get_vref(run_folder:str):
     """
@@ -18,20 +19,14 @@ def get_vref(run_folder:str):
     vref: float
         pedestal used in the run, if no pedestal found defaults to 1.5
     """
-    if "pedestal.root" in os.listdir(run_folder):
-        logging.debug("Opening pedestal file")
-        try:
-            pedestalFile = ROOT.TFile.Open(f"{run_folder}/pedestal.root", "READ")
-            pedestalTree = pedestalFile.pedestals
-            pedestalLeaf = pedestalTree.GetLeaf("vbias")
-            pedestalTree.GetEntry(0)
-            pedestal = pedestalLeaf.GetValue()
-        except:
-            logging.warning("Unable to open pedestal file / find pedestal value, using default value of 1.5")
-            pedestal = 1.5
-    
-    else:
-        logging.warning(f"No pedestal.root file found in folder {run_folder}, using default value of 1.5")
+    try:
+        pedestalFile = ROOT.TFile.Open(f"{run_folder}/pedestals.root", "READ")
+        pedestalTree = pedestalFile.pedestals
+        pedestalLeaf = pedestalTree.GetLeaf("vbias")
+        pedestalTree.GetEntry(0)
+        pedestal = pedestalLeaf.GetValue()
+    except:
+        logging.warning("Unable to open pedestal file / find pedestal value, using default value of 1.5")
         pedestal = 1.5
     
     return pedestal
@@ -59,20 +54,23 @@ if __name__ == '__main__':
     bias_scan_directory =  os.path.dirname(bias_scan_path)
 
     if args.vref is None:
-        if "run" in bias_scan_directory:
+        if os.path.exists(f"{bias_scan_directory}/pedestals.root"):
             vref = get_vref(bias_scan_directory)
         else:
-            logging.warning("Provided bias scan was found not to be in a run folder.\
-                            An associated pedestal.root file can hence not be found. \
-                            Using default value of vref = 1.5")
+            logging.warning("Could not find \"pedestals.root\" in the same folder. Using default value for reference voltage of 1.5V")
             vref = 1.5
     else:
         vref = args.vref
 
-    VC = ROOT.mattak.VoltageCalibration(args.bias_scan, vref)
+    vc = ROOT.mattak.VoltageCalibration(args.bias_scan, vref)
+    
+    # Jump into the directory in which to store the calibration
     if args.destination_folder is not None:
         os.chdir(args.destination_folder)
     else:
-        os.chdir(bias_scan_directory)                                   # save in same directory as bias scan
-    VC.saveFitCoeffsInFile()
-    del VC                                                          # probably not necessary but there have been pyroot memory leak issues in the past
+        # save in same directory as bias scan
+        os.chdir(bias_scan_directory)
+
+    vc.saveFitCoeffsInFile()
+    # probably not necessary but there have been pyroot memory leak issues in the past
+    del vc

@@ -601,7 +601,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
     }
-
+    std::cout << std::endl;
   }
 
 
