@@ -61,7 +61,7 @@ for st in ${STATIONS} ; do
 done
 
 # synchronize ingress with archived
-rsync -a $INGRESS $ARCHIVED
+rsync -a --exclude=".*" $INGRESS $ARCHIVED 
 
 
 #eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations
