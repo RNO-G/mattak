@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 import argparse
 import os
 import logging
@@ -13,7 +14,7 @@ def get_vref(run_folder:str):
     Parameters
     ----------
     run_folder: string
-    
+
     Returns
     -------
     vref: float
@@ -28,7 +29,7 @@ def get_vref(run_folder:str):
     except:
         logging.warning("Unable to open pedestal file / find pedestal value, using default value of 1.5")
         pedestal = 1.5
-    
+
     return pedestal
 
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         vref = args.vref
 
     vc = ROOT.mattak.VoltageCalibration(args.bias_scan, vref)
-    
+
     # Jump into the directory in which to store the calibration
     if args.destination_folder is not None:
         os.chdir(args.destination_folder)
