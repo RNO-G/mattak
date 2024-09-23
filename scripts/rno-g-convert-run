@@ -45,7 +45,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* \
   && echo "Converting runinfo" \
   && rno-g-convert runinfo ${OUTDIR}/runinfo.root ${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE} \
-  && if [ -f ${INDIR}/bias_scan.dat.gz ]; then python3 ${INDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR}; fi \
+  && if [ -f ${INDIR}/bias_scan.dat.gz ]; then python3 convert_bias_scan_to_calibration.py ${INDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR}; fi \
   && echo "Copying aux and cfg"  \
   && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
