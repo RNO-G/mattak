@@ -85,7 +85,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if verbose:
                     print(f"Found calibration file {cal_file}")
 
-                self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
+                self.set_calibration(cal_file, cache_calibration=cache_calibration)
             else:
                 if verbose:
                     print("No calibration file found")
