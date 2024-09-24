@@ -291,8 +291,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         try:
-            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(**kw)
-
+            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(library='np', **kw)
         except uproot.exceptions.KeyInFileError:
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
 

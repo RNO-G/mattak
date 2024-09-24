@@ -154,7 +154,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
             dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
 
-        readout_delay = self.ds.raw().digitizer_readout_delay_ns
+        readout_delay = numpy.around(numpy.frombuffer(
+            cppyy.ll.cast['float*'](self.ds.raw().digitizer_readout_delay_ns),
+            dtype = 'float', count=self.NUM_CHANNELS))
+        readout_delay[numpy.isnan(readout_delay)] = 0
+        readout_delay[readout_delay < 0] = 0
 
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,

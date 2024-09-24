@@ -95,7 +95,7 @@ namespace mattak
     // board manager version < 2.18(or 19), when we did not read out the sampling rate from the
     // radiant directly.
     uint32_t radiant_sampling_rate = 3200;  // MHz
-    float digitizer_readout_delay_ns[mattak::k::num_radiant_channels] = {};
+    float digitizer_readout_delay_ns[mattak::k::num_radiant_channels] = {0};
 
     virtual TGraph * makeGraph(int chan, bool ns = true) const = 0;
     virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0;
