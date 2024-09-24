@@ -27,6 +27,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
+    hasWaveforms: bool = True
 
 class RunInfo:
     """ Vassel for run information """
@@ -152,10 +153,11 @@ class AbstractDataset(ABC):
         """ implementation-defined part of iterator"""
         pass
 
-    def iterate(self, start : int = 0, stop : Union[int, None] = None,
-                calibrated: bool = False, max_entries_in_mem : int = 256,
-                selectors: Optional[Union[Callable[[EventInfo], bool],
-                                          Sequence[Callable[[EventInfo], bool]]]] = None) \
+    def iterate(
+            self, start : int = 0, stop : Union[int, None] = None,
+            calibrated: bool = False, max_entries_in_mem : int = 256,
+            selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
             Returns a tuple of EventInfo and the event waveforms (potentially calibrated).
@@ -175,7 +177,7 @@ class AbstractDataset(ABC):
         if stop < 0 or start > self.N():
             return
 
-        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors)
+        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors, override_skip_incomplete=override_skip_incomplete)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
