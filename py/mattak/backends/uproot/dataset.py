@@ -289,6 +289,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             sampleRate = [sampleRate] * (self.last - self.first)
 
+        try:
+            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(**kw)
+
+        except uproot.exceptions.KeyInFileError:
+            readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
+
         # um... yeah, that's obvious
         radiantStartWindows = self._get_windows(kw)
 
@@ -337,7 +343,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 sampleRate = sampleRate[i],
                 radiantThrs = radiantThrs,
                 lowTrigThrs = lowTrigThrs,
-                hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True
+                hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True,
+                readoutDelay=readout_delay[i]
             )
 
             infos.append(info)
