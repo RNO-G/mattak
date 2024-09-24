@@ -25,7 +25,7 @@ static void clear(mattak::Dataset::tree_field<D> * field)
   }
   field->file = nullptr;
   field->tree = nullptr;
-  clear ((mattak::Dataset::field<D>*) field);
+  clear((mattak::Dataset::field<D>*) field);
 }
 
 template <typename D>
@@ -37,7 +37,7 @@ static void clear(mattak::Dataset::file_field<D> * field)
   }
   field->file = nullptr;
 
-  clear ((mattak::Dataset::field<D>*) field);
+  clear((mattak::Dataset::field<D>*) field);
 
 
 }
@@ -105,10 +105,9 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
 
     gROOT->cd();
     return 0;
- }
- if (verbose) std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl;
- return -1;
-
+  }
+  if (verbose) std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl;
+  return -1;
 }
 
 template <typename D>
@@ -172,13 +171,10 @@ mattak::Dataset::Dataset(const char* data_dir)
 
 void mattak::Dataset::setDataDir(const char * dir)
 {
-  if (dir) opt.base_data_dir = dir;
+  if (dir)
+    opt.base_data_dir = dir;
   else
-  {
-    opt.base_data_dir = getenv("RNO_G_ROOT_DATA")
-                      ?: getenv("RNO_G_DATA")
-                      ?: ".";
-  }
+    opt.base_data_dir = getenv("RNO_G_ROOT_DATA") ?: getenv("RNO_G_DATA") ?: ".";
 }
 
 void mattak::Dataset::setCalibration(const VoltageCalibration * c)
@@ -260,26 +256,23 @@ int mattak::Dataset::loadCombinedFile(const char * f)
 {
   if (opt.verbose) std::cout << "mattak::Dataset::loadCombinedFile ( " << f  << ") called" << std::endl;
   full_dataset = false;
-  if (! opt.partial_skip_incomplete)
+
+  if (!opt.partial_skip_incomplete)
   {
     std::cerr << "partial_skip_incomplete is incompatible with loadCombinedFile " << std::endl;
     opt.partial_skip_incomplete  = true;
   }
 
   if (opt.verbose) std::cout << "Opening " << f << std::endl;
-
-
   if (setup(&wf, f, waveform_tree_names, 0, opt.verbose) || setup(&hd, f, header_tree_names, 0, opt.verbose))
   {
-    std::cerr << "Could not load waveforms and headers things from " << f << std::endl;
+    std::cerr << "Could not load waveforms and headers from " << f << std::endl;
     return -1;
   }
-
   if (opt.verbose) std::cout << "Found waveforms and headers in" << f << std::endl;
 
   // Try some optionalish things
-
-  if (setup(&ds, f, daqstatus_tree_names,0, opt.verbose))
+  if (setup(&ds, f, daqstatus_tree_names, 0, opt.verbose))
   {
     std:: cerr << "Could not load daqstatus from " << f << " (this is ok if you don't use them) " << std::endl;
   }
@@ -288,18 +281,13 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     if (opt.verbose) std::cout << "Found daqstatus in" << f << std::endl;
   }
 
-  //we probably don't have pedetals, but we could try I guess?
-
-  if (!setup(&pd, f, pedestal_tree_names,0, opt.verbose))
+  // we probably don't have pedetals, but we could try I guess?
+  if (!setup(&pd, f, pedestal_tree_names, 0, opt.verbose))
   {
-
     if (opt.verbose) std::cout << "Found pedestals in" << f << std::endl;
   }
 
-
-
-
-  if ( !(setup(&runinfo, f, "info") || setup(&runinfo, f,"runinfo")) )
+  if ( !(setup(&runinfo, f, "info") || setup(&runinfo, f, "runinfo")) )
   {
     if (opt.verbose) std::cout << "Found runinfo in" << f << std::endl;
   }
@@ -310,13 +298,13 @@ int mattak::Dataset::loadCombinedFile(const char * f)
 int mattak::Dataset::loadDir(const char * dir)
 {
 
-  if (opt.verbose) std::cout << "mattak::Dataset::loadDir ( " << dir  << "," << opt.partial_skip_incomplete << ") called" << std::endl;
+  if (opt.verbose) std::cout << "mattak::Dataset::loadDir (" << dir  << ", skip_incomplete=" << opt.partial_skip_incomplete << ") called" << std::endl;
 
   //first clear all
   unload();
   current_entry = 0;
 
-  if (opt.verbose) std::cout << "about to load waveforms " << std::endl;
+  if (opt.verbose) std::cout << "Load waveforms ..." << std::endl;
 
   const char * partial_file = NULL;
   if (opt.file_preference != "" && !setup(&wf, Form("%s,%s.root",dir,opt.file_preference.c_str()), waveform_tree_names))
@@ -324,10 +312,8 @@ int mattak::Dataset::loadDir(const char * dir)
     full_dataset = false;
     partial_file = opt.file_preference.c_str();
   }
-
   else
   {
-
     if (opt.file_preference != "")
     {
       std::cerr << "Warning, could not find preferred %s.root in %s. Reverting to default behavior" << std::endl;
@@ -338,7 +324,7 @@ int mattak::Dataset::loadDir(const char * dir)
     {
       //no waveforms file!
       full_dataset = false;
-      if (opt.verbose) std::cout << " full dataset not found " << std::endl;
+      if (opt.verbose) std::cout << " ... full dataset not found " << std::endl;
 
       //let's load from combined file instead
       if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names))
@@ -352,21 +338,18 @@ int mattak::Dataset::loadDir(const char * dir)
     }
     else
     {
-      if (opt.verbose) std::cout << " full dataset found " << std::endl;
+      if (opt.verbose) std::cout << " ... full dataset found " << std::endl;
       full_dataset = true;
     }
   }
 
-  if (opt.verbose) std::cout << "about to load headers " << std::endl;
   //now load the header files
-  if ( setup(&hd,
-       Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file),
-       header_tree_names) )
+  if (opt.verbose) std::cout << "about to load headers " << std::endl;
+  if (setup(&hd, Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), header_tree_names))
   {
     std::cerr << "Failed to find headers.root or " << partial_file << " .root in " << dir << std::endl;
     return -1;
   }
-
   if (opt.verbose) std::cout << " success" << std::endl;
 
   if (!full_dataset && !opt.partial_skip_incomplete)
@@ -375,11 +358,9 @@ int mattak::Dataset::loadDir(const char * dir)
     wf.tree->BuildIndex("event_number");
   }
 
-  if (opt.verbose) std::cout << "about to load daqstatus " << std::endl;
   //and the status files
-  if ( setup(&ds,
-       Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file),
-       daqstatus_tree_names) )
+  if (opt.verbose) std::cout << "about to load daqstatus " << std::endl;
+  if (setup(&ds, Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file), daqstatus_tree_names))
   {
     std::cerr << "Failed to find daqstatus.root or " << partial_file << " in " << dir << std::endl;
     return -1;
@@ -388,28 +369,23 @@ int mattak::Dataset::loadDir(const char * dir)
 
   if (full_dataset)
   {
-     ds.tree->BuildIndex("readout_time_radiant");
+    ds.tree->BuildIndex("readout_time_radiant");
   }
 
-
+  //and the pedestal files
   if (opt.verbose) std::cout << "about to load pedestal " << std::endl;
-
- //and the pedestal files
-  if ( setup(&pd,
-       Form("%s/pedestal.root", dir),
-       pedestal_tree_names) )
+  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names))
   {
     std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) ";
     return -1;
   }
   if (opt.verbose) std::cout << " success" << std::endl;
 
-  if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
-
   //and try the runinfo file
-  setup(&runinfo, Form("%s/runinfo.root", dir),"info");
-
+  if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
+  setup(&runinfo, Form("%s/runinfo.root", dir), "info");
   if (opt.verbose) std::cout << " success" << std::endl;
+
   return 0;
 }
 
