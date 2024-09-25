@@ -148,7 +148,7 @@ namespace mattak
       bool has_cache_tables_ = false;
       std::array<std::array<std::vector<double>, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> cached_adc_tables_;
 
-    ClassDef(VoltageCalibration, 4);
+    ClassDef(VoltageCalibration, 0);
   };
 #endif
 
