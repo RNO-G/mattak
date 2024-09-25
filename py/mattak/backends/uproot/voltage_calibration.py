@@ -9,7 +9,7 @@ class VoltageCalibration(object):
 
     def __init__(self, path : str, upsample_residuals : bool = True,
                  caching : bool = True,
-                 fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005):
+                 fit_min : float = -1.3, fit_max : float = 0.7, table_step_size : float = "exact"):
         """ Helper class to apply the voltage calibration for the uproot backend.
 
         Parameters
@@ -32,22 +32,28 @@ class VoltageCalibration(object):
         fit_max : float (Default: 0.7 V)
             Upper bound for the upsample voltage range (in Volt).
 
-        accuracy : float (Default: 0.005)
-            Step width of the upsampled voltage vector.
+        table_step_size : `exact` or float (Default: 0.005)
+            Step size in volt of the cached tables. If `exact` the final tables will have an entrie for each adc count
         """
 
         self.NUM_CHANNELS = mattak.Dataset.AbstractDataset.NUM_CHANNELS
         self.NUM_WF_SAMPLES = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES
         self.NUM_DIGI_SAMPLES = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+        self.NUM_BITS = 4096
+
+        if not isinstance(table_step_size, float) and table_step_size != "exact" and table_step_size != "residual":
+            raise ValueError(f"`table_step_size` has to be either a float or \"exact\" or \"residual\" but is: {table_step_size}")
+
+        self.table_step_size = table_step_size
+
         self.__upsample_residuals = upsample_residuals
         self.__caching = caching
+        self.fit_min = -1.3
+        self.fit_max = 0.7
 
         self.__adc_table_voltage = None
         if self.__caching:
-            self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
-
-        self.__adc_table_voltage = None
-        self.__adc_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
+            self.__adc_lookup_table = numpy.array([None] * self.NUM_CHANNELS, dtype=object)
 
         self.__path = path
         if path.endswith(".root"):
@@ -63,17 +69,6 @@ class VoltageCalibration(object):
                 if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
                     raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
                                      "the code expects them to be the same!")
-
-                if self.__upsample_residuals:
-                    vsamples = numpy.arange(fit_min, fit_max, accuracy)
-                    # residuals split over DACs
-                    ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                                  numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
-
-                    self.__set_adc_table_voltage(vsamples)
-                    self.__cal_residuals_adc = ressamples
-                else:
-                    self.__set_adc_table_voltage(self.__cal_residuals_v[0])
 
             elif "pedestals" in self.cal_file:
                 self.full_bias_scan = True
@@ -94,39 +89,102 @@ class VoltageCalibration(object):
         if self.__adc_table_voltage is None:
             self.__adc_table_voltage = value
         else:
-            if self.__adc_table_voltage != value:
+            if not numpy.all(self.__adc_table_voltage == value):
                 raise ValueError("The voltage vector for the adc table changed!")
 
 
-    def __get_adc_table(self, channel, sample):
+    def get_lookup_table_per_adc(self, adcs, voltage):
+        if adcs.shape[0] == self.NUM_DIGI_SAMPLES:
+            adcs = numpy.expand_dims(adcs, axis=0)
+
+        return numpy.squeeze([[
+            numpy.interp(numpy.arange(self.NUM_BITS) - self.NUM_BITS // 2, adcs_sample, voltage, left=-1.3, right=0.7)
+            for adcs_sample in adcs_channel] for adcs_channel in adcs])
+
+
+    def get_adcs_from_parameters(self, voltage=None, channel=None, add_residual=True):
+
+        assert not self.full_bias_scan, "No calibration available"
+
+        if voltage is None:
+            if self.table_step_size == "exact":
+                step = 2.5 / self.NUM_BITS
+                voltage = numpy.arange(self.fit_min, self.fit_max + step, step)
+            elif self.table_step_size == "residual":
+                voltage = self.__cal_residuals_v[0]
+            else:
+                step = self.table_step_size
+                voltage = numpy.arange(self.fit_min, self.fit_max + step, step)
+
+        if channel is None:
+            parameters = self.__cal_param.reshape(self.NUM_CHANNELS, self.NUM_DIGI_SAMPLES, 10)
+        else:
+            parameters = numpy.expand_dims(self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)], axis=0)
+
+        adc_samples = numpy.array([
+            [numpy.polyval(param_sample[::-1], voltage) for param_sample in param_channel]
+            for param_channel in parameters])
+
+        if add_residual:
+            if self.table_step_size == "residual":
+                residuals = self.__cal_residuals_adc
+            else:
+                # we have to interpolate the residuals such that they correspond to the correct voltage
+                # w.r.t adc = pol(voltage)
+                residuals = (numpy.interp(voltage, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
+                            numpy.interp(voltage, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+
+            channels = range(self.NUM_CHANNELS) if channel is None else [channel]
+            for idx, ch in enumerate(channels):
+                # first residual for ch 0 .. 11, second for 12 .. 23
+                adc_samples[idx] = adc_samples[idx] + residuals[int(ch > 11)]
+
+        if self.table_step_size == "exact":
+            full_lookup_tables = self.get_lookup_table_per_adc(adc_samples, voltage)
+            return voltage, full_lookup_tables
+        else:
+            return voltage, adc_samples
+
+
+    def get_adcs_from_biasscan(self):
+
+        assert self.full_bias_scan, "No bias scan available"
+
+        vbias, adc = rescale_adc(self.__vbias, self.__adc)
+        adc_cut = [[] for i in range(self.NUM_CHANNELS)]
+        adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
+        adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
+        adc = numpy.array(adc_cut)
+        vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)])
+
+        assert numpy.all(vbias[0] == vbias[1]), "Bias voltage of the two DAC is not equal"
+
+        if self.table_step_size == "exact":
+            full_lookup_tables = self.get_lookup_table_per_adc(adc, vbias[0])
+            return vbias[0], full_lookup_tables
+        else:
+            # There is no need to "upsample", i.e., linearly interpolate since we do this in calibrate() anyway
+            return vbias[0], adc
+
+
+    def __get_adc_lookup_table(self, channel, sample=None):
         """ Returns the cached table of ADC counts for a given voltage """
 
-        if self.__adc_table[channel] is None:
+        if self.__adc_lookup_table[channel] is None:
 
             if not self.full_bias_scan:
-                param_channel = self.__cal_param[self.NUM_DIGI_SAMPLES * channel:self.NUM_DIGI_SAMPLES * (channel + 1)]
-                # checked that self.__cal_residuals_v is equal for both DACs
-
-                adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
-
-                adcsamples[:2048] += self.__cal_residuals_adc[0]
-                adcsamples[2048:] += self.__cal_residuals_adc[1]
-
-                self.__adc_table[channel] = numpy.asarray(adcsamples, dtype=float)
-
+                voltage, adc = self.get_adcs_from_parameters(channel=channel)
+                self.__set_adc_table_voltage(voltage)
+                self.__adc_lookup_table[channel] = numpy.squeeze(adc)
             else:
-                vbias, adc = rescale_adc(self.__vbias, self.__adc)
-                adc_cut = [[] for i in range(self.NUM_CHANNELS)]
-                adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
-                adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
-                adc = numpy.array(adc_cut)
-                vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)])
+                voltage, adc = self.get_adcs_from_biasscan()
+                self.__set_adc_table_voltage(voltage)
+                self.__adc_lookup_table = adc
 
-                self.__set_adc_table_voltage(vbias[0])
-                self.__adc_table = adc
-
-        return self.__adc_table[channel][sample]
-
+        if sample is None:
+            return self.__adc_lookup_table[channel]
+        else:
+            return self.__adc_lookup_table[channel][sample]
 
     def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
                   channels : Optional[List[int]] = None,
@@ -164,10 +222,19 @@ class VoltageCalibration(object):
             if starting_window_channel >= 16:
                 samples_idx += self.NUM_WF_SAMPLES
 
-            for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
-                adcsamples = self.__get_adc_table(ch, sample_lab)
-                volt = numpy.interp(adc, adcsamples, self.__adc_table_voltage, left = fit_min, right = fit_max)
-                waveform_volt[idx, sample_wf] = volt
+            if self.table_step_size == "exact":
+                # Accuracy is "exact" -> we have a voltage value for every possible ADC count (-2048 .. 2047)
+                lookup_table = self.__get_adc_lookup_table(ch)
+                trace = lookup_table[samples_idx, wf_channel + self.NUM_BITS // 2]
+                waveform_volt[idx] = trace
+            else:
+                # Accuracy is not "exact" -> we have to interpolate between the values in the lookup table
+                for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
+                    adc_samples = self.__get_adc_lookup_table(ch, sample_lab)
+                    volt = numpy.interp(adc, adc_samples, self.__adc_table_voltage, left = fit_min, right = fit_max)
+                    waveform_volt[idx, sample_wf] = volt
+
+        # self.print_size()
 
         return waveform_volt
 
@@ -179,11 +246,14 @@ class VoltageCalibration(object):
             return calibrate(waveform_array, self.__cal_param, [self.__adc_table_voltage, self.__adc_table_voltage],
                              self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
 
-    def plot_ch(self, xs=numpy.linspace(-1000, 1000, 100), ch=0):
+    def plot_ch(self, ax1=None, xs=numpy.linspace(-1000, 1000, 100), ch=0):
 
         from matplotlib import pyplot as plt
 
-        fig, (ax, ax2) = plt.subplots(2, 1, height_ratios=[3, 1], sharex=True)
+        if ax1 is None:
+            fig, (ax, ax2) = plt.subplots(2, 1, height_ratios=[3, 1], sharex=True)
+        else:
+            ax2 = ax1
 
         # tables = numpy.array([self.__get_adc_table(ch, i) for i in range(self.NUM_DIGI_SAMPLES)])
         out = []
@@ -191,28 +261,41 @@ class VoltageCalibration(object):
         for x in xs:
             # vs = [numpy.interp(x, t, self.__adc_table_voltage) * 1000 for t in tables]
             # out.append([numpy.mean(vs), numpy.std(vs)])
-            vs2 = self.calibrate([numpy.full(self.NUM_WF_SAMPLES, x)], [0], channels=[ch]) * 1000
+            vs2 = self.calibrate([numpy.full(self.NUM_WF_SAMPLES, int(x))], [0], channels=[ch]) * 1000
             out2.append([numpy.mean(vs2), numpy.std(vs2)])
 
         out = numpy.array(out2)
 
-        ax.errorbar(xs, out[:, 0], out[:, 1], ls="", label=f"Ch {ch} (mean over all samples)")
-        ax.plot(xs, xs * 2500 / 4096, "k--", lw=1, label="2500 / 4096")
-        ax2.set_xlabel("input ADC")
-        ax.set_ylabel("output voltage / mV")
+        if ax1 is None:
+            ax.errorbar(xs, out[:, 0], out[:, 1], ls="",  marker="s", markersize=0.5, label=f"Ch {ch} (mean over all samples)")
+            ax.plot(xs, xs * 2500 / 4096, "k--", lw=1, label="2500 / 4096")
+            ax.set_ylabel("output voltage / mV")
+            ax.grid()
+            ax.legend()
+            print(out[:, 0])
 
-        ax2.errorbar(xs, out[:, 0] - xs * 2500 / 4096, out[:, 1], ls="", label=f"Ch {ch}")
+        ax2.errorbar(xs, out[:, 0] - xs * 2500 / 4096, out[:, 1], marker="s", markersize=0.5, ls="", label=f"Ch {ch}")
         ax2.set_ylabel("residual / mV")
-
-        ax.grid()
+        ax2.set_xlabel("input ADC")
         ax2.grid()
-        ax.legend()
-        title = self.__path.replace('.root', f'_ch{ch}')
-        ax.set_title(title)
-        fig.tight_layout()
-        plt.show()
-        # name = self.__path.replace('.root', f'_ch{ch}_test.png')
-        # plt.savefig(name, transparent=False)
+
+        up = numpy.argmin(numpy.abs(out[:, 0] - 700))
+        print(xs[up])
+        ax2.axvspan(xs[up], xs[-1], color="grey", alpha=0.5)
+
+        low = numpy.argmin(numpy.abs(out[:, 0] + 1300))
+        print(xs[low])
+        ax2.axvspan(xs[0], xs[low], color="grey", alpha=0.5)
+
+        if ax1 is None:
+            title = self.__path.replace('.root', f'_ch{ch}')
+            ax.set_title(title)
+            fig.tight_layout()
+            # plt.show()
+            name = self.__path.replace('.root', f'_ch{ch}_test.png')
+            plt.savefig(name, transparent=False)
+        else:
+            return ax2
 
 
 def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
@@ -221,7 +304,7 @@ def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
 
     Returns
     -------
-    coef : np.ndarray of shape (24 * 4096, 10)
+    coef : numpy.ndarray of shape (24 * 4096, 10)
     """
     # stack is needed to convert ndarray of ndarrays to 'normally shaped' array, otherwise you have nested ndarrays
     coef = numpy.stack(cal_file["coeffs_tree/coeff"].array(library = 'np'))
@@ -234,7 +317,7 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
 
     Returns
     -------
-    (v_residuals, residuals) : tuple of numpy arrays
+    (v_residuals, residuals) : tuple of np arrays
         both v_residuals and residuals have shape (points, 2)
 
     """
