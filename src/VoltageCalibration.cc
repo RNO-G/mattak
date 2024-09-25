@@ -977,7 +977,6 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, bool
   // Get information about the bias scan and fit coefficients from the input root file
   //
   hasBiasScanData = false;
-  has_cache_tables_ = cache_tables;
 
    TFile * f  = TFile::Open(inFile);
    if (!readFitCoeffsFromFile(f, cache_tables))
@@ -989,6 +988,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, bool
 
 bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool cache_tables) 
 {
+  has_cache_tables_ = cache_tables;
 
   if (!inputFile->IsOpen()) return false; 
 
