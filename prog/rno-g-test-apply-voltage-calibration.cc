@@ -43,7 +43,7 @@ int main (int nargs, char ** args)
         cal->drawWaveforms(mattak::WaveformPlotOptions(), &c);
         c.SaveAs(Form("vc_%d_%d.gif+50", station, run));
         mattak::WaveformPlotOptions optraw;
-        optraw.color = kRed +2;
+        optraw.line_color = kRed +2;
         raw->drawWaveforms(optraw, &c);
         c.SaveAs(Form("vc_%d_%d.gif+50", station, run));
       }
