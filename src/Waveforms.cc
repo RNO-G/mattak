@@ -117,7 +117,6 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   {
 
     where->Clear();
-
     nrows =opt.rows ?:
                 nplots < 4 ? 1:
                 nplots < 9 ? 2:
@@ -263,7 +262,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
     g->Draw(use_same ? "lsame" : "al");
 
-    if (use_same)
+    if (!use_same)
     {
       gPad->SetGridx();
       gPad->SetGridy();
