@@ -156,6 +156,8 @@ class VoltageCalibration(object):
         channels = channels or list(range(self.NUM_CHANNELS))
         waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
+        assert numpy.iinfo(type(starting_window[0])).max >= 4096, f"Data type of starting window has not enought precission:\n({numpy.iinfo(type(starting_window[0]))})"
+
         for idx, (ch, starting_window_channel, wf_channel) in enumerate(zip(channels, starting_window, waveform_array)):
             # residuals split over DACs
             samples_idx = (128 * starting_window_channel + numpy.arange(self.NUM_WF_SAMPLES)) % self.NUM_WF_SAMPLES

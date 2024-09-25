@@ -436,8 +436,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             starting_window = starting_window[:, channels]
 
         if w is not None:
-            # calibration
-            starting_window = starting_window[:, :, 0]
+            # conversion necessary because np.uint8 is to small to select correct samples (see VoltageCalibration.calibrate(...))
+            starting_window = numpy.array(starting_window[:, :, 0], dtype=int)
             if calibrated:
                 # this can run now both normal and raw calibration
                 w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
