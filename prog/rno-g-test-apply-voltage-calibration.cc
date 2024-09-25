@@ -21,8 +21,8 @@ int main (int nargs, char ** args)
 
   int station = atoi(args[1]);
   int run = atoi(args[2]);
-  int max = nargs >= 4 ? atoi(args[4]) : 10;
-  int output = nargs >=5 ? atoi(args[5]) : 1;
+  int max = nargs > 4 ? atoi(args[4]) : 10;
+  int output = nargs > 5 ? atoi(args[5]) : 1;
 
   mattak::Dataset d(station,run, opt);
 
