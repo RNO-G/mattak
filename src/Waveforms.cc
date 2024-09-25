@@ -116,6 +116,8 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   if (nplots > 1 && !use_same)
   {
 
+    where->Clear();
+
     nrows =opt.rows ?:
                 nplots < 4 ? 1:
                 nplots < 9 ? 2:
