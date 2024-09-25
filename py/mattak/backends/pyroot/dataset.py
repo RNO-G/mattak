@@ -31,7 +31,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None):
+                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+                 cache_calibration : Optional[bool] = True):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset`.
@@ -74,19 +75,17 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
-            self.set_calibration(voltage_calibration)
+            self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
         else:
             if verbose:
                 print("Looking for a calibration file")
 
-            time = self.ds.header().trigger_time
-            cal_file = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
-
+            cal_file = mattak.Dataset.find_voltage_calibration_for_dataset(self)
             if cal_file is not None:
                 if verbose:
                     print(f"Found calibration file {cal_file}")
 
-                self.set_calibration(voltage_calibration)
+                self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
             else:
                 if verbose:
                     print("No calibration file found")
@@ -99,10 +98,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
 
-    def set_calibration(self, path_or_object):
+    def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
             self.vc = ROOT.mattak.VoltageCalibration()
-            self.vc.readFitCoeffsFromFile(path_or_object)
+            self.vc.readFitCoeffsFromFile(path_or_object, cache_tables=cache_calibration)
         else:
             self.vc = path_or_object
 
@@ -117,32 +116,28 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.ds.setEntry(i):
             return None
 
-        hdr = self.ds.header()
-
+        radiantThrs = None
+        lowTrigThrs = None
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
             lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
-        else:
-            radiantThrs = None
-            lowTrigThrs = None
 
-        if self.__read_run_info:
-            runinfo = self.ds.info()
-            sampleRate = runinfo.radiant_sample_rate / 1000 if not isNully(runinfo) else 3.2
-        else:
-            sampleRate = None
+        # the default value for the sampling rate (3.2 GHz) which is used
+        # for data which does not contain this information in the waveform files
+        # is set in the header fils Waveforms.h
+        try:
+            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
+        except ReferenceError:
+            # Fall back to runinfo (as in uproot backend)
+            sampleRate = self.ds.info().radiant_sample_rate / 1000
+
+        hdr = self.ds.header()
 
         assert(hdr.station_number == self.station)
         assert(hdr.run_number == self.run)
 
-        station = hdr.station_number
-        run = hdr.run_number
-        eventNumber = hdr.event_number
-        readoutTime = hdr.readout_time
-        triggerTime = hdr.trigger_time
         triggerType = "UNKNOWN"
-
         if hdr.trigger_info.radiant_trigger:
             which = hdr.trigger_info.which_radiant_trigger
             if which == -1:
@@ -155,24 +150,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
 
-        pps = hdr.pps_num
-        sysclk = hdr.sysclk
-        sysclkLastPPS = (hdr.sysclk_last_pps, hdr.sysclk_last_last_pps)
-        radiantStartWindows = numpy.frombuffer(cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows), dtype='uint8', count=24 * 2).reshape(24, 2)
+        radiantStartWindows = numpy.frombuffer(
+            cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
+            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
 
-        return mattak.Dataset.EventInfo(eventNumber = eventNumber,
-                                        station = station,
-                                        run = run,
-                                        readoutTime=readoutTime,
-                                        triggerTime=triggerTime,
-                                        triggerType=triggerType,
-                                        sysclk=sysclk,
-                                        sysclkLastPPS=sysclkLastPPS,
-                                        pps=pps,
-                                        radiantStartWindows = radiantStartWindows,
-                                        sampleRate = sampleRate,
-                                        radiantThrs=radiantThrs,
-                                        lowTrigThrs=lowTrigThrs)
+        return mattak.Dataset.EventInfo(
+            eventNumber=hdr.event_number,
+            station=self.station,
+            run=self.run,
+            readoutTime=hdr.readout_time,
+            triggerTime=hdr.trigger_time,
+            triggerType=triggerType,
+            sysclk=hdr.sysclk,
+            sysclkLastPPS=(hdr.sysclk_last_pps, hdr.sysclk_last_last_pps),
+            pps=hdr.pps_num,
+            radiantStartWindows=radiantStartWindows,
+            sampleRate=sampleRate,
+            radiantThrs=radiantThrs,
+            lowTrigThrs=lowTrigThrs,
+            hasWaveforms=not isNully(self.ds.raw()))
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -193,7 +189,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
 
         return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
-                                dtype = 'float64' if calibrated else 'int16', count=24 * 2048).reshape(24, 2048)
+                                dtype = 'float64' if calibrated else 'int16',
+                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
 
 
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
@@ -207,7 +204,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
+        out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
@@ -218,15 +215,27 @@ class Dataset(mattak.Dataset.AbstractDataset):
         return out
 
 
-    def _iterate(self, start : int, stop : int, calibrated : bool , max_in_mem : int,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo], bool]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+    def _iterate(
+            self, start : int, stop : int, calibrated : bool , max_in_mem : int,
+            selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
-        if selector is not None:
+        skip_incomplete = override_skip_incomplete or self.ds.getOpt().partial_skip_incomplete
+
+        if selectors is not None:
+            if not isinstance(selectors, (list, numpy.ndarray)):
+                selectors = [selectors]
+
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
-                if evinfo is not None and selector(evinfo):
-                    yield evinfo, self._wfs(i, calibrated)
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
+                if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
+                    yield evinfo, wfs
         else:
             for i in range(start, stop):
-                yield self._eventInfo(i), self._wfs(i, calibrated)
-        return
+                wfs = self._wfs(i, calibrated)
+                if skip_incomplete and wfs is None:
+                    continue
+                yield self._eventInfo(i), wfs

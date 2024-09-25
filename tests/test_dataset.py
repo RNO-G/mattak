@@ -6,8 +6,8 @@ import argparse
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Test mattak.")
-    argparser.add_argument('--station', type=int, default=21)
-    argparser.add_argument('--run', type=int, default=300)
+    argparser.add_argument('--station', type=int, default=0)
+    argparser.add_argument('--run', type=int, default=0)
     argparser.add_argument('--data_dir', type=str, default=None)
     argparser.add_argument('--voltage_calibration', '-vc', type=str, default=None)
     argparser.add_argument('--backend', nargs='*', help="Which backend(s) to test", default=['pyroot', 'uproot'])
@@ -19,7 +19,7 @@ if __name__ == "__main__":
         print(f">----- Testing backend: {backend} -----<")
         d = mattak.Dataset.Dataset(
             args.station, args.run, data_path=args.data_dir,
-            backend=backend, verbose=True,
+            backend=backend, verbose=False,
             voltage_calibration=args.voltage_calibration)
 
         print(d.N())

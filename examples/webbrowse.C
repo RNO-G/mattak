@@ -82,7 +82,7 @@ int go(int i)
       TString gname = g->GetName();
       gname[0]='P'; 
       P->GetXaxis()->SetTitle("Freq [MHz]"); 
-      P->GetXaxis()->SetRangeUser(0,1599); 
+      P->GetXaxis()->SetRangeUser(0,d->raw()->radiant_sampling_rate/2-1); 
       P->GetYaxis()->SetRangeUser(-20,60); 
       P->GetYaxis()->SetTitle("Power [dBArb]"); 
       P->SetTitle(""); 
@@ -113,6 +113,7 @@ int go(int i)
 void draw_ds()
 {
   TTree *st = d->daqStatusTree(); 
+  if (!st) return; 
   cthresh->cd(); 
 
   TMultiGraph *grad_th = new TMultiGraph; 

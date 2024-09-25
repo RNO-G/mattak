@@ -34,7 +34,7 @@ static double* adcTablePerSample(int order, int npoints, const double * par, con
   return adcTable;
 }
 
-static double adcToVolt(double in_adc, int npoints, const double * voltTable, const double * adcTable)
+static double adcToVolt(double in_adc, int npoints, const double * volt_array, const double * adc_array)
 {
   double m;
   double out_volt = 0;
@@ -43,34 +43,34 @@ static double adcToVolt(double in_adc, int npoints, const double * voltTable, co
   if (in_adc == 0) return out_volt;
 
   // If in_adc is out of range...
-  if (in_adc < adcTable[0])
+  if (in_adc < adc_array[0])
   {
-    m = (voltTable[1] - voltTable[0]) / (adcTable[1] - adcTable[0]);
-    out_volt = voltTable[0] + (in_adc - adcTable[0]) * m;
+    m = (volt_array[1] - volt_array[0]) / (adc_array[1] - adc_array[0]);
+    out_volt = volt_array[0] + (in_adc - adc_array[0]) * m;
     return out_volt;
   }
-  if (in_adc > adcTable[npoints-1])
+  if (in_adc > adc_array[npoints-1])
   {
-    m = (voltTable[npoints-1] - voltTable[npoints-2]) / (adcTable[npoints-1] - adcTable[npoints-2]);
-    out_volt = voltTable[npoints-1] + (in_adc - adcTable[npoints-1]) * m;
+    m = (volt_array[npoints-1] - volt_array[npoints-2]) / (adc_array[npoints-1] - adc_array[npoints-2]);
+    out_volt = volt_array[npoints-1] + (in_adc - adc_array[npoints-1]) * m;
     return out_volt;
   }
 
   for (int i = 0; i < npoints; i++)
   {
-    if (in_adc == adcTable[i])
+    if (in_adc == adc_array[i])
     {
-      out_volt = voltTable[i]; // Lucky if this happens!
+      out_volt = volt_array[i]; // Lucky if this happens!
       return out_volt;
     }
 
     if (i < npoints-1)
     {
       // Most likely we will get out_volt from interpolation
-      if (in_adc > adcTable[i] && in_adc < adcTable[i+1])
+      if (in_adc > adc_array[i] && in_adc < adc_array[i+1])
       {
-        m = (voltTable[i+1] - voltTable[i]) / (adcTable[i+1] - adcTable[i]);
-        out_volt = voltTable[i] + (in_adc - adcTable[i]) * m;
+        m = (volt_array[i+1] - volt_array[i]) / (adc_array[i+1] - adc_array[i]);
+        out_volt = volt_array[i] + (in_adc - adc_array[i]) * m;
         return out_volt;
       }
     }
@@ -97,10 +97,10 @@ ClassImp(mattak::VoltageCalibration);
 mattak::VoltageCalibration::VoltageCalibration(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
   : TObject()
 {
-  setupFromTree(tree,branch_name,vref,fit_order,min,max,isUsingResid);
+  setupFromTree(tree, branch_name, vref, fit_order, min, max, isUsingResid);
 }
 
-//almost copy-pasted from raw file reader...
+// almost copy-pasted from raw file reader...
 void mattak::VoltageCalibration::setupFromTree(TTree * tree, const char * branch_name, double vref, int fit_order, double min, double max, bool isUsingResid)
 {
 
@@ -349,16 +349,16 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           double v = ichan < mattak::k::num_radiant_channels / 2 ? vbias[0][j]: vbias[1][j];
           if (v >= vref)
           {
-             if (v == vref || j == 0)
-             {
-               adc_offset[ichan] = scan_result[j][ichan][i];
-             }
-             else //have to interpolate
-             {
-               double frac_low = (v - vref) / (v-last_v);
-               adc_offset[ichan] = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i];
-             }
-             break;
+            if (v == vref || j == 0)
+            {
+              adc_offset[ichan] = scan_result[j][ichan][i];
+            }
+            else //have to interpolate
+            {
+              double frac_low = (v - vref) / (v-last_v);
+              adc_offset[ichan] = scan_result[j][ichan][i] * (1-frac_low) + frac_low * scan_result[j-1][ichan][i];
+            }
+            break;
           }
           last_v = v;
 
@@ -639,7 +639,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
     }
-
+    std::cout << std::endl;
   }
 
 
@@ -971,21 +971,23 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   f.Close();
 }
 
-void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
+void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, bool cache_tables)
 {
   //
   // Get information about the bias scan and fit coefficients from the input root file
   //
+  hasBiasScanData = false;
+  has_cache_tables_ = cache_tables;
 
    TFile * f  = TFile::Open(inFile);
-   if (!readFitCoeffsFromFile(f))
+   if (!readFitCoeffsFromFile(f, cache_tables))
    {
      std::cerr << "Trouble reading from " << inFile; 
    }
    delete f ;
 }
 
-bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile) 
+bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool cache_tables) 
 {
 
   if (!inputFile->IsOpen()) return false; 
@@ -1003,7 +1005,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
 
   TTree *fitCoeffs_tree = (TTree*)inputFile->Get("coeffs_tree");
   if (!fitCoeffs_tree) return false; 
-  std::vector<float> coeff(fit_order+1);
+  std::vector<float> coeff(fit_order + 1);
   std::vector<float> *p_coeff = &coeff;
   if (fitCoeffs_tree->SetBranchAddress("coeff", &p_coeff) < 0) return false; ;
 
@@ -1034,20 +1036,27 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
   {
     chisqValidation_tree->GetEntry(iChan);
     isBad_channelAveChisqPerDOF[iChan] = channelAveChisqPerDOF;
-    if (isBad_channelAveChisqPerDOF[iChan]) printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+
+    if (isBad_channelAveChisqPerDOF[iChan])
+    {
+      printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+    }
 
     fit_coeffs[iChan].clear();
-    fit_coeffs[iChan].resize((fit_order+1)*mattak::k::num_lab4_samples, 0);
+    fit_coeffs[iChan].resize((fit_order + 1) * mattak::k::num_lab4_samples, 0);
+
     for(int iSamp = 0; iSamp < mattak::k::num_lab4_samples; iSamp++)
     {
       isBad_sampChisqPerDOF[iChan][iSamp] = sampChisqPerDOF[iSamp];
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
-      printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+      {
+        printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+      }
 
       fitCoeffs_tree->GetEntry(iChan*mattak::k::num_lab4_samples+iSamp);
       for(int iOrder = 0; iOrder < fit_order+1; iOrder++)
       {
-        fit_coeffs[iChan][iSamp*(fit_order+1)+iOrder] = coeff[iOrder];
+        fit_coeffs[iChan][iSamp * (fit_order + 1) + iOrder] = coeff[iOrder];
       }
     }
   }
@@ -1093,8 +1102,10 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
     {
       // Interpolating the average residuals
       int npoints_residGraph = graph_residAve[j].GetN();
-      resid_volt[j].resize(npoints_residGraph*2-1);
-      resid_adc[j].resize(npoints_residGraph*2-1);
+      graph_residAve[j].SetBit(TGraph::kIsSortedX);  // We can do that because our data are sorted. Makes later Eval calls faster
+      const double dV = graph_residAve[j].GetPointX(1) - graph_residAve[j].GetPointX(0);
+      resid_volt[j].resize(npoints_residGraph * 2 - 1);
+      resid_adc[j].resize(npoints_residGraph * 2 - 1);
       nResidPoints[j] = resid_volt[j].size();
 
       for (int i = 0; i < npoints_residGraph; i++)
@@ -1104,13 +1115,34 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile)
       }
       for (int i = 0; i < npoints_residGraph-1; i++)
       {
-        resid_volt[j][i*2+1] = (resid_volt[j][i*2] + resid_volt[j][i*2+2])/2;
-        resid_adc[j][i*2+1] = resid_adc[j][i*2] + (resid_volt[j][i*2+1] - resid_volt[j][i*2])*(resid_adc[j][i*2+2] - resid_adc[j][i*2])/(resid_volt[j][i*2+2] - resid_volt[j][i*2]);
+        //usampling by a factor of 2
+        resid_volt[j][i*2+1] = resid_volt[j][i*2] + dV/2;
+        resid_adc[j][i*2+1] = graph_residAve[j].Eval(resid_volt[j][i*2+1]);
       }
     }
   }
 
   hasBiasScanData = false;
+  inputFile->Close();
+
+  if (has_cache_tables_)
+  {
+    for(int channel = 0; channel < mattak::k::num_radiant_channels; channel++)
+    {
+      int dac = int(channel / 12);
+      for(int sample = 0; sample < mattak::k::num_lab4_samples; sample++)
+      {
+        cached_adc_tables_[channel][sample].resize(nResidPoints[dac]);
+        const double *params = &fit_coeffs[channel][sample * (fit_order + 1)];
+        const double* adcTable = adcTablePerSample(fit_order, nResidPoints[dac], params, &resid_volt[dac][0], &resid_adc[dac][0]);
+        for (int idx = 0; idx < nResidPoints[dac]; idx++)
+        {
+          cached_adc_tables_[channel][sample][idx] = adcTable[idx];
+        }
+        delete [] adcTable;
+      }
+    }
+  }
   return true;
 }
 
@@ -1163,6 +1195,7 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
 
     // creating a pointer which points to the first parameter of this particular sample
     const double *params = packed_fit_params + isamp_lab4 * (fit_order + 1);
+    // const double *params = &packed_fit_params[isamp_lab4 * (fit_order + 1)][0];
 
     double adc = in[i];
     double *adcTable = nullptr;
@@ -1170,7 +1203,6 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
     {
       adcTable = adcTablePerSample(fit_order, nResidPoints, params, packed_aveResid_volt, packed_aveResid_adc);
       out[i] = adcToVolt(adc, nResidPoints, packed_aveResid_volt, adcTable);
-      delete adcTable;
     }
     else
     {
@@ -1179,6 +1211,50 @@ double * mattak::applyVoltageCalibration (int nSamples_wf, const int16_t * in, d
     }
 
     if (adcTable) delete [] adcTable;
+  }
+
+  return out;
+}
+
+double * mattak::applyVoltageCalibration(
+  int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int nResidPoints, const double * voltage_table, const std::array<std::vector<double>, 4096>* adc_table)
+
+{
+  if (!out) out = new double[nSamples_wf];
+
+  if (nSamples_wf % mattak::k::radiant_window_size)
+  {
+    std::cerr << "Not multiple of window size!" << std::endl;
+    return 0;
+  }
+
+  int nSamplesPerGroup = mattak::k::num_radiant_samples;
+  int nWindowsPerGroup = mattak::k::radiant_windows_per_buffer;
+  int sample_lab4, sample_A, sample_B;
+
+  sample_A = (start_window >= nWindowsPerGroup) * nSamplesPerGroup;
+
+  if (isOldFirmware)
+  {
+    nSamplesPerGroup /= 2;
+    nWindowsPerGroup /= 2;
+  }
+
+
+  for (int sample_wf = 0; sample_wf < nSamples_wf; sample_wf++)
+  {
+    sample_B = (sample_wf + start_window * mattak::k::radiant_window_size) % nSamplesPerGroup;
+
+    if (isOldFirmware)
+    {
+      sample_B += (sample_wf >= nSamplesPerGroup) * nSamplesPerGroup;
+    }
+
+    sample_lab4 = sample_A + sample_B;
+
+    // Get table for correct sample from pointer. Get pointer to point to address of first ele of table
+    const double * adc_table_sample = &adc_table->at(sample_lab4)[0];
+    out[sample_wf] = adcToVolt(in[sample_wf], nResidPoints, voltage_table, adc_table_sample);
   }
 
   return out;

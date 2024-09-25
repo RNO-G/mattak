@@ -187,9 +187,8 @@ int main (int nargs, char ** args)
     while ( i < nevents) 
     {
       int I = 1 + floor(-log(r.Rndm()) / frac); 
-      if (I < 1) I = 1; 
+      if (I < 1) I = i ? 1 : 0; 
       i = (i+I); 
-      printf("%d %d\n",i,I); 
       if (i < nevents) 
       {
         entries.push_back(i); 

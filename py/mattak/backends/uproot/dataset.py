@@ -3,7 +3,8 @@ import uproot
 import configparser
 
 import mattak.Dataset
-from typing import Union, Optional, Tuple, Generator, Callable, Sequence
+from .voltage_calibration import VoltageCalibration
+from typing import Union, Optional, Tuple, Generator, Callable, Sequence, List
 import numpy
 import math
 import logging
@@ -13,6 +14,21 @@ import logging
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
 header_tree_names = ["hdr", "header", "hd", "hds", "headers"]
 daqstatus_tree_names = ["daqstatus", "ds", "status"]
+
+
+def find_daq_status_index(event_readout_time, daq_readout_times):
+    """
+    Find the corresponding entry in the daq status for a particular event (readout time).
+    Looking or the cloest entry before the event.
+    """
+
+    closest_idx = numpy.argmin(numpy.abs(daq_readout_times - event_readout_time))
+
+    if daq_readout_times[closest_idx] > event_readout_time:
+        closest_idx -= 1
+
+    return closest_idx
+
 
 
 def read_tree(ur_file, tree_names):
@@ -43,7 +59,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None):
+                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
@@ -85,6 +101,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.__verbose = verbose
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
+
+        self._radiantThrs = None
+        self._lowTrigThrs = None
 
         # special case where data_dir is a file
         if os.path.isfile(data_path):
@@ -210,107 +229,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     self.run_info = config['dummy']
 
         if voltage_calibration is None:
-            # do find_VC here
-            time = self._hds['trigger_time'].array()[0]
-            cal = mattak.Dataset.find_voltage_calibration(self.rundir, self.station, time)
-            calibration_files = [cal] if cal is not None else []
+            voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
         elif isinstance(voltage_calibration, str):
-            calibration_files = [voltage_calibration]
+            pass
+        elif isinstance(voltage_calibration, VoltageCalibration):
+            self.vc = voltage_calibration
+            self.has_calib = True
+
         else:
             raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
 
-        self.__adc = None
-        self.__cal_param = None
-
-        if len(calibration_files):
-            if calibration_files[0].endswith(".root"):
-                self.cal_file = uproot.open(calibration_files[0])
-                if "coeffs_tree" in self.cal_file:
-                    self.__cal_param = unpack_cal_parameters(self.cal_file)
-                    self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(self.cal_file)
-
-                    self.__cal_residuals_v = self.__cal_residuals_v.T
-                    self.__cal_residuals_adc = self.__cal_residuals_adc.T
-
-                    if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
-                        raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
-                                         "the code expects them to be the same!")
-
-                elif "pedestals" in self.cal_file:
-                    self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
-
-                    if numpy.any(self.__vbias[:, 0] != self.__vbias[:, 1]):
-                        raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
-                                         "the code expects them to be the same!")
-
-                else:
-                    raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
-            else:
-                raise ValueError(f"{calibration_files[0]} is not recognized as a root file")
-
-        self.has_calib = self.__cal_param is not None or self.__adc is not None
-
-        self.__adc_table_voltage = None
-        self.__adc_table = numpy.array([None] * 24, dtype=object)
-
-        # keep it hard-coded for the moment
-        self.__upsample_residuals = True
-
-        if self.__cal_param is not None:
-            if self.__upsample_residuals:
-                vsamples = numpy.arange(-1.3, 0.7, 0.005)
-                # residuals split over DACs
-                ressamples = (numpy.interp(vsamples, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                            numpy.interp(vsamples, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
-
-                self.__set_adc_table_voltage(vsamples)
-                self.__cal_residuals_adc = ressamples
-            else:
-                self.__set_adc_table_voltage(self.__cal_residuals_v[0])
-
-
-    def __set_adc_table_voltage(self, value):
-        """ Set the voltage vector which correspond to the `adc_table` for calibration """
-        if self.__adc_table_voltage is None:
-            self.__adc_table_voltage = value
+        if voltage_calibration is not None:
+            if not self.has_calib:
+                self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
+                self.has_calib = True
         else:
-            if self.__adc_table_voltage != value:
-                raise ValueError("The voltage vector for the adc table changed!")
+            self.has_calib = False
 
 
-    def __get_adc_table(self, channel, sample):
-        """ Returns the cached table of ADC counts for a given voltage """
-
-        if self.__adc_table[channel] is None:
-            if self.__cal_param is not None:
-                param_channel = self.__cal_param[4096 * channel : 4096 * (channel + 1)]
-
-                # checked that self.__cal_residuals_v is equal for both DACs
-                adcsamples = numpy.array([numpy.polyval(p[::-1], self.__adc_table_voltage) for p in param_channel])
-
-                adcsamples[:2048] += self.__cal_residuals_adc[0]
-                adcsamples[2048:] += self.__cal_residuals_adc[1]
-
-                self.__adc_table[channel] = numpy.asarray(adcsamples, dtype="float32")
-
-            elif self.__adc is not None:
-
-                vbias, adc = rescale_adc(self.__vbias, self.__adc)
-                adc_cut = [[] for i in range(24)]
-                adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
-                adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
-                adc = numpy.array(adc_cut)
-                vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)])
-
-                self.__set_adc_table_voltage(vbias[0])
-                self.__adc_table = adc
-
-            else:
-                raise ValueError("No calibration data available.")
-
-        return self.__adc_table[channel][sample]
-
-    def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
+    def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
         kw = dict(entry_start = self.first, entry_stop = self.last)
 
         station = self._hds['station_number'].array(**kw)
@@ -324,21 +261,44 @@ class Dataset(mattak.Dataset.AbstractDataset):
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(**kw)
         sysclk_lastlastpps = self._hds['sysclk_last_last_pps'].array(**kw)
 
-        if self.__read_daq_status:
-            radiantThrs = numpy.array(self._dss['radiant_thresholds[24]'])
-            lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+        if self.__read_daq_status and self._radiantThrs is None:
+            # The daq status is read asynchronously w.r.t. the events. Hence,
+            # we always read all information at once and associate the to the
+            # event below.
+            self._radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
+            self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
+            self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
-        if self.run_info is not None:
-            sampleRate = float(self.run_info['radiant-samplerate']) / 1000
-        else:
-            sampleRate = None
+        try:
+            sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
+            if not self.skip_incomplete:
+                rate = numpy.unique(sampleRate)
+
+                if len(rate) == 0:  # no waveforms available
+                    raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
+                assert len(rate) == 1, "Sampling rate derived from waveforms in not unique. Can not extend to incomplete events ..."
+                sampleRate = [rate[0]] * (self.last - self.first)
+
+        except uproot.exceptions.KeyInFileError:
+            if self.run_info is not None:
+                sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+            else:
+                sampleRate = 3.2  # GHz
+
+            sampleRate = [sampleRate] * (self.last - self.first)
 
         # um... yeah, that's obvious
-        radiantStartWindows = self.get_windows(kw)
+        radiantStartWindows = self._get_windows(kw)
 
         infos = []
         info = None  # if range(0)
-        for i in range(self.last-self.first):
+        for i in range(self.last - self.first):
+
+            if override_skip_incomplete is not None and override_skip_incomplete:
+                if eventNumber[i] not in self.events_with_waveforms.keys():
+                    continue
 
             triggerType  = "UNKNOWN"
             if triggerInfo[i]['trigger_info.radiant_trigger']:
@@ -353,6 +313,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
             elif triggerInfo[i]['trigger_info.pps_trigger']:
                 triggerType = "PPS"
 
+            radiantThrs = None
+            lowTrigThrs = None
+            if self.__read_daq_status:
+                # associate daq infomation of event based on readout times
+                readout_time = readoutTime[i]
+                radiant_idx = find_daq_status_index(readout_time, self._readout_time_radiant)
+                lt_idx = find_daq_status_index(readout_time, self._readout_time_lt)
+                radiantThrs = self._radiantThrs[radiant_idx]
+                lowTrigThrs = self._lowTrigThrs[lt_idx]
+
             info = mattak.Dataset.EventInfo(
                 eventNumber = eventNumber[i],
                 station = station[i],
@@ -364,9 +334,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 sysclkLastPPS = (sysclk_lastpps[i], sysclk_lastlastpps[i]),
                 pps = pps[i],
                 radiantStartWindows = radiantStartWindows[i],
-                sampleRate = sampleRate,
-                radiantThrs=radiantThrs[i] if self.__read_daq_status else None,
-                lowTrigThrs=lowTrigThrs[i] if self.__read_daq_status else None
+                sampleRate = sampleRate[i],
+                radiantThrs = radiantThrs,
+                lowTrigThrs = lowTrigThrs,
+                hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True
             )
 
             infos.append(info)
@@ -380,10 +351,38 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def N(self) -> int:
         return self._hds.num_entries
 
-    def get_windows(self, kw):
-        return self._hds['trigger_info/trigger_info.radiant_info.start_windows[24][2]'].array(**kw)
+    def _get_windows(self, kw):
+        """ Helper to access uproot file """
+        return self._hds[f'trigger_info/trigger_info.radiant_info.start_windows[{self.NUM_CHANNELS}][2]'].array(**kw)
 
-    def wfs(self, calibrated : bool = False, raw_calibration = False) -> Optional[numpy.ndarray]:
+    def _get_waveforms(self, kw):
+        """ Helper to access uproot file """
+        return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
+
+    def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, override_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
+        """
+        Returns the waveform data for the selected event(s).
+
+        Parameters
+        ----------
+
+        calibrated : bool (default: False)
+            If True, return the calibrated waveform data in units of volt. If False, return the raw waveform data in units of ADC counts.
+
+        channels : int or list(int) (default: None)
+            If None, return all channels. If int, return only the specified channel. If list(int), return only the specified channels.
+            This is in particular useful if you are only interested in a subset of calibrated channels.
+
+        override_skip_incomplete : bool (default: None)
+            If not None override behaviour set in the contructor.
+
+        Returns
+        -------
+
+        wfs : numpy.ndarray
+            An array containing the waveform data with the shape (n_events, n_channels, n_samples).
+        """
+
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
@@ -392,302 +391,102 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         w = None
         if self.full or self.skip_incomplete:
-            w = self._wfs['radiant_data[24][2048]'].array(**kw)
-            starting_window = self.get_windows(kw)
+            w = self._get_waveforms(kw)
+            starting_window = self._get_windows(kw)
         elif not self.multiple:
             # if you only selected one event and have an incomplete dataset
             if self.first in self.events_with_waveforms:
                 idx = self.events_with_waveforms[self.first]
-                w = self._wfs['radiant_data[24][2048]'].array(entry_start=idx, entry_stop=idx+1, library='np')
-                starting_window = self.get_windows(dict(entry_start=idx, entry_stop=idx+1, library='np'))
+                w = self._get_waveforms(dict(entry_start=idx, entry_stop=idx+1, library='np'))
+                starting_window = self._get_windows(dict(entry_start=idx, entry_stop=idx+1, library='np'))
         else:
             # so ... we need to loop through and find which things we have actually have waveforms
-            # start by allocating the output
-            w = numpy.zeros((self.last - self.first, 24, 2048), dtype='float64' if calibrated else 'int16')
-            starting_window = numpy.zeros((self.last - self.first))
             # now figure out how much of the data array we need
             wf_start = None
             wf_end = None
 
             # store the indices that will be non-zero
             wf_idxs = []
-            for i in range(self.first, self.last):
-                if i in self.events_with_waveforms:
-                    wf_idxs.append(i - self.first)
+            for idx in range(self.first, self.last):
+                if idx in self.events_with_waveforms:
+                    wf_idxs.append(idx - self.first)
                     # these are the start and stop of our array we need to load
                     if wf_start is None:
-                        wf_start = self.events_with_waveforms[i]
+                        wf_start = self.events_with_waveforms[idx]
 
-                    wf_end = self.events_with_waveforms[i] + 1
+                    wf_end = self.events_with_waveforms[idx] + 1
 
             if len(wf_idxs):
-                w[wf_idxs] = self._wfs['radiant_data[24][2048]'].array(entry_start=wf_start, entry_stop=wf_end, library='np')
-                starting_window[wf_idxs] = self.get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                # take the overwrite if it is not None
+                skip_incomplete = override_skip_incomplete or self.skip_incomplete
+                if skip_incomplete:
+                    w = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                    starting_window = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                else:
+                    w = numpy.empty((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
+                    starting_window = numpy.empty((self.last - self.first, self.NUM_CHANNELS, 2))
+                    w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
+                    starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
 
-        # calibration
-        starting_window = starting_window[:, :, 0]
-        if calibrated:
-            if self.__cal_param is None and self.__adc is None:
-                raise ValueError("Calibration not available")
-            # this can run now both normal and raw calibration
-            w = numpy.array([self.calibrate(ele, starting_window[i]) for i, ele in enumerate(w)])
+        if channels is not None:
+            if isinstance(channels, int):
+                channels = [channels]
 
-        elif raw_calibration:
-            # This still uses the slow version of the raw calibration
-            if self.__adc is None:
-                raise ValueError("Calibration not available")
-            w = numpy.array([
-                raw_calibrate(ele, self.__vbias, self.__adc, starting_window[i]) for i, ele in enumerate(w)])
+            w = w[:, channels]
+            starting_window = starting_window[:, channels]
 
-        w = numpy.asarray(w, dtype=float)
+        if w is not None:
+            # calibration
+            starting_window = starting_window[:, :, 0]
+            if calibrated:
+                # this can run now both normal and raw calibration
+                w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
 
-        if self.multiple:
-            return w
+            w = numpy.asarray(w, dtype=float)
+
+            if self.multiple:
+                return w
 
         return None if w is None else w[0]
 
-    def _iterate(self, start : int , stop : int , calibrated: bool,  max_in_mem : int,
-                 selector: Optional[Callable[[mattak.Dataset.EventInfo],bool]] = None) \
-                    -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]],None,None]:
+    def _iterate(
+            self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
+            selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
+            Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) \
+            -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
-       # cache current values given by setEntries(..)
-        original_entry : Union[int, Tuple[int,int]] = (self.first, self.last) if self.multiple else self.entry
+        # cache current values given by setEntries(..)
+        original_entry : Union[int, Tuple[int, int]] = (self.first, self.last) if self.multiple else self.entry
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
+
+        if not isinstance(selectors, (list, numpy.ndarray)) and selectors is not None:
+            selectors = [selectors]
 
         for i_batch in range(n_batches):
 
             # looping over the batches defining the start and stop index
             batch_start = start + i_batch * max_in_mem
             batch_stop = min(stop, batch_start + max_in_mem)
-
             self.setEntries((batch_start, batch_stop))
 
             # load events from file
-            w = self.wfs(calibrated)
-            e = self.eventInfo()
+            wfs = self.wfs(calibrated, override_skip_incomplete=override_skip_incomplete)
+            es = self.eventInfo(override_skip_incomplete=override_skip_incomplete)
 
             # we modified the internal data pointers with the prev. call of self.setEntries(...)
             # this is intransparent for the outside world and has to be reverted
             self.setEntries(original_entry)
 
-            for idx in range(batch_stop - batch_start):
-                if selector is not None:
-                    if selector(e[idx]):
-                        yield e[idx], w[idx]
+            # can happen if we skip incomplete events
+            if wfs is None:
+                continue
+
+            for e, w in zip(es, wfs):
+                if selectors is not None:
+                    if numpy.all([selector(e) for selector in selectors]):
+                        yield e, w
                 else:
-                    yield e[idx], w[idx]
-
-    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
-                fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
-        """
-        The calibration function that transforms waveforms from ADC to voltage
-
-        Parameters
-        ----------
-        waveform_array : array of shape (24, 2048)
-            array of one waveform
-        starting_window : int | float
-            the sample on which the run started
-        fit_min : float
-            lower bound of original fit used on the bias scan
-        fit_max : float
-            upper bound of original fit used on the bias scan
-        accuracy : float
-            nr of voltage steps in table of the calibration function
-
-        Returns
-        -------
-        waveform_volt : array of shape (24, 2048)
-            calibrated waveform in volt
-        """
-
-        waveform_volt = numpy.zeros((24, 2048))
-        for c, wf_channel in enumerate(waveform_array):
-            # residuals split over DACs
-
-            starting_window_channel = starting_window[c]
-            samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
-            if starting_window_channel >= 16:
-                samples_idx += 2048
-
-            for sample_wf, (sample_lab, adc) in enumerate(zip(samples_idx, wf_channel)):
-                adcsamples = self.__get_adc_table(c, sample_lab)
-                volt = numpy.interp(adc, adcsamples, self.__adc_table_voltage, left = fit_min, right = fit_max)
-                waveform_volt[c, sample_wf] = volt
-
-        return waveform_volt
-
-
-def unpack_cal_parameters(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
-    """
-    Function that reads out 9th order polynomial parameters from the calibration file
-
-    Returns
-    -------
-    coef : np.ndarray of shape (24 * 4096, 10)
-    """
-    # stack is needed to convert ndarray of ndarrays to 'normally shaped' array, otherwise you have nested ndarrays
-    coef = numpy.stack(cal_file["coeffs_tree/coeff"].array(library = 'np'))
-    return coef
-
-
-def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
-    """
-    Function that reads out the residuals from the calibration file
-
-    Returns
-    -------
-    (v_residuals, residuals) : tuple of numpy arrays
-        both v_residuals and residuals have shape (points, 2)
-
-    """
-
-    vres_dac1 = cal_file["aveResid_dac1"].values(axis = 0)
-    vres_dac2 = cal_file["aveResid_dac2"].values(axis = 0)
-    residual_dac1 = cal_file["aveResid_dac1"].values(axis = 1)
-    residual_dac2 = cal_file["aveResid_dac2"].values(axis = 1)
-    return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), \
-        numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
-
-
-def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory) -> tuple:
-    """
-    Parser for the raw bias scans, used when performing a "raw" voltage calibration
-    (for testing purposes)
-
-    Returns
-    -------
-    vbias : numpy.ndarray of shape (points, 2)
-        The voltage pedestals used when taking the bias scan
-    adc : numpy.ndarray of shape (channels, samples, points)
-        The measured adc counts
-    """
-
-    vbias = bias_scan["pedestals/vbias[2]"].array(library = "np")
-    adc = bias_scan["pedestals/pedestals[24][4096]"].array(library = "np").astype(numpy.float32)
-    # (v_ped, channel, sample) -> (channel, sample, v_ped)
-    adc = numpy.moveaxis(adc, (0, 1, 2), (2, 0, 1))
-    return vbias, adc
-
-
-def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref = 1.5) -> tuple:
-    """
-    Rescaling function to set the base pedestal ( 1.5 V ) as the origin
-
-    Parameters
-    ----------
-    vbias : numpy.ndarray of shape (points, 2)
-        The voltage pedestals used when taking the bias scan
-    adc : numpy.ndarray of shape (channels, samples, points)
-        The measured adc counts
-
-    Returns
-    -------
-    vbias_rescaled, adc_rescaled : tuple of numpy.ndarrays
-        The rescaled arrays
-    """
-    # The mattak src rescaled according to the first value GREATER than Vref, hence this function does the same
-    vidx = [min([idx for idx, _ in enumerate(vbias[:, dac]) if vbias[idx, dac] >= Vref]) for dac in range(2)]
-    adc_rescaled = numpy.zeros_like(adc)
-    for ch in range(24):
-        dac = int(ch / 12)
-        for s in range(4096):
-            two_bins_around_pedestal = [vidx[dac] - 1, vidx[dac]]
-            adc_rescaled[ch, s, :] = \
-                adc[ch, s, :] - numpy.interp(Vref, vbias[two_bins_around_pedestal, dac], adc[ch, s, two_bins_around_pedestal])
-
-    vbias_rescaled = vbias - Vref
-    return vbias_rescaled, adc_rescaled
-
-
-def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : numpy.ndarray,
-                        starting_window : Union[float, int]) -> numpy.ndarray:
-    """
-    Function that interpolates raw bias scans to perform ADC to voltage conversion
-    (for testing purposes)
-    """
-
-    waveform_volt = numpy.zeros((24, 2048))
-
-    vbias, adc = rescale_adc(vbias, adc)
-    adc_cut = [[] for i in range(24)]
-    adc_cut[:12] = adc[:12, :, numpy.all([-1.3 < vbias[:, 0], vbias[:, 0] < 0.7], axis=0)]
-    adc_cut[12:] = adc[12:, :, numpy.all([-1.3 < vbias[:, 1], vbias[:, 1] < 0.7], axis=0)]
-    adc = adc_cut
-    vbias =  numpy.array([[v for v in vbias[:, DAC] if -1.3 < v < 0.7] for DAC in range(2)]).T
-
-    for c, wf_channel in enumerate(waveform_array):
-        starting_window_channel = starting_window[c]
-        # Reordering the parameters to match the correct starting window
-        # (calibration is done per sample)
-        adc_channel = adc[c]
-
-        samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
-        if starting_window_channel >= 16:
-            samples_idx += 2048
-        adc_channel = adc_channel[samples_idx]
-
-        for s, (adc_wf, adc_bias) in enumerate(zip(wf_channel, adc_channel)):
-            volt = numpy.interp(adc_wf, adc_bias, vbias[:, int(c/12)])
-            waveform_volt[c, s] = volt
-
-    return waveform_volt
-
-
-def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
-              vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
-              fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005) -> numpy.ndarray:
-    """
-    The calibration function that transforms waveforms from ADC to voltage
-
-    Parameters
-    ----------
-    waveform_array : array of shape (24, 2048)
-        array of one waveform
-    param : array of shape (24 * 4096, 10)
-        the parameters found in the calibration file
-    vres : array of shape (points, 2)
-        the voltage points of the residuals, shape
-    res : array of shape (points, 2)
-        the ADC values of the residuals
-    starting_window : int | float
-        the sample on which the run started
-    fit_min : float
-        lower bound of original fit used on the bias scan
-    fit_max : float
-        upper bound of original fit used on the bias scan
-    accuracy : float
-        nr of voltage steps in table of the calibration function
-
-    Return
-    ------
-    waveform_volt : array of shape (24, 2048)
-        calibrated waveform in volt
-    """
-
-    # "discrete" inverse
-    vsamples = numpy.arange(fit_min, fit_max, accuracy)
-    waveform_volt = numpy.zeros((24, 2048))
-    # residuals split over DACs
-    ressamples = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
-
-    for c, wf_channel in enumerate(waveform_array):
-        starting_window_channel = starting_window[c]
-        # Reordering the parameters to match the correct starting window
-        # (calibration is done per sample)
-        param_channel = param[4096 * c : 4096 * (c + 1)]
-
-        samples_idx = (128 * starting_window_channel + numpy.arange(2048)) % 2048
-        if starting_window_channel >= 16:
-            samples_idx += 2048
-        param_channel = param_channel[samples_idx]
-
-        for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
-            # discrete inverse
-            adcsamples = numpy.polyval(p[::-1], vsamples) + ressamples[int(c/12)]
-            volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
-            waveform_volt[c, s] = volt
-
-    return waveform_volt
+                    yield e, w

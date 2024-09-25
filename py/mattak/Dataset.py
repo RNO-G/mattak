@@ -26,6 +26,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
+    hasWaveforms: bool = True
 
 
 class AbstractDataset(ABC):
@@ -33,6 +34,11 @@ class AbstractDataset(ABC):
     Abstract Base Class for accessing RNO-G data in Python, implemented either with uproot or PyROOT.
     To see how to initalize a dataset object see the fuction `Dataset` defined below.
     """
+
+    # Define some contants
+    NUM_DIGI_SAMPLES = 4096
+    NUM_WF_SAMPLES = 2048
+    NUM_CHANNELS = 24
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
@@ -71,20 +77,24 @@ class AbstractDataset(ABC):
 
     @abstractmethod
     def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
-                 selector: Optional[Callable[[EventInfo], bool]]) \
+                 selectors: Optional[Union[Callable[[EventInfo], bool],
+                                           Sequence[Callable[[EventInfo], bool]]]]) \
                  -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ implementation-defined part of iterator"""
         pass
 
-    def iterate(self, start : int = 0, stop : Union[int,None] = None,
-                calibrated: bool = False, max_entries_in_mem : int = 256,
-                selector: Optional[Callable[[EventInfo], bool]] = None) \
+    def iterate(
+            self, start : int = 0, stop : Union[int, None] = None,
+            calibrated: bool = False, max_entries_in_mem : int = 256,
+            selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
+            override_skip_incomplete : Optional[bool] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
             Returns a tuple of EventInfo and the event waveforms (potentially calibrated).
         """
         if start < 0:
             start += self.N()
+
         if start < 0 or start > self.N():
             return
 
@@ -97,7 +107,7 @@ class AbstractDataset(ABC):
         if stop < 0 or start > self.N():
             return
 
-        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selector)
+        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors, override_skip_incomplete=override_skip_incomplete)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
@@ -123,6 +133,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
             voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+            cache_calibration : Optional[bool] = True,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
 
@@ -192,6 +203,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         `ROOT.mattak.VoltageCalibration`, but this is not possible to
         implement in uproot.)
 
+    cache_calibration : bool
+        If True, the adc tables used in the calibration are cached. This increases performance when calibrating
+        more than two events, typically. This comes with the cost of higher memory consumption.
+
     data_dir : deprecated
         Left here for backwards compatibility
     """
@@ -225,50 +240,62 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             import ROOT
             import mattak.backends.pyroot.mattakloader
             if verbose:
-                print('Using pyroot backend')
+                logging.debug('Using pyroot backend')
             backend = "pyroot"
-        except:
+        except ImportError:
             try:
                 import uproot
                 backend = "uproot"
                 if verbose:
-                    print('Using uproot backend')
-            except:
-                print("No backends available")
+                    logging.debug('Using uproot backend')
+            except ImportError:
+                logging.error("No backends available")
                 return None
 
     if backend == "uproot":
         import mattak.backends.uproot.dataset
         return mattak.backends.uproot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
-            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
+            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration,
+            cache_calibration=cache_calibration)
 
     elif backend == "pyroot":
         import mattak.backends.pyroot.dataset
         return mattak.backends.pyroot.dataset.Dataset(
             station, run, data_path, verbose=verbose, skip_incomplete=skip_incomplete, read_daq_status=read_daq_status,
-            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration)
+            read_run_info=read_run_info, preferred_file=preferred_file, voltage_calibration=voltage_calibration,
+            cache_calibration=cache_calibration)
 
     else:
         print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
         return None
 
-def find_voltage_calibration(rundir, station, time):
+
+def find_voltage_calibration_for_dataset(dataset):
+    """ Wrapper around find_voltage_calibration """
+    dataset.setEntries(0)
+    return find_voltage_calibration(dataset.rundir, dataset.station, dataset.eventInfo().triggerTime)
+
+
+def find_voltage_calibration(rundir, station, time, log_error=False):
     """
     Function to find the calibration file that lays closest to given time.
     Returns None if no file was found
     The order of the search is:
         * run directory
-        * under RNO_G_DATA/stationX/calibration
+        * under RNO_G_DATA/calibration/stationX
+
     Parameters
     ----------
     rundir : str
         run directory, found by each backend individually
     station : int
         station number, read from runfile to account for station = 0 case
-    time: float
+    time : float
         time of run, read as first time in trigger times
-            
+    log_error : bool (Default: False)
+        If True, log error if you can not find a calibration file. If False, only log a debug message.
+
     Returns
     -------
     vc_list[closest_idx] : str
@@ -277,7 +304,7 @@ def find_voltage_calibration(rundir, station, time):
         if no calibration file was found
     """
     # try finding a calibration file in the run directory
-    vc_list = glob.glob(f"{rundir}/volCalConst*.root/")
+    vc_list = glob.glob(f"{rundir}/volCalConst*.root")
 
     vc_dir = None
     if not vc_list:
@@ -287,22 +314,28 @@ def find_voltage_calibration(rundir, station, time):
                 vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
                 vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
                 break
-        
+
         if vc_dir is None:
-            logging.error(
-                "Could not find a directory for the calibration files." 
-                "Was RNO_G_DATA or RNO_G_ROOT_DATA defined as a system env variable?")
+            msg = ("Could not find a directory for the calibration files. "
+                "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?")
+            if log_error:
+                logging.error(msg)
+            else:
+                logging.debug(msg)
+
             return None
 
         if not vc_list:
             logging.error("Could not find any calibration files")
             return None
-        
+
     # to marginally save time when there is only one file
     if len(vc_list) == 1:
         return vc_list[0]
+
     vc_basenames = [os.path.basename(vc) for vc in vc_list]
     # extracting bias scan start time from cal_file name
     vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
+
     return vc_list[closest_idx]

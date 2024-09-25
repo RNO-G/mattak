@@ -55,7 +55,7 @@ make install # this will try to install to RNO_G_INSTALL_DIR
 ```
 
 ## Install with librno-g support
-To install mattak with librno-g support (this is for example necessary when converting RNO-G raw data), you have to set the cmake flag `-DLIBRNO_G_SUPPORT=ON`. (It might be necessary to also specify the location of librno-g, by default it looks in ../librno-g - relative to the mattak directory)
+To install mattak with librno-g support (this is for example necessary when converting RNO-G raw data), you have to set the cmake flag `-DLIBRNO_G_SUPPORT=ON`. (It might be necessary to also specify the location of librno-g using `-DLIBRNO_G_PATH`, by default it looks in ../librno-g - relative to the mattak directory)
 
 ## Setting paths
 
