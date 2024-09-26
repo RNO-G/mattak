@@ -98,6 +98,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   int nplots = __builtin_popcount(opt.mask);
   if (!nplots) return nullptr;
 
+  bool use_same = opt.same && where; 
   if (!where )
   {
     where = new TCanvas(Form("c_s%d_r%d_ev%d", wf.station_number, wf.run_number, wf.event_number), Form("Station %d, Run %d, Event %d", wf.station_number, wf.run_number, wf.event_number), opt.width, opt.height);
@@ -112,9 +113,10 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   double left_margin =opt.left_margin < 0.02 ? 0.02 : opt.left_margin;
   double first_col_ratio = 1;
 
-  if (nplots > 1)
+  if (nplots > 1 && !use_same)
   {
 
+    where->Clear();
     nrows =opt.rows ?:
                 nplots < 4 ? 1:
                 nplots < 9 ? 2:
@@ -157,7 +159,6 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       }
       where->Modified();
     }
-
   }
 
 
@@ -259,10 +260,13 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     TString the_title = g->GetTitle();
     g->SetTitle(""); // we'll draw it ourselves...
 
-    g->Draw("al");
+    g->Draw(use_same ? "lsame" : "al");
 
-    gPad->SetGridx();
-    gPad->SetGridy();
+    if (!use_same)
+    {
+      gPad->SetGridx();
+      gPad->SetGridy();
+    }
 
 
     TLatex ltx;

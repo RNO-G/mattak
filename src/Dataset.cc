@@ -1,6 +1,7 @@
 #include "mattak/Dataset.h"
 #include "TSystem.h"
 #include "TROOT.h"
+#include "TPluginManager.h" 
 #include <iostream>
 
 template <typename D>
@@ -376,16 +377,24 @@ int mattak::Dataset::loadDir(const char * dir)
   if (opt.verbose) std::cout << "about to load pedestal " << std::endl;
   if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names))
   {
-    std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) ";
-    return -1;
+    std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) " << std::endl;
   }
-  if (opt.verbose) std::cout << " success" << std::endl;
+  else
+  {
+  	if (opt.verbose) std::cout << " success" << std::endl;
+  }
 
   //and try the runinfo file
   if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
-  setup(&runinfo, Form("%s/runinfo.root", dir), "info");
-  if (opt.verbose) std::cout << " success" << std::endl;
-
+  if (setup(&runinfo, Form("%s/runinfo.root", dir), "info"))
+  {
+     std::cerr << "Failed to read runinfo ... " << std::endl;
+  }
+  else
+  {
+    if (opt.verbose) std::cout << " success" << std::endl;
+  }
+  
   return 0;
 }
 
@@ -528,4 +537,23 @@ mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
     pd.loaded_entry = entry;
   }
   return pd.ptr;
+}
+
+
+//HACK HACK HACK 
+//davix  seems to choke here for some reason, at least for me. 
+//check for an environmental variable called "MATTAK_SUPPRESS_DAVIX" 
+__attribute__((constructor))
+static void maybe_kill_davix() 
+{
+  char * suppress = getenv("MATTAK_SUPPRESS_DAVIX"); 
+
+  if (!suppress || !strcmp(suppress,"0")) return;  
+
+ // tell ROOT to load all of its plugin handlers, otherwise the first time you open a file this will happen again and override what you are about to do after this
+ gPluginMgr->LoadHandlersFromPluginDirs();
+
+  // Override the plugin handler for web files to use the legacy TWebFile instead of the newer davix which seems to be buggy
+ gPluginMgr->AddHandler("TFile", "^http[s]?:", "TWebFile","Net", "TWebFile(const char*,Option_t*)");
+
 }

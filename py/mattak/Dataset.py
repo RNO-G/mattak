@@ -8,6 +8,7 @@ from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVa
 import numpy
 import logging
 import warnings
+import libconf
 
 
 @dataclass
@@ -27,6 +28,35 @@ class EventInfo:
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
     hasWaveforms: bool = True
+
+class RunInfo:
+    """ Vassel for run information """
+
+    def __init__(
+            self, station : int, run : int,
+            run_start_time : float, run_end_time : float = 0,
+            # Before we added the sampling rate to the run info, we used 3200 as a default
+            sampling_rate : float = 3200,
+            flower_codes : Sequence[int] = [],
+            n_events : int = 0, comment : str = "",
+            run_config : Union[str, dict] = None):
+
+        self.station = station
+        self.run = run
+        self.n_events = n_events
+        self.run_start_time = run_start_time
+        self.run_end_time = run_end_time
+        self.sampling_rate = sampling_rate
+        self.comment = comment
+        self.flower_codes = flower_codes
+
+        if isinstance(run_config, str):
+            self.run_config = read_run_config(run_config)
+        else:
+            self.run_config = run_config
+
+    def set_run_config(self, run_config):
+        self.run_config = run_config
 
 
 class AbstractDataset(ABC):
@@ -69,10 +99,50 @@ class AbstractDataset(ABC):
             self.first = i
             self.last = i + 1
 
+    def getEntries(self) -> Union[int, Tuple[int, int]]:
+        """ Get the currently selected entries """
+        if self.multiple:
+            return (self.first, self.last)
+        return self.entry
 
     def N(self) -> int:
         """ Return the number of events available in this dataset"""
         return 0
+
+    def duration(self) -> float:
+        """ Return the duration of the run in seconds """
+
+        # cache the current entry to restore it later
+        orig_entry = self.getEntries()
+
+        # Currently the best estimate for the duration is the trigger time difference between the first and last event
+        # In the future we record the acquisition start and end time in the run info ...
+
+        self.setEntries(0)
+        first_event = self.eventInfo()
+
+        self.setEntries(self.N() - 1)
+
+        last_event = self.eventInfo()
+
+        # restore the original entry
+        self.setEntries(orig_entry)
+
+        return last_event.triggerTime - first_event.triggerTime
+
+    def is_calibration_run(self) -> Union[bool, None]:
+        """ Returns True if the run is a calibration run. Returns None if information is not available """
+
+        if self.run_info is None:
+            raise ValueError("Run info is not available")
+
+        if self.run_info.run_config is None:
+            raise ValueError("Run config is not available")
+
+        if "calib" not in self.run_info.run_config:
+            return False
+
+        return self.run_info.run_config["calib"]["enable_cal"]
 
 
     @abstractmethod
@@ -339,3 +409,15 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
 
     return vc_list[closest_idx]
+
+
+def read_run_config(path : str) -> dict:
+    """ Read in the run config. Return it as a dictionary """
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Could not find run config file {path}")
+
+    with open(path, "r") as f:
+        conf = libconf.load(f)
+
+    return conf
