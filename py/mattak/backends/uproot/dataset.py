@@ -226,7 +226,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     # section to properly abuse it
                     config = configparser.ConfigParser()
                     config.read_string('[dummy]\n' + fruninfo.read())
-                    self.run_info = config['dummy']
+                    run_info = config['dummy']
+
+                    run_info = {k.lower().replace("-", "_"): v for k, v in run_info.items()}
+
+                    if "run_end_time" not in run_info:
+                        raise ValueError(
+                            "Could not find \"RUN-END-TIME\" in runinfo.txt. "
+                            "This indicates that the run data are incomplete")
+
+                    self.run_info = mattak.Dataset.RunInfo(
+                        station=run_info["station"],
+                        run=run_info["run"],
+                        run_start_time=run_info["run_start_time"],
+                        run_end_time=run_info["run_end_time"],
+                        sampling_rate=run_info["radiant_samplerate"],
+                        run_config=f"{self.rundir}/cfg/acq.cfg"
+                    )
+
+
 
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
@@ -283,7 +301,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         except uproot.exceptions.KeyInFileError:
             if self.run_info is not None:
-                sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+                sampleRate = float(self.run_info.sampling_rate) / 1000
             else:
                 sampleRate = 3.2  # GHz
 
@@ -457,7 +475,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
         # cache current values given by setEntries(..)
-        original_entry : Union[int, Tuple[int, int]] = (self.first, self.last) if self.multiple else self.entry
+        original_entry = self.getEntries()
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)

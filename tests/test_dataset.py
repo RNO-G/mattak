@@ -19,7 +19,7 @@ if __name__ == "__main__":
         print(f">----- Testing backend: {backend} -----<")
         d = mattak.Dataset.Dataset(
             args.station, args.run, data_path=args.data_dir,
-            backend=backend, verbose=False,
+            backend=backend, verbose=True,
             voltage_calibration=args.voltage_calibration)
 
         print(d.N())

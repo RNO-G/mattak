@@ -376,16 +376,24 @@ int mattak::Dataset::loadDir(const char * dir)
   if (opt.verbose) std::cout << "about to load pedestal " << std::endl;
   if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names))
   {
-    std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) ";
-    return -1;
+    std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) " << std::endl;
   }
-  if (opt.verbose) std::cout << " success" << std::endl;
+  else
+  {
+  	if (opt.verbose) std::cout << " success" << std::endl;
+  }
 
   //and try the runinfo file
   if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
-  setup(&runinfo, Form("%s/runinfo.root", dir), "info");
-  if (opt.verbose) std::cout << " success" << std::endl;
-
+  if (setup(&runinfo, Form("%s/runinfo.root", dir), "info"))
+  {
+     std::cerr << "Failed to read runinfo ... " << std::endl;
+  }
+  else
+  {
+    if (opt.verbose) std::cout << " success" << std::endl;
+  }
+  
   return 0;
 }
 
