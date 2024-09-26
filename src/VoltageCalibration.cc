@@ -858,7 +858,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   general_tree->Branch("stationNumber", &station_number, "stationNumber/I");
   general_tree->Branch("startTime", &start_time, "startTime/i");
   general_tree->Branch("endTime", &end_time, "endTime/i");
-  general_tree->Branch("fit_is_using_residual", &fit_is_using_residual, "fit_is_using_residual/O");
+  general_tree->Branch("fit_isUsingResidA", &fit_is_using_residual, "fit_is_using_residual/O");
   general_tree->SetDirectory(&f);
   general_tree->Fill();
   general_tree->Write();
@@ -934,7 +934,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile)
   general_tree->SetBranchAddress("stationNumber", &station_number);
   general_tree->SetBranchAddress("startTime", &start_time);
   general_tree->SetBranchAddress("endTime", &end_time);
-  general_tree->SetBranchAddress("fit_is_using_residual", &fit_is_using_residual);
+  general_tree->SetBranchAddress("fit_isUsingResid", &fit_is_using_residual);
   general_tree->GetEntry(0);
 
   TTree *fitCoeffs_tree = (TTree*)inputFile->Get("coeffs_tree");
