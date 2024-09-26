@@ -33,9 +33,10 @@ jobs:
     - name: Download sample file
       if: steps.cache-sample-file.outputs.cache-hit != 'true'
       run: |
-        wget https://rnog-data.zeuthen.desy.de/rnog_share/forced_triggers/station23_run325.root
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci_data/station23_run325.root
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci_data/volCalConsts_pol9_s11_1687936603-1687938078.root
         mkdir -p tests/data/station23/run325
-        mv station23_run325.root tests/data/station23/run325/combined.root
+        mv station23_run325.root volCalConsts_pol9_s11_1687936603-1687938078.root tests/data/station23/run325/combined.root
     - name: Test installation (ROOTless)
       run: |
         pip install -v .
