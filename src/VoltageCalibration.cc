@@ -858,7 +858,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   general_tree->Branch("stationNumber", &station_number, "stationNumber/I");
   general_tree->Branch("startTime", &start_time, "startTime/i");
   general_tree->Branch("endTime", &end_time, "endTime/i");
-  general_tree->Branch("fit_isUsingResidA", &fit_is_using_residual, "fit_is_using_residual/O");
+  general_tree->Branch("fit_isUsingResid", &fit_is_using_residual, "fit_is_using_residual/O");
   general_tree->SetDirectory(&f);
   general_tree->Fill();
   general_tree->Write();
