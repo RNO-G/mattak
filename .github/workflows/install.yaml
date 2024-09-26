@@ -44,6 +44,7 @@ jobs:
     - name: Read a sample file (ROOTless)
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --calibrate
     - name: Cache ROOT
       id: cache-root
       uses: actions/cache@v4
@@ -67,6 +68,7 @@ jobs:
       run: |
         source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --calibrate
     - name: Read a sample file (all)
       run: |
         source root/bin/thisroot.sh
