@@ -228,6 +228,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     config.read_string('[dummy]\n' + fruninfo.read())
                     self.run_info = config['dummy']
 
+        self.has_calib = False
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
         elif isinstance(voltage_calibration, str):
