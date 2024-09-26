@@ -42,7 +42,8 @@ class VoltageCalibration(object):
         self.NUM_BITS = 4096
 
         if not isinstance(table_step_size, float) and table_step_size != "exact" and table_step_size != "residual":
-            raise ValueError(f"`table_step_size` has to be either a float or \"exact\" or \"residual\" but is: {table_step_size}")
+            raise ValueError("`table_step_size` has to be either a float or "
+                             f"\"exact\" or \"residual\" but is: {table_step_size}")
 
         self.table_step_size = table_step_size
 
@@ -94,6 +95,22 @@ class VoltageCalibration(object):
 
 
     def get_lookup_table_per_adc(self, adcs, voltage):
+        """ Interpolates the table ADC -> Voltage to every possible ADC count to create a lookup table
+
+        Parameters
+        ----------
+        adcs : array
+            ADC counts corresponding to bias voltage.
+            Can be of shape (channel, samples, counts) or (samples, counts).
+
+        voltage : array
+            Bias voltage corresponding to ADC counts. Has shape counts.
+
+        Returns
+        -------
+        adcs : array
+            Extended ADC count array with the last dimension `counts` fitting the number of bits.
+        """
         if adcs.shape[0] == self.NUM_DIGI_SAMPLES:
             adcs = numpy.expand_dims(adcs, axis=0)
 
@@ -103,6 +120,7 @@ class VoltageCalibration(object):
 
 
     def get_adcs_from_parameters(self, voltage=None, channel=None, add_residual=True):
+        """ Create ADC count tables form the 9-pol parameter of the calibration  """
 
         assert not self.full_bias_scan, "No calibration available"
 
@@ -147,6 +165,7 @@ class VoltageCalibration(object):
 
 
     def get_adcs_from_biasscan(self):
+        """ Create ADC count tables directly from the bias scans  """
 
         assert self.full_bias_scan, "No bias scan available"
 
@@ -391,7 +410,8 @@ def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref : float = 1.5,
         for s in range(num_samples):
             two_bins_around_pedestal = [vidx[dac] - 1, vidx[dac]]
             adc_rescaled[ch, s, :] = \
-                adc[ch, s, :] - numpy.interp(Vref, vbias[two_bins_around_pedestal, dac], adc[ch, s, two_bins_around_pedestal])
+                adc[ch, s, :] - numpy.interp(
+                    Vref, vbias[two_bins_around_pedestal, dac], adc[ch, s, two_bins_around_pedestal])
 
     vbias_rescaled = vbias - Vref
     return vbias_rescaled, adc_rescaled
@@ -401,7 +421,7 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
                   starting_window : Union[float, int],
                   num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
                   num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
-                  )-> numpy.ndarray:
+                  ) -> numpy.ndarray:
     """
     Function that interpolates raw bias scans to perform ADC to voltage conversion
     (for testing purposes)
