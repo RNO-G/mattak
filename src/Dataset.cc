@@ -1,6 +1,7 @@
 #include "mattak/Dataset.h"
 #include "TSystem.h"
 #include "TROOT.h"
+#include "TPluginManager.h" 
 #include <iostream>
 
 template <typename D>
@@ -536,4 +537,23 @@ mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
     pd.loaded_entry = entry;
   }
   return pd.ptr;
+}
+
+
+//HACK HACK HACK 
+//davix  seems to choke here for some reason, at least for me. 
+//check for an environmental variable called "MATTAK_SUPPRESS_DAVIX" 
+__attribute__((constructor))
+static void maybe_kill_davix() 
+{
+  char * suppress = getenv("MATTAK_SUPPRESS_DAVIX"); 
+
+  if (!suppress || !strcmp(suppress,"0")) return;  
+
+ // tell ROOT to load all of its plugin handlers, otherwise the first time you open a file this will happen again and override what you are about to do after this
+ gPluginMgr->LoadHandlersFromPluginDirs();
+
+  // Override the plugin handler for web files to use the legacy TWebFile instead of the newer davix which seems to be buggy
+ gPluginMgr->AddHandler("TFile", "^http[s]?:", "TWebFile","Net", "TWebFile(const char*,Option_t*)");
+
 }
