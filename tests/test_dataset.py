@@ -10,10 +10,11 @@ if __name__ == "__main__":
     argparser.add_argument('--run', type=int, default=0)
     argparser.add_argument('--data_dir', type=str, default=None)
     argparser.add_argument('--voltage_calibration', '-vc', type=str, default=None)
+    argparser.add_argument('--calibrate', action="store_true")
     argparser.add_argument('--backend', nargs='*', help="Which backend(s) to test", default=['pyroot', 'uproot'])
     args = argparser.parse_args()
 
-    calibrated = args.voltage_calibration is not None
+    calibrated = args.calibrate
 
     for backend in args.backend:
         print(f">----- Testing backend: {backend} -----<")
