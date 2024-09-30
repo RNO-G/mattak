@@ -20,15 +20,22 @@ def get_vref(run_folder:str):
     vref: float
         pedestal used in the run, if no pedestal found defaults to 1.5
     """
-    try:
-        pedestalFile = ROOT.TFile.Open(f"{run_folder}/pedestal.root", "READ")
-        pedestalTree = pedestalFile.pedestals
-        pedestalLeaf = pedestalTree.GetLeaf("vbias")
-        pedestalTree.GetEntry(0)
-        pedestal = pedestalLeaf.GetValue()
-    except:
-        logging.warning("Unable to open pedestal file / find pedestal value, using default value of 1.5")
-        pedestal = 1.5
+    pedestal = 1.5
+
+    for pedestalname in ["pedestal.root", "pedestals.root"]:
+        try:
+            pedestalFile = ROOT.TFile.Open(f"{run_folder}/{pedestalname}", "READ")
+            pedestalTree = pedestalFile.pedestals
+            pedestalLeaf = pedestalTree.GetLeaf("vbias")
+            pedestalTree.GetEntry(0)
+            pedestal = pedestalLeaf.GetValue()
+        except:
+            continue
+        else:
+            break
+
+    if pedestal == 1.5:
+        logging.warning("Unable to open pedestal(s) file / find pedestal value, using default value of 1.5")
 
     return pedestal
 
