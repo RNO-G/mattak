@@ -62,15 +62,15 @@ if __name__ == '__main__':
     bias_scan_directory =  os.path.dirname(bias_scan_path)
 
     if args.vref is None:
-        if os.path.exists(f"{bias_scan_directory}/pedestal.root"):
+        if ( os.path.exists(f"{bias_scan_directory}/pedestal.root") or os.path.exists(f"{bias_scan_directory}/pedestals.root") ):
             vref = get_vref(bias_scan_directory)
         else:
-            logging.warning("Could not find \"pedestal.root\" in the same folder. Using default value for reference voltage of 1.5V")
+            logging.warning("Could not find \"pedestal(s).root\" in the same folder. Using default value for reference voltage of 1.5V")
             vref = 1.5
     else:
         vref = args.vref
 
-    vc = ROOT.mattak.VoltageCalibration(args.bias_scan, vref)
+    vc = ROOT.mattak.VoltageCalibratioin(args.bias_scan, vref)
 
     # Jump into the directory in which to store the calibration
     if args.destination_folder is not None:
