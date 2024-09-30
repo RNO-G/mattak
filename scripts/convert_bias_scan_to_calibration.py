@@ -21,7 +21,7 @@ def get_vref(run_folder:str):
         pedestal used in the run, if no pedestal found defaults to 1.5
     """
     try:
-        pedestalFile = ROOT.TFile.Open(f"{run_folder}/pedestals.root", "READ")
+        pedestalFile = ROOT.TFile.Open(f"{run_folder}/pedestal.root", "READ")
         pedestalTree = pedestalFile.pedestals
         pedestalLeaf = pedestalTree.GetLeaf("vbias")
         pedestalTree.GetEntry(0)
@@ -55,10 +55,10 @@ if __name__ == '__main__':
     bias_scan_directory =  os.path.dirname(bias_scan_path)
 
     if args.vref is None:
-        if os.path.exists(f"{bias_scan_directory}/pedestals.root"):
+        if os.path.exists(f"{bias_scan_directory}/pedestal.root"):
             vref = get_vref(bias_scan_directory)
         else:
-            logging.warning("Could not find \"pedestals.root\" in the same folder. Using default value for reference voltage of 1.5V")
+            logging.warning("Could not find \"pedestal.root\" in the same folder. Using default value for reference voltage of 1.5V")
             vref = 1.5
     else:
         vref = args.vref
