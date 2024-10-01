@@ -65,9 +65,6 @@ class VoltageCalibration(object):
         self.NUM_DIGI_SAMPLES = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
         self.NUM_BITS = 4096
 
-        if not isinstance(table_step_size, float):
-            raise ValueError(f"`table_step_size` has to be either a float but is: {table_step_size}")
-
         self.table_step_size = table_step_size
         self.__caching = caching
         self.__caching_mode = caching_mode
@@ -100,6 +97,9 @@ class VoltageCalibration(object):
 
                 if numpy.any(self.__cal_residuals_v[0] < self.fit_min) or numpy.any(self.__cal_residuals_v[0] > self.fit_max):
                     raise ValueError("The pedestal voltage of the bias scan (residual) exceeds fit limits!")
+
+                self.fit_min = max([self.fit_min, self.__cal_residuals_v[0][0]])
+                self.fit_max = min([self.fit_max, self.__cal_residuals_v[0][-1]])
 
             elif "pedestals" in self.cal_file:
                 self.full_bias_scan = True
@@ -163,8 +163,8 @@ class VoltageCalibration(object):
         if self.table_step_size == 0:
             voltage = self.__cal_residuals_v[0]
         else:
-            voltage = numpy.arange(
-                self.fit_min, self.fit_max + self.table_step_size, self.table_step_size)
+            voltage = numpy.linspace(
+                self.fit_min, self.fit_max, int((self.fit_max - self.fit_min) // self.table_step_size))
 
         self.__set_voltage(voltage)
 
@@ -225,6 +225,8 @@ class VoltageCalibration(object):
         assert numpy.all(vbias[0] == vbias[1]), "Bias voltage of the two DAC is not equal"
 
         self.__set_voltage(vbias[0])
+        self.fit_min = max([self.fit_min, vbias[0][0]])
+        self.fit_max = min([self.fit_max, vbias[0][-1]])
 
         if self.__caching_mode == "lookup":
             # Running that per channel avoids peaks in the memory consumption and is also faster
