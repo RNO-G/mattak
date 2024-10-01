@@ -121,7 +121,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
 
         if skip_incomplete is False and self.data_path_is_file:
-            logging.warining("`skip_incomplete == False` is incompatible with data_dir as file. "
+            logging.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
                              "Set `skip_incomplete == True`")
             skip_incomplete = True
 

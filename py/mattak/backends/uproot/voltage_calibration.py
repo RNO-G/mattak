@@ -256,10 +256,6 @@ class VoltageCalibration(object):
         else:
             return self.__cached_tables[channel][sample]
 
-        if sample is None:
-            return self.__adc_lookup_table[channel]
-        else:
-            return self.__adc_lookup_table[channel][sample]
 
     def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
                   channels : Optional[List[int]] = None) -> numpy.ndarray:
