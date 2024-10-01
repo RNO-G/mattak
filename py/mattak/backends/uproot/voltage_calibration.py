@@ -10,7 +10,7 @@ class VoltageCalibration(object):
     def __init__(self, path : str,
                  caching : bool = True, caching_mode : str = "lookup",
                  fit_min : float = -1.3, fit_max : float = 0.7,
-                 table_step_size : float = 0.001):
+                 table_step_size : float = 0):
         """ Helper class to apply the voltage calibration for the uproot backend.
 
         This class reads-in either the "calibration root files" which contain the parameter
@@ -56,7 +56,7 @@ class VoltageCalibration(object):
             Upper bound for the upsample voltage range (in Volt).
 
         table_step_size : float (Default: 0.001)
-            Step size of the voltage used for the cached tables. If 0, use measured spacing without upsampling.
+            Step size of the voltage used for the cached tables. If 0, do not upsample the measured voltages.
             Typical step size of measurements is 16 mV (155 entries)
         """
 
