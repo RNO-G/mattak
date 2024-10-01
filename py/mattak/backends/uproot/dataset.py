@@ -309,7 +309,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         # um... yeah, that's obvious
-        radiantStartWindows = self._get_windows(kw)
+        radiantStartWindows = self._get_windows(dict(entry_start = self.first, entry_stop = self.last, library="np"))
 
         infos = []
         info = None  # if range(0)
