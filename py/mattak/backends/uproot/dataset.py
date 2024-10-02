@@ -19,13 +19,15 @@ daqstatus_tree_names = ["daqstatus", "ds", "status"]
 def find_daq_status_index(event_readout_time, daq_readout_times):
     """
     Find the corresponding entry in the daq status for a particular event (readout time).
-    Looking or the cloest entry before the event.
+    Looking or the cloest entry to the event.
     """
 
     closest_idx = numpy.argmin(numpy.abs(daq_readout_times - event_readout_time))
 
-    if daq_readout_times[closest_idx] > event_readout_time:
-        closest_idx -= 1
+    # This would enforce the entry to be before the event. But
+    # this causes a conflict with the pyroot backend
+    # if daq_readout_times[closest_idx] > event_readout_time:
+    #     closest_idx -= 1
 
     return closest_idx
 
