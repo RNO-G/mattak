@@ -15,7 +15,7 @@ def compare_event_info(ev1, ev2):
                 return False
         except ValueError:
             if not numpy.all(ev1.__dict__[key] == ev2.__dict__[key]):
-                print(key, ev1.__dict__[key].T, ev2.__dict__[key].T)
+                print(key, ev1.__dict__[key], ev2.__dict__[key])
                 return False
 
     return True
@@ -34,12 +34,12 @@ if __name__ == "__main__":
 
     dset_pyroot = mattak.Dataset.Dataset(
         args.station, args.run, data_path=args.data_dir,
-        backend="pyroot", verbose=True,
+        backend="pyroot", verbose=True, read_daq_status=True,
         voltage_calibration=args.voltage_calibration)
 
     dset_uproot = mattak.Dataset.Dataset(
         args.station, args.run, data_path=args.data_dir,
-        backend="uproot", verbose=True,
+        backend="uproot", verbose=True, read_daq_status=True,
         voltage_calibration=args.voltage_calibration)
 
     dset_pyroot.setEntries((0, 100))
