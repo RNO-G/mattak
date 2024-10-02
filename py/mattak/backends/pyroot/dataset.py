@@ -167,9 +167,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
 
-        radiantStartWindows = numpy.frombuffer(
+        # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
+        # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
+        radiantStartWindows = numpy.copy(numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
-            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
+            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
 
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
@@ -189,13 +191,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
-
         if self.multiple:
-            infos = []
-            for i in range(self.first, self.last):
-                infos.append(self._eventInfo(i))
-
-            return infos
+            return [self._eventInfo(idx) for idx in range(self.first, self.last)]
 
         return self._eventInfo(self.entry)
 

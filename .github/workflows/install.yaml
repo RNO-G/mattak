@@ -77,4 +77,5 @@ jobs:
     - name: Compare backends
       run: |
         source root/bin/thisroot.sh
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root
         python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root --calibrate
