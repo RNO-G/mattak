@@ -33,15 +33,18 @@ jobs:
     - name: Download sample file
       if: steps.cache-sample-file.outputs.cache-hit != 'true'
       run: |
-        wget https://rnog-data.zeuthen.desy.de/rnog_share/forced_triggers/station23_run325.root
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci_data/station23_run325.root
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci_data/volCalConsts_pol9_s11_1687936603-1687938078.root
         mkdir -p tests/data/station23/run325
-        mv station23_run325.root tests/data/station23/run325/combined.root
+        mv -v station23_run325.root tests/data/station23/run325/combined.root
+        mv -v volCalConsts_pol9_s11_1687936603-1687938078.root tests/data/station23/run325/
     - name: Test installation (ROOTless)
       run: |
         pip install -v .
     - name: Read a sample file (ROOTless)
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root
     - name: Cache ROOT
       id: cache-root
       uses: actions/cache@v4
@@ -65,8 +68,14 @@ jobs:
       run: |
         source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root
     - name: Read a sample file (all)
       run: |
         source root/bin/thisroot.sh
         export RNO_G_DATA="$PWD/tests/data/"
         python3 tests/test_dataset_all.py
+    - name: Compare backends
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root --calibrate

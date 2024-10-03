@@ -98,6 +98,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
 
+        self.run_info = None
+        if isNully(self.ds.info()):
+            self.__read_run_info = False
+            warnings.warn("Could not read run info")
+        elif self.__read_run_info:
+            self.run_info = mattak.Dataset.RunInfo(
+                station=self.ds.info().station,
+                run=self.ds.info().run,
+                run_start_time=self.ds.info().run_start_time,
+                run_end_time=self.ds.info().run_end_time,
+                sampling_rate=self.ds.info().radiant_sample_rate,
+                run_config=f"{self.rundir}/cfg/acq.cfg"
+            )
+        else:
+            pass
+
+
     def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
             self.vc = ROOT.mattak.VoltageCalibration()
@@ -150,9 +167,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
 
-        radiantStartWindows = numpy.frombuffer(
+        # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
+        # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
+        radiantStartWindows = numpy.copy(numpy.frombuffer(
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
-            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
+            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
 
         readout_delay = numpy.around(numpy.frombuffer(
             cppyy.ll.cast['float*'](self.ds.raw().digitizer_readout_delay_ns),
@@ -179,13 +198,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
-
         if self.multiple:
-            infos = []
-            for i in range(self.first, self.last):
-                infos.append(self._eventInfo(i))
-
-            return infos
+            return [self._eventInfo(idx) for idx in range(self.first, self.last)]
 
         return self._eventInfo(self.entry)
 
@@ -206,7 +220,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # the simple case first
         if not self.multiple:
-            return self._wfs(self.entry, calibrated)
+            # here a copy is needed to avoid overwriting the waveform in memory 
+            return numpy.copy(self._wfs(self.entry, calibrated))
 
         if self.last - self.first < 0:
             return None

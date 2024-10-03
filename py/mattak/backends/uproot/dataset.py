@@ -19,13 +19,15 @@ daqstatus_tree_names = ["daqstatus", "ds", "status"]
 def find_daq_status_index(event_readout_time, daq_readout_times):
     """
     Find the corresponding entry in the daq status for a particular event (readout time).
-    Looking or the cloest entry before the event.
+    Looking or the cloest entry to the event.
     """
 
     closest_idx = numpy.argmin(numpy.abs(daq_readout_times - event_readout_time))
 
-    if daq_readout_times[closest_idx] > event_readout_time:
-        closest_idx -= 1
+    # This would enforce the entry to be before the event. But
+    # this causes a conflict with the pyroot backend
+    # if daq_readout_times[closest_idx] > event_readout_time:
+    #     closest_idx -= 1
 
     return closest_idx
 
@@ -121,7 +123,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
 
         if skip_incomplete is False and self.data_path_is_file:
-            logging.warining("`skip_incomplete == False` is incompatible with data_dir as file. "
+            logging.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
                              "Set `skip_incomplete == True`")
             skip_incomplete = True
 
@@ -226,7 +228,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     # section to properly abuse it
                     config = configparser.ConfigParser()
                     config.read_string('[dummy]\n' + fruninfo.read())
-                    self.run_info = config['dummy']
+                    run_info = config['dummy']
+
+                    run_info = {k.lower().replace("-", "_"): v for k, v in run_info.items()}
+
+                    if "run_end_time" not in run_info:
+                        raise ValueError(
+                            "Could not find \"RUN-END-TIME\" in runinfo.txt. "
+                            "This indicates that the run data are incomplete")
+
+                    self.run_info = mattak.Dataset.RunInfo(
+                        station=run_info["station"],
+                        run=run_info["run"],
+                        run_start_time=run_info["run_start_time"],
+                        run_end_time=run_info["run_end_time"],
+                        sampling_rate=run_info["radiant_samplerate"],
+                        run_config=f"{self.rundir}/cfg/acq.cfg"
+                    )
+
+
 
         self.has_calib = False
         if voltage_calibration is None:
@@ -284,7 +304,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         except uproot.exceptions.KeyInFileError:
             if self.run_info is not None:
-                sampleRate = float(self.run_info['radiant-samplerate']) / 1000
+                sampleRate = float(self.run_info.sampling_rate) / 1000
             else:
                 sampleRate = 3.2  # GHz
 
@@ -296,7 +316,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
 
         # um... yeah, that's obvious
-        radiantStartWindows = self._get_windows(kw)
+        radiantStartWindows = self._get_windows(dict(entry_start = self.first, entry_stop = self.last, library="np"))
 
         infos = []
         info = None  # if range(0)
@@ -443,8 +463,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             starting_window = starting_window[:, channels]
 
         if w is not None:
-            # calibration
-            starting_window = starting_window[:, :, 0]
+            # conversion necessary because np.uint8 is to small to select correct samples (see VoltageCalibration.calibrate(...))
+            starting_window = numpy.array(starting_window[:, :, 0], dtype=int)
             if calibrated:
                 # this can run now both normal and raw calibration
                 w = numpy.array([self.vc(ele, starting_window[i]) for i, ele in enumerate(w)])
@@ -464,7 +484,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
 
         # cache current values given by setEntries(..)
-        original_entry : Union[int, Tuple[int, int]] = (self.first, self.last) if self.multiple else self.entry
+        original_entry = self.getEntries()
 
         # determine in how many batches we want to access the data given how much events we want to load into the RAM at once
         n_batches = math.ceil((stop - start) / max_in_mem)
