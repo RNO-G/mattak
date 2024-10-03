@@ -42,7 +42,7 @@ namespace mattak
     int height = 900;
 
     // only applicable with existing pad
-    bool same = false; 
+    bool same = false;
 
     //time base
     bool ns = true;
