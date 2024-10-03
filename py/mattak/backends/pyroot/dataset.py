@@ -173,6 +173,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
             dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
 
+        readout_delay = numpy.copy(numpy.around(numpy.frombuffer(
+            cppyy.ll.cast['float*'](self.ds.raw().digitizer_readout_delay_ns),
+            dtype = numpy.float32, count=self.NUM_CHANNELS)))
+
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
             station=self.station,
@@ -187,7 +191,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate=sampleRate,
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
-            hasWaveforms=not isNully(self.ds.raw()))
+            hasWaveforms=not isNully(self.ds.raw()),
+            readoutDelay=readout_delay)
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -213,7 +218,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # the simple case first
         if not self.multiple:
-            # here a copy is needed to avoid overwriting the waveform in memory 
+            # here a copy is needed to avoid overwriting the waveform in memory
             return numpy.copy(self._wfs(self.entry, calibrated))
 
         if self.last - self.first < 0:

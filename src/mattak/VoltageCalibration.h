@@ -56,8 +56,6 @@ namespace mattak
        * If we're loading bias scan files, this does a polynomial fit of order fit_order . for each sample in each channel for voltages betwee fit_min_V and fit_max_V.
        *
        * If fit_Vref is non-zero then the fit is fixed to cross the scan at that vref (useful if that's your nominal pedestal!)
-       *
-       *
        */
       VoltageCalibration(const char * bias_scan_file_or_saved_coeff_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
@@ -152,9 +150,6 @@ namespace mattak
   };
 #endif
 
-
-
 }
-
 
 #endif
