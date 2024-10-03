@@ -213,7 +213,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # the simple case first
         if not self.multiple:
-            return self._wfs(self.entry, calibrated)
+            # here a copy is needed to avoid overwriting the waveform in memory 
+            return numpy.copy(self._wfs(self.entry, calibrated))
 
         if self.last - self.first < 0:
             return None
