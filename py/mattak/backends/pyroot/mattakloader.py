@@ -2,6 +2,9 @@ import ROOT
 import sys
 import platform
 import os
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level = logging.DEBUG)
 from mattak import __path__ as mattak_path
 
 # this is where pip puts the compiled files
@@ -26,25 +29,34 @@ if 'macOS' in currentPlatform:
 else:
     libmattakName = 'libmattak.so'
 
+try:
+    import ROOT
+    ds = ROOT.mattak.Dataset()
+    logger.debug("Found libmattak to be already loaded.")
+    loaded = True
+except:
+    pass
+
+
 if not loaded:
-    if silent_load(libmattakName) > -1:
+    if not silent_load(libmattakName):
         loaded_path = "LD_LIBRARY_PATH"
-        # print('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
+        logger.debug('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
         loaded = True
-    elif silent_load('build/'+libmattakName) > -1:
-        # print('Successsfully found ' + libmattakName + ' in build')
+    elif not silent_load('build/'+libmattakName):
+        logger.debug('Successsfully found ' + libmattakName + ' in build')
         loaded_path = "build"
         loaded = True
     else:
         ROOT.gInterpreter.AddIncludePath(mattak_include_path)
-        if silent_load(os.path.join(mattak_path, libmattakName)) > -1:
-            print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
+        if not silent_load(os.path.join(mattak_path, libmattakName)):
+            logger.debug('Successsfully found ' + libmattakName + ' in ' + mattak_path)
             loaded_path = mattak_path
             loaded = True
         else:
           for path in sys.path:
-             if silent_load(path + '/mattak/backends/pyroot/'+libmattakName) > -1:
-                 # print('Successsfully found ' + libmattakName + ' in ', path)
+             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
+                 logger.debug('Successsfully found ' + libmattakName + ' in ', path)
                  loaded_path = path
                  loaded = True
                  break
