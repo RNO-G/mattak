@@ -27,23 +27,23 @@ else:
     libmattakName = 'libmattak.so'
 
 if not loaded:
-    if not silent_load(libmattakName):
+    if silent_load(libmattakName) > -1:
         loaded_path = "LD_LIBRARY_PATH"
         # print('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
         loaded = True
-    elif not silent_load('build/'+libmattakName):
+    elif silent_load('build/'+libmattakName) > -1:
         # print('Successsfully found ' + libmattakName + ' in build')
         loaded_path = "build"
         loaded = True
     else:
         ROOT.gInterpreter.AddIncludePath(mattak_include_path)
-        if not silent_load(os.path.join(mattak_path, libmattakName)):
+        if silent_load(os.path.join(mattak_path, libmattakName)) > -1:
             print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
             loaded_path = mattak_path
             loaded = True
         else:
           for path in sys.path:
-             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
+             if silent_load(path + '/mattak/backends/pyroot/'+libmattakName) > -1:
                  # print('Successsfully found ' + libmattakName + ' in ', path)
                  loaded_path = path
                  loaded = True
