@@ -5,3 +5,7 @@ __pycache__/
 # For VS code users
 .vscode/ 
 
+# For test data
+tests/data/
+
+*png
