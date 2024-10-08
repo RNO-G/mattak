@@ -4,7 +4,6 @@ import platform
 import os
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level = logging.DEBUG)
 from mattak import __path__ as mattak_path
 
 # this is where pip puts the compiled files
@@ -30,13 +29,11 @@ else:
     libmattakName = 'libmattak.so'
 
 try:
-    import ROOT
-    ds = ROOT.mattak.Dataset()
-    logger.debug("Found libmattak to be already loaded.")
-    loaded = True
+    if ROOT.mattak is not None:
+        logger.debug("Found libmattak to be already loaded.")
+        loaded = True
 except:
     pass
-
 
 if not loaded:
     if not silent_load(libmattakName):
