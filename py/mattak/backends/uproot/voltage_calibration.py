@@ -7,10 +7,11 @@ import uproot
 
 class VoltageCalibration(object):
 
-    def __init__(self, path : str,
-                 caching : bool = True, caching_mode : str = "lookup",
-                 fit_min : float = -1.3, fit_max : float = 0.7,
-                 table_step_size : float = 0):
+    def __init__(
+            self, path : str,
+            caching : bool = True, caching_mode : str = "lookup",
+            fit_min : float = -1.3, fit_max : float = 0.7,
+            table_step_size : float = 0):
         """ Helper class to apply the voltage calibration for the uproot backend.
 
         This class reads-in either the "calibration root files" which contain the parameter
@@ -152,8 +153,9 @@ class VoltageCalibration(object):
             adcs = numpy.expand_dims(adcs, axis=0)
 
         adcs = numpy.squeeze([[
-            numpy.interp(numpy.arange(self.NUM_BITS) - self.NUM_BITS // 2,
-                         adcs_sample, voltage, left=self.fit_min, right=self.fit_max)
+            numpy.interp(
+                numpy.arange(self.NUM_BITS) - self.NUM_BITS // 2,
+                adcs_sample, voltage, left=self.fit_min, right=self.fit_max)
             for adcs_sample in adcs_channel] for adcs_channel in adcs])
 
         return self.convert_to_ints(adcs)
@@ -261,8 +263,9 @@ class VoltageCalibration(object):
             return self.__cached_tables[channel][sample]
 
 
-    def calibrate(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
-                  channels : Optional[List[int]] = None) -> numpy.ndarray:
+    def calibrate(
+            self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+            channels : Optional[List[int]] = None) -> numpy.ndarray:
         """
         The calibration function that transforms waveforms from ADC to voltage. Uses caching.
 
@@ -311,8 +314,9 @@ class VoltageCalibration(object):
         if self.__caching:
             return self.calibrate(waveform_array, starting_window)
         else:
-            return calibrate(waveform_array, self.__cal_param, [self.__voltage, self.__voltage],
-                             self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
+            return calibrate(
+                waveform_array, self.__cal_param, [self.__voltage, self.__voltage],
+                self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
 
     def plot_ch(self, ax1=None, xs=numpy.linspace(-1000, 1000, 100), ch=0):
 
@@ -398,9 +402,10 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
         numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
 
 
-def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory,
-                         num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
-                         num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
+def unpack_raw_bias_scan(
+        bias_scan : uproot.ReadOnlyDirectory,
+        num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
+        num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
     """
     Parser for the raw bias scans, used when performing a "raw" voltage calibration
     (for testing purposes)
@@ -432,9 +437,10 @@ def unpack_raw_bias_scan(bias_scan : uproot.ReadOnlyDirectory,
     return vbias, adc
 
 
-def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref : float = 1.5,
-                num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
-                num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
+def rescale_adc(
+        vbias : numpy.ndarray, adc : numpy.ndarray, Vref : float = 1.5,
+        num_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
+        num_channels : Optional[int] = mattak.Dataset.AbstractDataset.NUM_CHANNELS) -> tuple:
 
     """
     Rescaling function to set the base pedestal ( 1.5 V ) as the origin
@@ -466,11 +472,12 @@ def rescale_adc(vbias : numpy.ndarray, adc : numpy.ndarray, Vref : float = 1.5,
     return vbias_rescaled, adc_rescaled
 
 
-def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : numpy.ndarray,
-                  starting_window : Union[float, int],
-                  num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
-                  num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
-                  ) -> numpy.ndarray:
+def raw_calibrate(
+        waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : numpy.ndarray,
+        starting_window : Union[float, int],
+        num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
+        num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+        ) -> numpy.ndarray:
     """
     Function that interpolates raw bias scans to perform ADC to voltage conversion
     (for testing purposes)
@@ -503,13 +510,14 @@ def raw_calibrate(waveform_array : numpy.ndarray, vbias : numpy.ndarray, adc : n
     return waveform_volt
 
 
-def calibrate(waveform_array : numpy.ndarray, param : numpy.ndarray,
-              vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
-              upsampling : bool = True,
-              fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005,
-              num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
-              num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
-              ) -> numpy.ndarray:
+def calibrate(
+        waveform_array : numpy.ndarray, param : numpy.ndarray,
+        vres : numpy.ndarray, res : numpy.ndarray, starting_window : Union[float, int],
+        upsampling : bool = True,
+        fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005,
+        num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
+        num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+        ) -> numpy.ndarray:
     """
     The calibration function that transforms waveforms from ADC to voltage. Uses no caching
 
