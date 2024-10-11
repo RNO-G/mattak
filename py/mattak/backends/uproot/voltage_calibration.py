@@ -82,37 +82,41 @@ class VoltageCalibration(object):
 
         self.__path = path
         if path.endswith(".root"):
-            self.cal_file = uproot.open(path)
-            if "coeffs_tree" in self.cal_file:
-                self.full_bias_scan = False
-                self.__cal_param = unpack_cal_parameters(self.cal_file)
-                self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(self.cal_file)
+            with uproot.open(path) as cal_file:
+                if "coeffs_tree" in cal_file:
+                    self.full_bias_scan = False
+                    self.__cal_param = unpack_cal_parameters(cal_file)
+                    self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(cal_file)
 
-                self.__cal_residuals_v = self.__cal_residuals_v.T
-                self.__cal_residuals_adc = self.__cal_residuals_adc.T
+                    self.__cal_residuals_v = self.__cal_residuals_v.T
+                    self.__cal_residuals_adc = self.__cal_residuals_adc.T
 
-                if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
-                    raise ValueError("The pedestal voltage of the bias scan (residual) is different for the two DAC, "
-                                     "the code expects them to be the same!")
-
-                if numpy.any(self.__cal_residuals_v[0] < self.fit_min) or numpy.any(self.__cal_residuals_v[0] > self.fit_max):
-                    raise ValueError("The pedestal voltage of the bias scan (residual) exceeds fit limits!")
-
-                self.fit_min = max([self.fit_min, self.__cal_residuals_v[0][0]])
-                self.fit_max = min([self.fit_max, self.__cal_residuals_v[0][-1]])
-
-            elif "pedestals" in self.cal_file:
-                self.full_bias_scan = True
-                self.__vbias, self.__adc = unpack_raw_bias_scan(self.cal_file)
-
-                if numpy.any(self.__vbias[:, 0] != self.__vbias[:, 1]):
-                    raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
+                    if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
+                        raise ValueError("The pedestal voltage of the bias scan (residual) is different for the two DAC, "
                                         "the code expects them to be the same!")
 
-                # No need to check if `self.__vbias`` is within `fit_min``, `fit_max`` here, that happens
-                # in `get_adcs_from_biasscan`.
-            else:
-                raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
+                    if numpy.any(self.__cal_residuals_v[0] < self.fit_min) or numpy.any(self.__cal_residuals_v[0] > self.fit_max):
+                        raise ValueError("The pedestal voltage of the bias scan (residual) exceeds fit limits!")
+
+                    self.fit_min = max([self.fit_min, self.__cal_residuals_v[0][0]])
+                    self.fit_max = min([self.fit_max, self.__cal_residuals_v[0][-1]])
+
+                    self.time = int(cal_file["general_tree"]["startTime"].array(library="np")[0])
+
+                elif "pedestals" in cal_file:
+                    self.full_bias_scan = True
+                    self.__vbias, self.__adc = unpack_raw_bias_scan(cal_file)
+
+                    if numpy.any(self.__vbias[:, 0] != self.__vbias[:, 1]):
+                        raise ValueError("The pedestal voltage of the bias scan is different for the two DAC, "
+                                            "the code expects them to be the same!")
+
+                    self.time = int(cal_file["pedestals"]["when"].array(library="np")[0])
+
+                    # No need to check if `self.__vbias`` is within `fit_min``, `fit_max`` here, that happens
+                    # in `get_adcs_from_biasscan`.
+                else:
+                    raise ValueError("No 'coeffs_tree' or 'pedestals' keys found in the root file")
         else:
             raise ValueError(f"{path} is not recognized as a root file")
 
