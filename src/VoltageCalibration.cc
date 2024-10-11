@@ -967,7 +967,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   getAveResidGraph_dac1()->Write();
   getAveResidGraph_dac2()->Write();
 
-  std::cout << "All voltage calibration constants saved in file: " << outFileName << "\n\n" << std::endl;
+  std::cout << "\nAll voltage calibration constants saved in file: " << outFileName << "\n\n" << std::endl;
   f.Close();
 }
 
