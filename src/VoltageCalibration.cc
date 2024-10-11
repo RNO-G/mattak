@@ -628,7 +628,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     if (aveChisq[ichan] > 6.0)
     {
       isBad_channelAveChisqPerDOF[ichan] = true;
-      printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!\n", ichan, aveChisq[ichan]);
+      printf("\nBAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!", ichan, aveChisq[ichan]);
     }
 
     if (aveChisq[ichan] <= 6.0 && channelHasBadFit)
@@ -636,7 +636,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       for (int samp = 0; samp < badFit.size(); samp++)
       {
         int bad = badFit[samp];
-        printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!\n", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
+        printf("\nBAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
     }
     std::cout << std::endl;
