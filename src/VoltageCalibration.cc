@@ -541,7 +541,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   //
   // Calculate max deviation and chi squared
   //
-  std::cout << "\nCalculating max deviation and chi squared for fit quality validation..." << std::endl;
+  std::cout << "Calculating max deviation and chi squared for fit quality validation..." << std::endl;
 
   std::vector<double> aveChisq;
   aveChisq.resize(mattak::k::num_radiant_channels);
@@ -967,7 +967,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   getAveResidGraph_dac1()->Write();
   getAveResidGraph_dac2()->Write();
 
-  std::cout << "\n\nAll voltage calibration constants saved in file: " << outFileName << std::endl;
+  std::cout << "All voltage calibration constants saved in file: " << outFileName << "\n\n" << std::endl;
   f.Close();
 }
 
