@@ -103,6 +103,7 @@ class VoltageCalibration(object):
                     self.fit_max = min([self.fit_max, self.__cal_residuals_v[0][-1]])
 
                     self.time = int(cal_file["general_tree"]["startTime"].array(library="np")[0])
+                    self.station = int(cal_file["general_tree"]["stationNumber"].array(library="np")[0])
 
                 elif "pedestals" in cal_file:
                     self.full_bias_scan = True
@@ -113,6 +114,7 @@ class VoltageCalibration(object):
                                             "the code expects them to be the same!")
 
                     self.time = int(cal_file["pedestals"]["when"].array(library="np")[0])
+                    self.station = int(cal_file["pedestals"]["station_number"].array(library="np")[0])
 
                     # No need to check if `self.__vbias`` is within `fit_min``, `fit_max`` here, that happens
                     # in `get_adcs_from_biasscan`.
@@ -121,6 +123,14 @@ class VoltageCalibration(object):
         else:
             raise ValueError(f"{path} is not recognized as a root file")
 
+
+    def getStationNumber(self):
+        """ To copy the pyroot interface """
+        return self.station
+
+    def getStartTime(self):
+        """ To copy the pyroot interface """
+        return self.time
 
     def __set_voltage(self, value):
         """ Set the voltage vector which correspond to the `adc_table` for calibration """
