@@ -17,10 +17,10 @@ int main()
 {
 
   int station = 12345;
-  int run = 5;
+  int run = 6;
   const char * data_dir = "./";
 
-  std::ifstream file("waveforms/template4_wo_hardwareResponse_max_amp_200.txt");
+  std::ifstream file("waveforms/template4_wo_hardwareResponse_max_amp_100.txt");
   std::string adc;
   std::vector<int> wf_sig;
   while (std::getline(file, adc))

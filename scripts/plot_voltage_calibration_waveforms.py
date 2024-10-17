@@ -191,7 +191,7 @@ if __name__ == "__main__":
     else:
 
         data = defaultdict(list)
-        for vc in args.voltage_calibration[2:]:
+        for vc in args.voltage_calibration[1:]:
 
             dset = mattak.Dataset.Dataset(
                 0, 0, args.data_path,
@@ -224,48 +224,91 @@ if __name__ == "__main__":
         data = {key: np.array(value) for key, value in data.items()}
         times = data["times"]
 
-        fig, ax = plt.subplots()
-        ax2 = ax.twinx()
-
-        for y, yerr in zip(data["amaxs_mean"].T, data["amaxs_std"].T):
-            ax.errorbar(times, y, yerr, color='C0', alpha=0.3, ls="", marker="s")
-
-        for y, yerr in zip(data["amins_mean"].T, data["amins_std"].T):
-            ax.errorbar(times, y, yerr, color='C1', alpha=0.3, ls="", marker="s")
-
-        for y, yerr in zip(data["power_ratios_mean"].T, data["power_ratios_std"].T):
-            ax2.errorbar(times, y, yerr, color='C2', alpha=0.3, ls="", marker="s")
-
-        ax.errorbar(np.nan, np.nan, 0,
-                    color='C0', alpha=0.3, ls="", marker="s", label=r"$A_\mathrm{max}$")
-
-        ax.errorbar(np.nan, np.nan, 0,
-                    color='C1', alpha=0.3, ls="", marker="s", label=r"$A_\mathrm{min}$")
-
-        ax.errorbar(np.nan, np.nan, 0,
-                    color='C2', alpha=0.3, ls="", marker="s", label=r"power ratio")
-
-
-        ax.axvline(t1, color="k", ls="--", label="reference calibration")
-        ax.legend()
-
-        ax.set_ylabel(r"$\Delta A$ / mV")
-        ax2.set_ylabel(r"power ratio")
-
         years = np.unique([t.year for t in times])
 
+        def _plot(ax_):
+            ax2_ = ax_.twinx()
+            for y, yerr in zip(data["amaxs_mean"].T, data["amaxs_std"].T):
+                ax_.errorbar(times, y, yerr, color='C0', alpha=0.3, ls="", marker="s")
+
+            for y, yerr in zip(data["amins_mean"].T, data["amins_std"].T):
+                ax_.errorbar(times, y, yerr, color='C1', alpha=0.3, ls="", marker="s")
+
+            for y, yerr in zip(data["power_ratios_mean"].T, data["power_ratios_std"].T):
+                ax2_.errorbar(times, y, yerr, color='C2', alpha=0.3, ls="", marker="s")
+
+            ax_.errorbar(np.nan, np.nan, 0,
+                        color='C0', alpha=0.3, ls="", marker="s", label=r"$A_\mathrm{max}$")
+
+            ax_.errorbar(np.nan, np.nan, 0,
+                        color='C1', alpha=0.3, ls="", marker="s", label=r"$A_\mathrm{min}$")
+
+            ax_.errorbar(np.nan, np.nan, 0,
+                        color='C2', alpha=0.3, ls="", marker="s", label=r"power ratio")
+
+            return ax2_
+
         if len(years) == 1:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%m.%d'))
+
+            fig, ax = plt.subplots()
+
+            ax2 = _plot(ax)
+            ax.axvline(t1, color="k", ls="--", label="reference calibration")
+            ax.legend()
+
+            ax.set_ylabel(r"$\Delta A$ / mV")
+            ax2.set_ylabel(r"power ratio")
+            ax.set_title(
+                r"$A_\mathrm{max}^\mathrm{ref}$"
+                rf" = {adc_ref} ADC $\approx$ {adc_ref * 2500 / 4096:.2f}mV")
+
+            ax.tick_params(axis="x", rotation=25)
+
         else:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y.%m.%d'))
+            fig, axs = plt.subplots(1, 2, sharey=True, width_ratios=[1, 3])
+            fig.subplots_adjust(wspace=0.05, left=0.1, right=0.85, top=0.9, bottom=0.13)  # adjust space between Axes
 
-        ax.set_title(
-            r"$A_\mathrm{max}^\mathrm{ref}$"
-            rf" = {adc_ref} ADC $\approx$ {adc_ref * 2500 / 4096:.2f}mV")
+            ax21 = _plot(axs[0])
+            ax22 = _plot(axs[1])
 
-        ax.tick_params(axis="x", rotation=25)
+            ax21.set_axis_off()
+            y11, y12 = ax21.get_ylim()
+            y21, y22 = ax22.get_ylim()
+            ax21.set_ylim(np.amin([y11, y12]), np.amax([y21, y22]))
+            ax21.set_ylim(np.amin([y11, y12]), np.amax([y21, y22]))
 
-        fig.tight_layout()
+            axs[0].set_xlim(dt.datetime(2022, 9, 26), dt.datetime(2022, 10, 5))
+            axs[1].set_xlim(dt.datetime(2023, 4, 23), None)
+
+            # hide the spines between ax and ax2
+            axs[0].spines.right.set_visible(False)
+            axs[1].spines.left.set_visible(False)
+            ax22.spines.left.set_visible(False)
+            axs[1].tick_params(left=False)  # don't put tick on left axis
+
+            d = .5  # proportion of vertical to horizontal extent of the slanted line
+            kwargs = dict(marker=[(-1, -d), (1, d)], markersize=8,
+                        linestyle="none", color='k', mec='k', mew=1, clip_on=False)
+            axs[0].plot([1, 1], [0, 1], transform=axs[0].transAxes, **kwargs)
+            axs[1].plot([0, 0], [0, 1], transform=axs[1].transAxes, **kwargs)
+
+            axs[0].set_xticks([dt.datetime(2022, 9, 27), dt.datetime(2022, 10, 1)])
+
+            for ax in axs:
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y.%m.%d'))
+                ax.tick_params(axis="x", rotation=25)
+
+            axs[0].set_ylabel(r"$\Delta A$ / mV")
+            ax22.set_ylabel(r"power ratio")
+
+            axs[1].axvline(t1, color="k", ls="--", label="reference calibration")
+            axs[1].legend()
+
+            fig.suptitle(
+                r"$A_\mathrm{max}^\mathrm{ref}$"
+                rf" = {adc_ref} ADC $\approx$ {adc_ref * 2500 / 4096:.2f}mV")
+
+        # fig.tight_layout()
         tstr = t1_str + "-" + times[-1].strftime('%Y.%m.%d') + f"-{len(times)}"
         fig.savefig(
             f"diff_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}{args.label}.png")
