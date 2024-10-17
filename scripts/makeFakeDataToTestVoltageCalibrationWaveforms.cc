@@ -12,14 +12,14 @@
 #include <string>
 #include <vector>
 
-"""
-To compile:
+/*
+  To compile:
 
-gcc makeFakeDataToTestVoltageCalibrationWaveforms.cc
-  -o makeFakeDataToTestVoltageCalibrationWaveforms.out -I $PWD/../install/include
-  -lmattak -L $PWD/../install/lib  $(root-config --libs) $(root-config --cflags) -Wall -lstdc++
-
-"""
+  gcc makeFakeDataToTestVoltageCalibrationWaveforms.cc \
+    -o makeFakeDataToTestVoltageCalibrationWaveforms.out -I $PWD/../install/include \
+    -lmattak -L $PWD/../install/lib  $(root-config --libs) $(root-config --cflags) -Wall -lstdc++
+  
+*/
 
 
 int main()

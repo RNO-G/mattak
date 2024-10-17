@@ -8,13 +8,13 @@
 #include "mattak/Waveforms.h"
 #include "mattak/Header.h"
 
-"""
-To compile:
+/*
+  To compile:
 
-gcc makeFakeDataToTestVoltageCalibration.cc
-  -o makeFakeDataToTestVoltageCalibration.out -I $PWD/../install/include
-  -lmattak -L $PWD/../install/lib  $(root-config --libs) $(root-config --cflags) -Wall -lstdc++
-"""
+  gcc makeFakeDataToTestVoltageCalibration.cc \
+    -o makeFakeDataToTestVoltageCalibration.out -I $PWD/../install/include \
+    -lmattak -L $PWD/../install/lib  $(root-config --libs) $(root-config --cflags) -Wall -lstdc++
+*/
 
 int main()
 {
