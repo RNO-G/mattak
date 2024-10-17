@@ -71,6 +71,7 @@ if __name__ == '__main__':
         vref = args.vref
 
     vc = ROOT.mattak.VoltageCalibration(args.bias_scan, vref)
+    ROOT.SetOwnership(vc, False)
 
     # Jump into the directory in which to store the calibration
     if args.destination_folder is not None:
