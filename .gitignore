@@ -9,3 +9,5 @@ __pycache__/
 tests/data/
 
 *png
+*root
+*out
