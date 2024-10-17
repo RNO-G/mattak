@@ -531,6 +531,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       histHighX = graph_residAve[j].GetPointX(npoints_residGraph-1);
 
       hist_resid[j] = new TH2S(histNameTitle, histNameTitle, nBinsX, histLowX, histHighX, nBinsY, histLowY, histHighY);
+      hist_resid[j]->SetDirectory(nullptr);
       hist_resid[j]->GetXaxis()->SetTitle("VBias [Volt]");
       hist_resid[j]->GetYaxis()->SetTitle("ADC Residual");
     }
