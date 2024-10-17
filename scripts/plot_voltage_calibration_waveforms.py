@@ -22,10 +22,18 @@ def plot_comparison_violin(axs, wfs1, wfs2):
     amin = np.amin(wfs1, axis=-1) - np.amin(wfs2, axis=-1)
     power = calculate_power(wfs1)
     power2 = calculate_power(wfs2)
+    power_ratio = (power - power2) / power
+
+    rms = np.sqrt(np.mean(wfs1 ** 2, axis=-1)) - np.sqrt(np.mean(wfs2 ** 2, axis=-1))
 
     label = ""
     if wfs2.ndim == 1:
         label = "2.5V / 4095"
+
+    _plot_plot_comparison_violin(axs, amax, amin, rms, power_ratio, label)
+
+def _plot_plot_comparison_violin(axs, amax, amin, rms, power_ratio, label=""):
+
 
     parts2 = axs[0].violinplot(
         amax, np.arange(24), showextrema=True, showmedians=True,
@@ -41,13 +49,19 @@ def plot_comparison_violin(axs, wfs1, wfs2):
     axs[1].axvline(0, color="k", ls="--", lw=1, label=label)
     axs[1].set_xlabel("min amplitude / mV")
 
-    power_ratio = (power - power2) / power
     parts2 = axs[2].violinplot(
-        power_ratio, np.arange(24), showextrema=True, showmedians=True,
-        vert=False, side="high", widths=1.8)
+        rms, np.arange(24), showextrema=True, showmedians=True,
+        vert=False, side="high", points=300, widths=1.8)
 
     axs[2].axvline(0, color="k", ls="--", lw=1, label=label)
-    axs[2].set_xlabel(r"power ratio")
+    axs[2].set_xlabel(r"$\Delta$RMS / mV")
+
+    parts2 = axs[3].violinplot(
+        power_ratio, np.arange(24), showextrema=True, showmedians=True,
+        vert=False, side="high", points=300, widths=1.8)
+
+    axs[3].axvline(0, color="k", ls="--", lw=1, label=label)
+    axs[3].set_xlabel(r"power ratio")
 
     if label != "":
         axs[0].legend()
@@ -60,18 +74,19 @@ if __name__ == "__main__":
 
     argparser.add_argument('data_path', type=str, default=None)
     argparser.add_argument('--voltage_calibration', '-vc', nargs="+", type=str, default=None)
+    argparser.add_argument('--label', '-l', type=str, default="")
+    argparser.add_argument('--backend', '-b', type=str, default="pyroot")
+    argparser.add_argument('--lin', action="store_true")
+
     args = argparser.parse_args()
 
     dset1 = mattak.Dataset.Dataset(
         0, 0, args.data_path,
-        backend="uproot", verbose=True, read_daq_status=False,
+        backend=args.backend, verbose=True, read_daq_status=False,
         voltage_calibration=args.voltage_calibration[0])
 
-    if len(args.voltage_calibration) >= 2:
-        dset2 = mattak.Dataset.Dataset(
-            0, 0, args.data_path,
-            backend="uproot", verbose=True, read_daq_status=False,
-            voltage_calibration=args.voltage_calibration[1])
+    if args.label != "" and not args.label.startswith("_"):
+        args.label = f"_{args.label}"
 
     # for the uncalibrate data every waveform is the same (besides position)
     dset1.setEntries(1)
@@ -79,9 +94,10 @@ if __name__ == "__main__":
     adc_ref = int(np.amax(orig_adc_trace))
     orig_adc_trace = orig_adc_trace * 2500 / 4095
 
-    dset1.setEntries((0, dset1.N()))
-    wfs1 = dset1.wfs(calibrated=True)
-    wfs1 = wfs1 * 1000 # convert to mV
+    if not args.lin:
+        dset1.setEntries((0, dset1.N()))
+        wfs1 = dset1.wfs(calibrated=True)
+        wfs1 = wfs1 * 1000 # convert to mV
 
     st = dset1.vc.getStationNumber()
     t1 = dt.datetime.fromtimestamp(dset1.vc.getStartTime())
@@ -89,23 +105,27 @@ if __name__ == "__main__":
 
     if len(args.voltage_calibration) == 1:
         # compare with linear "pseudo" calibration
-        fig, axs = plt.subplots(1, 3, sharey=True, figsize=(8, 8))
+        fig, axs = plt.subplots(1, 4, sharey=True, figsize=(10, 8))
         plot_comparison_violin(axs, wfs1, orig_adc_trace)
 
         fig.suptitle(r"$A_\mathrm{max}^\mathrm{ref}$"
                      rf" = {adc_ref} ADC $\approx$ {adc_ref * 2500 / 4096:.2f}mV")
         fig.tight_layout()
         fig.savefig(
-            f"voltage_calib_waveform_st{st}_{t1_str}_ampl{adc_ref}.png")
+            f"voltage_calib_waveform_st{st}_{t1_str}_ampl{adc_ref}{args.label}.png")
 
     elif len(args.voltage_calibration) == 2:
         # compare to calibrations
+        dset2 = mattak.Dataset.Dataset(
+            0, 0, args.data_path,
+            backend=args.backend, verbose=True, read_daq_status=False,
+            voltage_calibration=args.voltage_calibration[1])
 
         dset2.setEntries((0, dset2.N()))
         wfs2 = dset2.wfs(calibrated=True)
         wfs2 = wfs2 * 1000 # convert to mV
 
-        fig, axs = plt.subplots(1, 3, sharey=True, figsize=(8, 8))
+        fig, axs = plt.subplots(1, 4, sharey=True, figsize=(10, 8))
         plot_comparison_violin(axs, wfs1, wfs2)
 
         t2_str = dt.datetime.fromtimestamp(dset2.vc.getStartTime()).strftime('%Y.%m.%d')
@@ -117,13 +137,60 @@ if __name__ == "__main__":
         fig.tight_layout()
         tstr = t1_str + "-" + t2_str
         fig.savefig(
-            f"diff_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}.png")
+            f"diff_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}{args.label}.png")
+
+    elif args.lin:
+        data = defaultdict(list)
+        for vc in args.voltage_calibration:
+
+            dset = mattak.Dataset.Dataset(
+                0, 0, args.data_path,
+                backend="pyroot", verbose=True, read_daq_status=False,
+                voltage_calibration=vc)
+
+            dset.setEntries((0, dset.N()))
+            wfs = dset.wfs(calibrated=True)
+            wfs = wfs * 1000 # convert to mV
+
+            data["amax"].append(np.amax(wfs, axis=-1))
+            data["amin"].append(np.amin(wfs, axis=-1))
+            data["rms"].append(np.sqrt(np.mean(wfs ** 2, axis=-1)))
+            data["power"].append(calculate_power(wfs))
+
+            data["times"].append(
+                dt.datetime.fromtimestamp(dset.vc.getStartTime())
+            )
+
+
+        data = {key: np.array(value) for key, value in data.items()}
+        times = data["times"]
+
+        fig, axs = plt.subplots(1, 4, sharey=True, figsize=(10, 8))
+
+        amax = np.vstack(data["amax"]) - np.amax(orig_adc_trace)
+        print(amax.shape)
+        amin = np.vstack(data["amin"]) - np.amin(orig_adc_trace)
+        rms = np.vstack(data["rms"]) - np.sqrt(np.mean(orig_adc_trace ** 2))
+        power = np.vstack(data["power"])
+        power_ratio = (power - calculate_power(orig_adc_trace)) / power
+
+        label = "2.5V / 4095"
+        _plot_plot_comparison_violin(axs, amax, amin, rms, power_ratio, label=label)
+
+        t2_str = times[-1].strftime('%Y.%m.%d')
+        fig.suptitle(
+            r"$A_\mathrm{max}^\mathrm{ref}$"
+            rf" = {adc_ref} ADC $\approx$ {adc_ref * 2500 / 4096:.2f}mV; {t1_str} - {t2_str}")
+
+        tstr = t1_str + "-" + t2_str + f"-{len(times)}"
+
+        fig.tight_layout()
+        fig.savefig(
+            f"diff_from_lin_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}{args.label}.png")
 
     else:
 
-
         data = defaultdict(list)
-
         for vc in args.voltage_calibration[2:]:
 
             dset = mattak.Dataset.Dataset(
@@ -201,4 +268,4 @@ if __name__ == "__main__":
         fig.tight_layout()
         tstr = t1_str + "-" + times[-1].strftime('%Y.%m.%d') + f"-{len(times)}"
         fig.savefig(
-            f"diff_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}.png")
+            f"diff_voltage_calib_waveform_st{st}_{tstr}_ampl{adc_ref}{args.label}.png")
