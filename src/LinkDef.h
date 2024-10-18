@@ -24,6 +24,7 @@
 
 #pragma link C++ class mattak::RunInfo+;
 #pragma link C++ class mattak::FirmwareVersion+;
+#pragma link C++ class mattak::Detector+;
 #pragma link C++ class mattak::FlowerGainCode+;
 
 #pragma link C++ class mattak::GNSS::Sat+;

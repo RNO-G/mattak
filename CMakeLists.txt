@@ -46,6 +46,7 @@ if (NOT DEFINED ROOTLESS)
       mattak/Constants.h
       mattak/DAQStatus.h
       mattak/Sensors.h
+      mattak/Detector.h
       mattak/TriggerInfo.h
       mattak/GNSS.h
       mattak/Waveforms.h
@@ -65,6 +66,7 @@ if (NOT DEFINED ROOTLESS)
       src/Header.cc
       src/DAQStatus.cc
       src/Sensors.cc
+      src/Detector.cc
       src/TriggerInfo.cc
       src/GNSS.cc
       src/Waveforms.cc
@@ -101,6 +103,18 @@ if (NOT DEFINED ROOTLESS)
     install (FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${libname}_rdict.pcm DESTINATION ${UTIL_LIB_DIR} )
 
 
+    find_package(MONGOC-1.0)
+
+    if (MONGOC-1.0_FOUND)
+      add_definitions( -DMONGO_SUPPORT)
+      include_directories (${MONGOC-1.0_INCLUDE_DIRS})
+      include_directories ("/usr/include/libmongoc-1.0")
+      include_directories ("/usr/include/libbson-1.0")
+      set(MONGOC_LIBRARIES mongo::mongoc_shared)
+      message("Found mongo")
+    endif()
+
+
     if (LIBRNO_G_SUPPORT)
       add_definitions( -DLIBRNO_G_SUPPORT )
       find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH}/build ${UTIL_LIB_DIR})
@@ -108,9 +122,9 @@ if (NOT DEFINED ROOTLESS)
       include_directories(${UTIL_INC_DIR})
       include_directories(${LIBRNO_G_PATH}/src)
       include_directories(${LIBNUPHASE_PATH})
-      target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES})
+      target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES} ${MONGOC_LIBRARIES})
     else()
-      target_link_libraries(${libname} ${ROOT_LIBRARIES})
+      target_link_libraries(${libname} ${ROOT_LIBRARIES} ${MONGOC_LIBRARIES})
     endif()
 
     set (BINSRCDIR prog)
