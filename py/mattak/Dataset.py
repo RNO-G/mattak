@@ -9,6 +9,7 @@ import numpy
 import logging
 import warnings
 import libconf
+import datetime as dt
 
 
 @dataclass
@@ -145,7 +146,6 @@ class AbstractDataset(ABC):
 
         return self.run_info.run_config["calib"]["enable_cal"]
 
-
     @abstractmethod
     def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
                  selectors: Optional[Union[Callable[[EventInfo], bool],
@@ -197,6 +197,35 @@ class AbstractDataset(ABC):
     def get_selected_wfs(self, selector: Callable[[EventInfo], bool], calibrated : bool = False) -> Optional[numpy.ndarray]:
         """ Convenience interface to use selector """
         return numpy.array([wf for _, wf in self.iterate(start=self.first, stop=self.last, selector=selector)])
+
+
+    def tracesStartTime(self, det) -> numpy.ndarray:
+        """ Get the relative (!) trace start times.
+
+        This includes possible readout delays as well as cable^* delays.
+
+        ^*: Cable delays are used as a synonym for the entire delay between antenna and readout.
+
+        Parameters
+        ----------
+
+        det : NuRadioMC.detector.detector.Detector
+            A NuRadioMC detector object
+
+        Returns
+        -------
+        trace_start_times : numpy.ndarray
+            Array of trace start times in ns. The values are to be considered relative
+            to each other but in no means absolute.
+        """
+        readout_delays = numpy.array([ei.readoutDelay for ei in self.eventInfo()])
+
+        # this make the assumption that the detector will be valid/the same of all events
+        # within the selection ...
+        det.update(dt.datetime.fromtimestamp(self.eventInfo()[0].triggerTime))
+        cable_delays = numpy.array([det.get_cable_delay(self.station, ch) for ch in range(self.NUM_CHANNELS)])
+
+        return readout_delays + cable_delays
 
 
 def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, backend : str= "auto",
