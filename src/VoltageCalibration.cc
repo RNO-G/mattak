@@ -990,13 +990,13 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 {
   has_cache_tables_ = cache_tables;
 
-  if (!inputFile->IsOpen()) return false; 
+  if (!inputFile->IsOpen()) return false;
 
   TTree *general_tree = (TTree*)inputFile->Get("general_tree");
-  if (!general_tree) return false; 
+  if (!general_tree) return false;
 
 
-  if (general_tree->SetBranchAddress("fitOrder", &fit_order) < 0 ) return false; 
+  if (general_tree->SetBranchAddress("fitOrder", &fit_order) < 0 ) return false;
   if (general_tree->SetBranchAddress("stationNumber", &station_number) < 0) return false ;
   if (general_tree->SetBranchAddress("startTime", &start_time) < 0 ) return false;
   if (general_tree->SetBranchAddress("endTime", &end_time) < 0 ) return false;
@@ -1004,13 +1004,13 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
   general_tree->GetEntry(0);
 
   TTree *fitCoeffs_tree = (TTree*)inputFile->Get("coeffs_tree");
-  if (!fitCoeffs_tree) return false; 
+  if (!fitCoeffs_tree) return false;
   std::vector<float> coeff(fit_order + 1);
   std::vector<float> *p_coeff = &coeff;
   if (fitCoeffs_tree->SetBranchAddress("coeff", &p_coeff) < 0) return false; ;
 
   TTree *chisqValidation_tree = (TTree*)inputFile->Get("chisqValidation_tree");
-  if (!chisqValidation_tree) return false; 
+  if (!chisqValidation_tree) return false;
   std::vector<bool> sampChisqPerDOF(mattak::k::num_lab4_samples);
   std::vector<bool> *p_sampChisqPerDOF = &sampChisqPerDOF;
   bool channelAveChisqPerDOF;
@@ -1019,7 +1019,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
   const int nThresholdsPerDAC = 4; // 4 box frame thresholds for each DAC
   TTree *residValidation_tree = (TTree*)inputFile->Get("residValidation_tree");
-  if (!residValidation_tree) return false; 
+  if (!residValidation_tree) return false;
   std::vector<bool> residOutOfBoxFrame(nThresholdsPerDAC);
   std::vector<bool> *p_residOutOfBoxFrame = &residOutOfBoxFrame;
   if (residValidation_tree->SetBranchAddress("residOutOfBoxFrame", &p_residOutOfBoxFrame) < 0) return false;
@@ -1032,6 +1032,8 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
   if (!fit_isUsingResid) printf("\nNOTICE: 'fit_isUsingResid' is FALSE => The extra term residual function is not used!\n");
 
+  bool isBadFit = false;
+
   for(int iChan = 0; iChan < mattak::k::num_radiant_channels; iChan++)
   {
     chisqValidation_tree->GetEntry(iChan);
@@ -1040,6 +1042,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
     if (isBad_channelAveChisqPerDOF[iChan])
     {
       printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+      isBadFit = true;
     }
 
     fit_coeffs[iChan].clear();
@@ -1051,6 +1054,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
       {
         printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+        isBadFit = true;
       }
 
       fitCoeffs_tree->GetEntry(iChan*mattak::k::num_lab4_samples+iSamp);
@@ -1073,6 +1077,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
         else if (i == 1) printf("BAD FITTING WARNING: Some residuals in DAC-%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!\n", j+1);
         else if (i == 2) printf("BAD FITTING WARNING: Some residuals in DAC-%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!\n", j+1);
         else printf("BAD FITTING WARNING: Some residuals in DAC-%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!\n", j+1);
+        isBadFit = true;
       }
     }
 
@@ -1124,6 +1129,12 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
   hasBiasScanData = false;
   inputFile->Close();
+
+  if (isBadFit)
+  {
+    printf("BAD CALIBRATION FIT detected, refuse to use this file... ABORT...");
+    return false;
+  }
 
   if (has_cache_tables_)
   {
