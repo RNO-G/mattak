@@ -8,5 +8,7 @@ __pycache__/
 # For test data
 tests/data/
 
-*png
-*out
+*.png
+*.out
+# The dot is important here!
+*.root
