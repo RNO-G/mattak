@@ -17,6 +17,7 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     calibrated = args.calibrate
+    import mattak.backends.pyroot
     print(inspect.getmembers(mattak.backends, inspect.ismodule))
     print(inspect.getmembers(mattak, inspect.ismodule))
 
