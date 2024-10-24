@@ -2,8 +2,9 @@ import mattak.Dataset
 import time
 import numpy
 import argparse
-import mattak.backends.uproot.dataset
-
+import inspect
+import mattak.backends
+import mattak
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Test mattak.")
@@ -16,6 +17,9 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     calibrated = args.calibrate
+    print(inspect.getmembers(mattak.backends, inspect.ismodule))
+    print(inspect.getmembers(mattak, inspect.ismodule))
+
 
     for backend in args.backend:
         print(f">----- Testing backend: {backend} -----<")
