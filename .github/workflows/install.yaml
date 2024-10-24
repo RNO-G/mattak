@@ -43,6 +43,7 @@ jobs:
         pip install -v .
     - name: Read a sample file (ROOTless)
       run: |
+        echo $PYTHONPATH
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root
     - name: Cache ROOT
