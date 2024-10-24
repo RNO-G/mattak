@@ -3,7 +3,6 @@ import time
 import numpy
 import argparse
 
-
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="Test mattak.")
     argparser.add_argument('--station', type=int, default=0)
