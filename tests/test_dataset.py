@@ -2,6 +2,7 @@ import mattak.Dataset
 import time
 import numpy
 import argparse
+import mattak.backends.uproot.dataset
 
 
 if __name__ == "__main__":
