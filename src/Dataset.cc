@@ -4,6 +4,8 @@
 #include "TPluginManager.h" 
 #include <iostream>
 
+
+
 template <typename D>
 static void clear(mattak::Dataset::field<D> * field)
 {
@@ -18,9 +20,9 @@ static void clear(mattak::Dataset::field<D> * field)
 
 
 template <typename D>
-static void clear(mattak::Dataset::tree_field<D> * field)
+static void clear(mattak::Dataset::tree_field<D> * field, bool borrowed = false)
 {
-  if (field->file)
+  if (!borrowed && field->file)
   {
     delete field->file;
   }
@@ -49,6 +51,31 @@ static void clear(mattak::Dataset::file_field<D> * field)
 #else
 #define BITBUCKET "/dev/null"
 #endif
+
+void mattak::Dataset::setupRadiantMeta()
+{
+
+  // HACK: separately make the sample rate from the waveform file
+  clear(&sample_rate,true);
+  clear(&delays,true);
+  sample_rate.branch = wf.tree->GetBranch("radiant_sampling_rate");
+  if (sample_rate.branch)
+  {
+    sample_rate.ptr = new uint32_t; //ugh
+    sample_rate.file = wf.file;
+    sample_rate.tree = wf.tree;
+    sample_rate.branch->SetAddress(sample_rate.ptr);
+  }
+
+  delays.branch = wf.tree->GetBranch("digitizer_readout_delay_ns");
+  if (delays.branch)
+  {
+    delays.ptr = new std::array<float, mattak::k::num_radiant_channels> {};
+    delays.file = wf.file;
+    delays.tree = wf.tree;
+    delays.branch->SetAddress(delays.ptr);
+  }
+}
 
 /** Silently check if file exists, supporting all protocols ROOT does */
 static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
@@ -126,6 +153,8 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
 void mattak::Dataset::unload()
 {
   clear(&wf);
+  clear(&sample_rate,true);
+  clear(&delays,true);
   clear(&hd);
   clear(&ds);
   clear(&pd);
@@ -270,6 +299,9 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     std::cerr << "Could not load waveforms and headers from " << f << std::endl;
     return -1;
   }
+
+  setupRadiantMeta();
+
   if (opt.verbose) std::cout << "Found waveforms and headers in" << f << std::endl;
 
   // Try some optionalish things
@@ -344,6 +376,8 @@ int mattak::Dataset::loadDir(const char * dir)
     }
   }
 
+  setupRadiantMeta();
+ 
   //now load the header files
   if (opt.verbose) std::cout << "about to load headers " << std::endl;
   if (setup(&hd, Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), header_tree_names))
@@ -427,34 +461,53 @@ mattak::Header* mattak::Dataset::header(bool force)
   return hd.ptr;
 }
 
-mattak::Waveforms* mattak::Dataset::raw(bool force)
+template <typename T> 
+static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force)
 {
-  if (force || wf.loaded_entry != current_entry)
+  if (force || field->loaded_entry != d->currentEntry())
   {
-    if (wf.tree == nullptr) return nullptr;
-
-    if (full_dataset || opt.partial_skip_incomplete)
+    if (d->isFullDataset() || d->getOpt().partial_skip_incomplete)
     {
-      wf.branch->GetEntry(current_entry);
+      field->branch->GetEntry(d->currentEntry());
     }
     else
     {
-      int wf_entry = wf.tree->GetEntryNumberWithIndex(header(force)->event_number);
-      if (wf_entry < 0)
+      int entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      if (entry < 0) 
       {
-        wf.missing_entry = true;
+        field->missing_entry = true;
       }
       else
       {
-        wf.missing_entry = false;
-        wf.branch->GetEntry(wf_entry);
+        field->missing_entry = false; 
+        field->branch->GetEntry(entry);
       }
-
     }
-
-    wf.loaded_entry = current_entry;
   }
+}
 
+
+float mattak::Dataset::radiantSampleRate(bool force)
+{
+  if (sample_rate.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  findIncompleteEntry(&sample_rate,this, force);
+  return sample_rate.missing_entry ? 3200 : ((float) *sample_rate.ptr);
+}
+
+static std::array<float, mattak::k::num_radiant_channels> zeros{}; 
+
+const float *  mattak::Dataset::radiantReadoutDelays(bool force)
+{
+  if (delays.ptr == nullptr) return (const float*) &zeros; 
+  findIncompleteEntry(&delays,this, force);
+  return (const float*)  (  delays.missing_entry ? &zeros : delays.ptr );
+}
+
+
+mattak::Waveforms* mattak::Dataset::raw(bool force)
+{
+  if (wf.tree == nullptr) return nullptr; 
+  findIncompleteEntry(&wf, this, force);
   return wf.missing_entry ? nullptr: wf.ptr;
 }
 
