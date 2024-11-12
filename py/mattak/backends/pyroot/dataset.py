@@ -185,7 +185,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate=sampleRate,
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
-            hasWaveforms=not isNully(self.ds.wfTree()),
+            hasWaveforms= self.ds.rawAvailable()
             readoutDelay=readout_delay)
 
 

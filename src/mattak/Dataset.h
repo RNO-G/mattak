@@ -89,6 +89,14 @@ namespace mattak
       mattak::Header * header(bool force_reload = false);
       mattak::Waveforms * raw(bool force_reload = false);
 
+      // is the raw data available for currentEntry? (mostly used by PyROOT backend) 
+      bool rawAvailable(bool force_reload = false) 
+      {  
+        return  wf.tree && 
+         ( full_dataset || opt.partial_skip_incomplete || 
+           wf.tree->GetEntryNumberWithIndex(header(force_reload)->event_number) >=0); 
+      }
+
       // these methods are useful if you want to read waveform metadata without reading the waveforms
       // if you are reading the waveforms, they are less efficient than getting what you want from raw
       float radiantSampleRate(bool force_reload = false);
