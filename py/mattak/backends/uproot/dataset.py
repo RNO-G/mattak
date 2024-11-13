@@ -321,23 +321,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         infos = []
         info = None  # if range(0)
-        for i, triggerInfoi in zip(range(self.last - self.first), triggerInfo):
+        for i, t_info in zip(range(self.last - self.first), triggerInfo):
 
             if override_skip_incomplete is not None and override_skip_incomplete:
                 if eventNumber[i] not in self.events_with_waveforms.keys():
                     continue
 
             triggerType  = "UNKNOWN"
-            if triggerInfoi['trigger_info.radiant_trigger']:
-                which = triggerInfoi['trigger_info.which_radiant_trigger']
+            if t_info['trigger_info.radiant_trigger']:
+                which = t_info['trigger_info.which_radiant_trigger']
                 if which == -1:
                     which = "X"
                 triggerType = "RADIANT" + str(which)
-            elif triggerInfoi['trigger_info.lt_trigger']:
+            elif t_info['trigger_info.lt_trigger']:
                 triggerType = "LT"
-            elif triggerInfoi['trigger_info.force_trigger']:
+            elif t_info['trigger_info.force_trigger']:
                 triggerType = "FORCE"
-            elif triggerInfoi['trigger_info.pps_trigger']:
+            elif t_info['trigger_info.pps_trigger']:
                 triggerType = "PPS"
 
             radiantThrs = None
