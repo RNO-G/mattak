@@ -78,9 +78,11 @@ jobs:
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --benchmark ${{ github.sha }}
     - name: Calibrate a sample file
       run: |
+        source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers
       run: |
+        source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Read a sample file (all)
       run: |
