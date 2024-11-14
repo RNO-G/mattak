@@ -55,8 +55,6 @@ if __name__ == "__main__":
             import json
             benchmark_file = os.path.join(os.path.dirname(__file__), 'benchmark.json')
             if not os.path.exists(benchmark_file):
-                with open(benchmark_file, 'w') as f:
-                    pass
                 benchmarks = {}
             else:
                 with open(benchmark_file, 'r') as f:
