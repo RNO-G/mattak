@@ -71,6 +71,7 @@ namespace mattak
       int loadDir(const char * dir);
       int loadCombinedFile(const char * file);
 
+      int currentEntry() const { return current_entry; }
 
       /**
        * Deprecated, kept for ABI compatibility
@@ -87,6 +88,21 @@ namespace mattak
 
       mattak::Header * header(bool force_reload = false);
       mattak::Waveforms * raw(bool force_reload = false);
+
+      // is the raw data available for currentEntry? (mostly used by PyROOT backend) 
+      bool rawAvailable(bool force_reload = false) 
+      {  
+        return  wf.tree && 
+         ( full_dataset || opt.partial_skip_incomplete || 
+           wf.tree->GetEntryNumberWithIndex(header(force_reload)->event_number) >=0); 
+      }
+
+      // these methods are useful if you want to read waveform metadata without reading the waveforms
+      // if you are reading the waveforms, they are less efficient than getting what you want from raw
+      float radiantSampleRate(bool force_reload = false);
+      const float * radiantReadoutDelays(bool force_reload = false);  //size is mattak::k::num_radiant_channels, returning a float* since cppyyy doesn't seem to be able to deal with std::array properly
+      
+      
       mattak::CalibratedWaveforms * calibrated(bool force_reload = false); //will be nullptr if no calibration is passed
       mattak::DAQStatus * status(bool force_reload = false);
       mattak::RunInfo * info() const { return runinfo.ptr; }
@@ -129,17 +145,21 @@ namespace mattak
       static const char ** getDAQStatusTreeNames();
       static const char ** getPedestalTreeNames();
     private:
-
-
       tree_field<Waveforms> wf;
       tree_field<Header> hd;
       tree_field<DAQStatus> ds;
       tree_field<Pedestals> pd;
       file_field<RunInfo> runinfo;
+
+      tree_field<uint32_t> sample_rate;
+      tree_field<std::array<float,mattak::k::num_radiant_channels>> delays;
+      void setupRadiantMeta();
+
       field<CalibratedWaveforms> calib_wf;
 
       void unload();
       int current_entry = 0;
+
 
       bool full_dataset ;
       DatasetOptions opt;

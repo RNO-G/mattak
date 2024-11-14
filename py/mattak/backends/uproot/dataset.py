@@ -269,14 +269,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
-        kw = dict(entry_start = self.first, entry_stop = self.last)
+        kw = dict(entry_start = self.first, entry_stop = self.last, library='np')
 
         station = self._hds['station_number'].array(**kw)
         run = self._hds['run_number'].array(**kw)
         eventNumber = self._hds['event_number'].array(**kw)
         readoutTime = self._hds['readout_time'].array(**kw)
         triggerTime = self._hds['trigger_time'].array(**kw)
-        triggerInfo = self._hds['trigger_info'].array(**kw)
+        # triggerInfo is a branch, so we use awkward instead of numpy
+        triggerInfo = self._hds['trigger_info'].array(entry_start=self.first, entry_stop=self.last)
         pps = self._hds['pps_num'].array(**kw)
         sysclk = self._hds['sysclk'].array(**kw)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(**kw)
@@ -320,23 +321,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         infos = []
         info = None  # if range(0)
-        for i in range(self.last - self.first):
+        for i, t_info in zip(range(self.last - self.first), triggerInfo):
 
             if override_skip_incomplete is not None and override_skip_incomplete:
                 if eventNumber[i] not in self.events_with_waveforms.keys():
                     continue
 
             triggerType  = "UNKNOWN"
-            if triggerInfo[i]['trigger_info.radiant_trigger']:
-                which = triggerInfo[i]['trigger_info.which_radiant_trigger']
+            if t_info['trigger_info.radiant_trigger']:
+                which = t_info['trigger_info.which_radiant_trigger']
                 if which == -1:
                     which = "X"
                 triggerType = "RADIANT" + str(which)
-            elif triggerInfo[i]['trigger_info.lt_trigger']:
+            elif t_info['trigger_info.lt_trigger']:
                 triggerType = "LT"
-            elif triggerInfo[i]['trigger_info.force_trigger']:
+            elif t_info['trigger_info.force_trigger']:
                 triggerType = "FORCE"
-            elif triggerInfo[i]['trigger_info.pps_trigger']:
+            elif t_info['trigger_info.pps_trigger']:
                 triggerType = "PPS"
 
             radiantThrs = None
