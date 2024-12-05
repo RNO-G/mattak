@@ -1,6 +1,7 @@
 import argparse
 import json
 import numpy as np
+import sys
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--benchmark-file', default='benchmark.json', help='Path to json file with benchmark data')
@@ -31,4 +32,4 @@ for key, test_value in test_benchmark.items():
 if exit_code:
     print(f"!!! {exit_code} benchmark tests have failed !!!")
 
-exit(exit_code)
+sys.exit(exit_code)
