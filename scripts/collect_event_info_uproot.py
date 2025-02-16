@@ -1,4 +1,5 @@
 import mattak.backends.uproot.dataset as uproot_dataset
+import collect_runinfo
 import os
 import argparse
 import uproot
@@ -45,9 +46,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Collect event info from RNO-G root files')
     parser.add_argument('paths', type=str, nargs="+", help='Path to the directory containing the uproot files')
     parser.add_argument('--read_daq_status', type=bool, default=True, help='Read daq status file')
+    parser.add_argument('--output_file', type=str, default="event_info.npz", help='Output file name')
     args = parser.parse_args()
 
-    keys = ["run", "eventNumber", "triggerTime", "triggerType", "lowTrigThrs"]
+    keys = ["triggerTime", "triggerType", "lowTrigThrs"]
 
     data = defaultdict(list)
 
@@ -55,10 +57,20 @@ if __name__ == "__main__":
     for path in args.paths:
         dataset = Dataset(path, args.read_daq_status)
         event_infos = dataset.eventInfo()
+        data["run_number"].append(getattr(event_infos[0], "run"))
+        data["number_of_events"].append(dataset.N())
         for key in keys:
             data[key].extend([getattr(event_info, key) for event_info in event_infos])
 
-    data = {key: np.array(data[key]) for key in keys}
+        flower_gain_codes = collect_runinfo.read_flower_gain_code(
+            os.path.join(path, "aux/runinfo.txt"))
+
+        data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
+
+
+    data = {key: np.array(data[key]) for key in data}
     print(f"Time taken: {time.time() - t0:.2f} s")
     for key in data:
         print(key, data[key].shape)
+
+    np.savez(args.output_file, **data)
