@@ -246,8 +246,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                         run_config=f"{self.rundir}/cfg/acq.cfg"
                     )
 
-
-
         self.has_calib = False
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
@@ -293,6 +291,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
         try:
+            if self._wfs is None:
+                raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
             sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
             if not self.skip_incomplete:
                 rate = numpy.unique(sampleRate)
@@ -312,6 +313,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         try:
+            if self._wfs is None:
+                raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
             readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(library='np', **kw)
         except uproot.exceptions.KeyInFileError:
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
