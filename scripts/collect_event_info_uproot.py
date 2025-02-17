@@ -55,28 +55,31 @@ if __name__ == "__main__":
 
     t0 = time.time()
     for path in args.paths:
-        dataset = Dataset(path, args.read_daq_status)
-        if dataset.duration() < 7000:
-            print("Skip short run", dataset.duration(), path)
-            continue
+        try:
+            dataset = Dataset(path, args.read_daq_status)
+            if dataset.duration() < 7000:
+                print("Skip short run", dataset.duration(), path)
+                continue
 
-        event_infos = dataset.eventInfo()
+            event_infos = dataset.eventInfo()
 
-        num_lt = np.sum([event_info.triggerType == "LT" for event_info in event_infos])
-        trig_rate_lt = num_lt / dataset.duration()
-        if trig_rate_lt > 2.0 or trig_rate_lt < 0.1:
-            print("Skip due to trigger rate", trig_rate_lt, path)
-            continue
+            num_lt = np.sum([event_info.triggerType == "LT" for event_info in event_infos])
+            trig_rate_lt = num_lt / dataset.duration()
+            if trig_rate_lt > 2.0 or trig_rate_lt < 0.1:
+                print("Skip due to trigger rate", trig_rate_lt, path)
+                continue
 
-        data["run_number"].append(getattr(event_infos[0], "run"))
-        data["number_of_events"].append(dataset.N())
-        for key in keys:
-            data[key].extend([getattr(event_info, key) for event_info in event_infos])
+            data["run_number"].append(getattr(event_infos[0], "run"))
+            data["number_of_events"].append(dataset.N())
+            for key in keys:
+                data[key].extend([getattr(event_info, key) for event_info in event_infos])
 
-        flower_gain_codes = collect_runinfo.read_flower_gain_code(
-            os.path.join(path, "aux/runinfo.txt"))
+            flower_gain_codes = collect_runinfo.read_flower_gain_code(
+                os.path.join(path, "aux/runinfo.txt"))
 
-        data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
+            data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
+        except Exception as e:
+            print("Error in", path, e)
 
 
     data = {key: np.array(data[key]) for key in data}
