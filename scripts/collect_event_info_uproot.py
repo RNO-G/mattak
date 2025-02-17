@@ -56,7 +56,18 @@ if __name__ == "__main__":
     t0 = time.time()
     for path in args.paths:
         dataset = Dataset(path, args.read_daq_status)
+        if dataset.duration() < 7000:
+            print("Skip short run", dataset.duration(), path)
+            continue
+
         event_infos = dataset.eventInfo()
+
+        num_lt = np.sum([event_info.triggerType == "LT" for event_info in event_infos])
+        trig_rate_lt = num_lt / dataset.duration()
+        if trig_rate_lt > 2.0 or trig_rate_lt < 0.1:
+            print("Skip due to trigger rate", trig_rate_lt, path)
+            continue
+
         data["run_number"].append(getattr(event_infos[0], "run"))
         data["number_of_events"].append(dataset.N())
         for key in keys:
