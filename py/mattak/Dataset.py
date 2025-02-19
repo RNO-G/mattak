@@ -113,6 +113,24 @@ class AbstractDataset(ABC):
     def duration(self) -> float:
         """ Return the duration of the run in seconds """
 
+        if not self.full and self.skip_incomplete:
+
+            if self.run_info is None:
+                logging.warning(
+                    "'skip_incomplete == True' and Run info is not available. "
+                    "Can not compute the duration, return `None`.")
+                return None
+
+            run_start_time = self.run_info.run_start_time
+            run_end_time = self.run_info.run_end_time
+            if run_end_time == 0:
+                logging.warning(
+                    "`skip_incomplete == True` and `run_info.run_end_time == 0.` "
+                    "Can not compute the duration, return `None`.")
+                return None
+
+            return run_end_time - run_start_time
+
         # cache the current entry to restore it later
         orig_entry = self.getEntries()
 
@@ -144,6 +162,25 @@ class AbstractDataset(ABC):
             return False
 
         return self.run_info.run_config["calib"]["enable_cal"]
+
+    def trigger_rate(self) -> float:
+        """ Return the trigger rate in Hz """
+        if not self.full and self.skip_incomplete:
+            if self.run_info is None:
+                logging.warning(
+                    "'skip_incomplete == True' and Run info is not available. "
+                    "Can not compute the trigger rate, return `None`.")
+                return None
+            n_events = self.run_info.n_events
+            if n_events == 0:
+                logging.warning(
+                    "`skip_incomplete == True` and `run_info.n_events == 0.` "
+                    "Can not compute the trigger rate, return `None`.")
+                return None
+        else:
+            n_events = self.N()
+
+        return n_events / self.duration()
 
 
     @abstractmethod
