@@ -149,8 +149,8 @@ class AbstractDataset(ABC):
 
         return last_event.triggerTime - first_event.triggerTime
 
-    def is_calibration_run(self) -> Union[bool, None]:
-        """ Returns True if the run is a calibration run. Returns None if information is not available """
+    def is_calibration_run(self) -> bool:
+        """ Returns True if the run is a calibration run  """
 
         if self.run_info is None:
             raise ValueError("Run info is not available")
@@ -163,14 +163,33 @@ class AbstractDataset(ABC):
 
         return self.run_info.run_config["calib"]["enable_cal"]
 
-    def trigger_rate(self) -> float:
-        """ Return the trigger rate in Hz """
+    def trigger_rate(self, trigger : Union[None, str] = None) -> float:
+        """ Return the trigger rate in Hz.
+
+        Parameters
+        ----------
+        trigger : str or None
+            If None, the total trigger rate is returned. If a string, the trigger rate for the given trigger type is returned.
+
+        Returns
+        -------
+        rate : float
+            The trigger rate in Hz
+        """
         if not self.full and self.skip_incomplete:
+            if trigger is not None:
+                logging.warning(
+                    "You requested the trigger rate for a specific trigger type, but "
+                    "this is an incomplete dataset and `skip_incomplete == True`. "
+                    "Can not compute the trigger rate, return `None`.")
+                return None
+
             if self.run_info is None:
                 logging.warning(
                     "'skip_incomplete == True' and Run info is not available. "
                     "Can not compute the trigger rate, return `None`.")
                 return None
+
             n_events = self.run_info.n_events
             if n_events == 0:
                 logging.warning(
@@ -178,7 +197,19 @@ class AbstractDataset(ABC):
                     "Can not compute the trigger rate, return `None`.")
                 return None
         else:
-            n_events = self.N()
+            if trigger is None:
+                n_events = self.N()
+            else:
+                # cache the current entry to restore it later
+                orig_entry = self.getEntries()
+
+                # Get all event infos and count triggers of type trigger
+                self.setEntries((0, self.N()))
+                event_infos = self.eventInfo()
+                n_events = numpy.sum([event_info.triggerType == trigger for event_info in event_infos])
+
+                # restore the original entry
+                self.setEntries(orig_entry)
 
         return n_events / self.duration()
 
