@@ -9,13 +9,15 @@ import time
 
 
 class Dataset(uproot_dataset.Dataset):
-    def __init__(self, path, read_daq_status=True):
+    def __init__(self, path, read_daq_status=True, read_run_info=True):
 
+        self.__read_run_info = read_run_info
         self.__read_daq_status = read_daq_status
         self._radiantThrs = None
         self._lowTrigThrs = None
         self.run_info = None
-        self.skip_incomplete = True
+        self.skip_incomplete = False
+        self.full = True
 
         # Necessary for the eventInfo method
         self._wfs = None
@@ -39,6 +41,12 @@ class Dataset(uproot_dataset.Dataset):
             self.ds_tree, self.ds_branch = uproot_dataset.read_tree(self.ds_file, uproot_dataset.daqstatus_tree_names)
             self._dss = self.ds_tree[self.ds_branch]
 
+
+        self.run_info = None
+        self.runfile = None
+        if self.__read_run_info:
+            self._read_run_info()
+
         self.setEntries((0, self.N()))
 
 
@@ -57,27 +65,22 @@ if __name__ == "__main__":
     for path in args.paths:
         try:
             dataset = Dataset(path, args.read_daq_status)
-            if dataset.duration() < 7000:
-                print("Skip short run", dataset.duration(), path)
+
+            if dataset.is_calibration_run():
+                print("Skip calibration run", path)
                 continue
+
+            trig_rate_lt = dataset.trigger_rate("LT")
+            data["run_number"].append(getattr(event_infos[0], "run"))
+            data["duration"].append(dataset.duration())
+            data["number_of_events"].append(dataset.N())
+            data["lt_trigger_rate"].append(trig_rate_lt)
+            data["flower_gain_codes"].append(dataset.run_info.flower_codes)
 
             event_infos = dataset.eventInfo()
-
-            num_lt = np.sum([event_info.triggerType == "LT" for event_info in event_infos])
-            trig_rate_lt = num_lt / dataset.duration()
-            if trig_rate_lt > 2.0 or trig_rate_lt < 0.1:
-                print("Skip due to trigger rate", trig_rate_lt, path)
-                continue
-
-            data["run_number"].append(getattr(event_infos[0], "run"))
-            data["number_of_events"].append(dataset.N())
             for key in keys:
                 data[key].extend([getattr(event_info, key) for event_info in event_infos])
 
-            flower_gain_codes = collect_runinfo.read_flower_gain_code(
-                os.path.join(path, "aux/runinfo.txt"))
-
-            data["flower_gain_codes"].append(flower_gain_codes["flower_gain_codes"])
         except Exception as e:
             print("Error in", path, e)
 
