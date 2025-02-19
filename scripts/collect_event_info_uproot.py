@@ -70,14 +70,18 @@ if __name__ == "__main__":
                 print("Skip calibration run", path)
                 continue
 
-            trig_rate_lt = dataset.trigger_rate("LT")
+
+            event_infos = dataset.eventInfo()
+
+            # trig_rate_lt = dataset.trigger_rate("LT")  # <---- since we already got the event info, we can calculate the trigger rate from this
+            trig_rate_lt = np.sum([event_info.triggerType == "LT" for event_info in event_infos]) / dataset.duration()
+
             data["run_number"].append(getattr(event_infos[0], "run"))
             data["duration"].append(dataset.duration())
             data["number_of_events"].append(dataset.N())
             data["lt_trigger_rate"].append(trig_rate_lt)
             data["flower_gain_codes"].append(dataset.run_info.flower_codes)
 
-            event_infos = dataset.eventInfo()
             for key in keys:
                 data[key].extend([getattr(event_info, key) for event_info in event_infos])
 
