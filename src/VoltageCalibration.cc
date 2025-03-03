@@ -317,9 +317,6 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   for (int ichan = 0; ichan < mattak::k::num_radiant_channels; ichan++)
   {
     nResidSets[ichan] = 0;
-    residAve_volt[ichan].resize(0);
-    residAve_adc[ichan].resize(0);
-    residVar_adc[ichan].resize(0);
 
     fit_coeffs[ichan].clear();
     if ( (mask & (1 << ichan))  == 0) continue;
@@ -479,8 +476,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
   //
   std::cout << "Calculating max deviation and chi squared for fit quality validation..." << std::endl;
 
-  std::vector<double> aveChisq;
-  aveChisq.resize(mattak::k::num_radiant_channels);
+  std::vector<double> aveChisq(mattak::k::num_radiant_channels);
 
   TBox *smallBox[mattak::k::num_radiant_channels];
   TBox *bigBox[mattak::k::num_radiant_channels];
@@ -775,15 +771,24 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
     std::cerr << "Cannot use makeAdjustedInverseGraph from  saved coefficients" << std::endl;
     return nullptr;
   }
+
+  if (!hasBiasScanData)
+  {
+    printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n");
+    return nullptr;
+  }
+
+  if (!fit_isUsingResid)
+  {
+    printf("\nWARNING: Plots can only be made with function 'makeAdjustedInverseGraph()' when 'fit_isUsingResid' is TRUE!\n");
+    return nullptr;
+  }
+
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_inverse_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d]   %s", station_number, chan, samp, start_time, end_time, resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("VBias [Volt]");
   g->GetYaxis()->SetTitle(resid ? "ADC Residual" : "ADC");
-
-  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n"); return g; }
-
-  if (!fit_isUsingResid) { printf("\nWARNING: Plots can only be made with function 'makeAdjustedInverseGraph()' when 'fit_isUsingResid' is TRUE!\n"); return g; }
 
   int npoints = (*graphs)[chan][samp].GetN();
   double *data_adc = (*graphs)[chan][samp].GetY();
@@ -821,13 +826,18 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
     std::cerr << "Cannot use makeSampleGraph from  saved coefficients" << std::endl;
     return nullptr;
   }
+
+  if (!hasBiasScanData)
+  {
+    printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n");
+    return nullptr;
+  }
+
   TGraph *g = new TGraph();
   g->SetName(Form("gsample_s%d_c%d_s%d_%d_%d", station_number, chan, samp, start_time, end_time));
   g->SetTitle(Form("Station %d Ch %d sample %d [%d-%d], #chi^{2}= %g   %s", station_number, chan, samp, start_time, end_time, fit_chisq[chan][samp], resid ? "(residuals)" : ""));
   g->GetXaxis()->SetTitle("ADC");
   g->GetYaxis()->SetTitle(resid ? "(VBias - Predicted VBias) [Volt]" : "VBias [Volt]");
-
-  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n"); return g; }
 
   int npoints = (*graphs)[chan][samp].GetN();
   double *data_adc;
@@ -881,9 +891,13 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
 TH2S * mattak::VoltageCalibration::getResidHist(int chan) const
 {
-  TH2S * h = new TH2S();
+  TH2S * h;
 
-  if (!fit_isUsingResid) { printf("\nWARNING: Plots can only be made with function 'getResidHist()' when 'fit_isUsingResid' is TRUE!\n"); return h; }
+  if (!fit_isUsingResid)
+  {
+    printf("\nWARNING: Plots can only be made with function 'getResidHist()' when 'fit_isUsingResid' is TRUE!\n");
+    return nullptr;
+  }
   else
   {
     h = hist_resid[chan];
@@ -896,7 +910,11 @@ TGraphErrors * mattak::VoltageCalibration::getAveResidGraph(int chan) const
 {
   TGraphErrors * g;
 
-  if (!fit_isUsingResid) { printf("\nWARNING: Plots can only be made with function 'getAveResidGraph()' when 'fit_isUsingResid' is TRUE!\n"); return g; }
+  if (!fit_isUsingResid)
+  {
+    printf("\nWARNING: Plots can only be made with function 'getAveResidGraph()' when 'fit_isUsingResid' is TRUE!\n");
+    return nullptr;
+  }
   else
   {
     g = graph_residAve[chan];
