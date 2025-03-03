@@ -31,5 +31,4 @@ for key, test_value in test_benchmark.items():
 
 if exit_code:
     print(f"!!! {exit_code} benchmark tests have failed !!!")
-
-sys.exit(exit_code)
+    sys.exit(exit_code)

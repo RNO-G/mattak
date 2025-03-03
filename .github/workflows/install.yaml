@@ -3,6 +3,8 @@ name: Test install
 on:
   push:
   workflow_dispatch:
+  schedule: # run once a week on Sunday to prevent benchmark file from being evicted - there may be a better solution
+    - cron: '0 0 * * SUN'
 
 jobs:
   build:
