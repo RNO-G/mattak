@@ -1040,7 +1040,11 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
   if (fitCoeffs_tree->SetBranchAddress("coeff", &p_coeff) < 0) return false;
 
   TTree *aveResidGraph_tree = (TTree*)inputFile->Get("aveResidGraph_tree");
-  if (!aveResidGraph_tree) return false;
+  if (!aveResidGraph_tree)
+  {
+    printf("\nFILE READING ERROR: You are probably using an old calibration file, please use one with the newest version of voltage calibration instead!\n");
+    return false;
+  }
   TGraphErrors *p_aveResidGraph;
   if (aveResidGraph_tree->SetBranchAddress("aveResidGraph", &p_aveResidGraph) < 0) return false;
   aveResidGraph_tree->GetEntry(0);
