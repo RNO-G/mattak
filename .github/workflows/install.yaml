@@ -38,6 +38,7 @@ jobs:
         wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci/station23.tar.gz
         mkdir -p tests/data
         tar -xavf station23.tar.gz -C tests/data/
+        ls -l tests/data/station23/run1144
     - name: Get previous benchmark results
       uses: actions/cache/restore@v4
       with:
