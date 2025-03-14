@@ -162,6 +162,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
                 self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
                 self._wfs = self.wf_tree[self.wf_branch]
+                wfs_included = self._wfs['event_number'].array()
+                self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
 
                 self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
                 self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
