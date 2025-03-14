@@ -89,14 +89,12 @@ class VoltageCalibration(object):
                     self.__cal_param = unpack_cal_parameters(cal_file)
                     self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(cal_file)
 
-                    self.__cal_residuals_v = self.__cal_residuals_v.T
-                    self.__cal_residuals_adc = self.__cal_residuals_adc.T
 
-                    if numpy.any(self.__cal_residuals_v[0] != self.__cal_residuals_v[1]):
+                    if numpy.any(self.__cal_residuals_v.any() != self.__cal_residuals_v.any()):
                         raise ValueError("The pedestal voltage of the bias scan (residual) is different for the two DAC, "
                                         "the code expects them to be the same!")
 
-                    if numpy.any(self.__cal_residuals_v[0] < self.fit_min) or numpy.any(self.__cal_residuals_v[0] > self.fit_max):
+                    if numpy.any(self.__cal_residuals_v < self.fit_min) or numpy.any(self.__cal_residuals_v > self.fit_max):
                         raise ValueError("The pedestal voltage of the bias scan (residual) exceeds fit limits!")
 
                     self.fit_min = max([self.fit_min, self.__cal_residuals_v[0][0]])
@@ -200,13 +198,12 @@ class VoltageCalibration(object):
             else:
                 # we have to interpolate the residuals such that they correspond to the correct voltage
                 # w.r.t adc = pol(voltage)
-                residuals = (numpy.interp(voltage, self.__cal_residuals_v[0], self.__cal_residuals_adc[0]),
-                            numpy.interp(voltage, self.__cal_residuals_v[1], self.__cal_residuals_adc[1]))
+                residuals = [numpy.interp(voltage, self.__cal_residuals_v[i], self.__cal_residuals_adc[i]) for i in range(len(self.__cal_residuals_adc))]
 
             channels = range(self.NUM_CHANNELS) if channel is None else [channel]
             for idx, ch in enumerate(channels):
                 # first residual for ch 0 .. 11, second for 12 .. 23
-                adc_samples[idx] = adc_samples[idx] + residuals[int(ch > 11)]
+                adc_samples[idx] = adc_samples[idx] + residuals[idx]
 
         if self.__caching_mode == "lookup":
             full_lookup_tables = self.get_lookup_table_per_adc(adc_samples, voltage)
@@ -400,16 +397,19 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
     Returns
     -------
     (v_residuals, residuals) : tuple of np arrays
-        both v_residuals and residuals have shape (points, 2)
+        both v_residuals and residuals have shape (points, 24)
 
     """
-    vres_dac1 = cal_file["aveResid_dac1"].member("fX")
-    vres_dac2 = cal_file["aveResid_dac2"].member("fX")
-    residual_dac1 = cal_file["aveResid_dac1"].member("fY")
-    residual_dac2 = cal_file["aveResid_dac2"].member("fY")
+    ave_res_graphs = cal_file["aveResidGraph_tree/aveResidGraph"].array(library="np")
+    vres = []
+    residual = []
+    for ave_res_graph in ave_res_graphs:
+        vres_ch = ave_res_graph.member("fX")
+        residual_ch = ave_res_graph.member("fY")
+        vres.append(vres_ch)
+        residual.append(residual_ch)
+    return numpy.array(vres) , numpy.array(residual)
 
-    return numpy.stack(numpy.array([vres_dac1, vres_dac2]), axis = -1), \
-        numpy.stack(numpy.array([residual_dac1, residual_dac2]), axis = -1)
 
 
 def unpack_raw_bias_scan(
@@ -584,3 +584,15 @@ def calibrate(
             waveform_volt[c, s] = volt
 
     return waveform_volt
+
+
+if __name__ == "__main__":
+    import os
+    run = 1144
+    station_id = 23
+    channel_id = 0
+    run_path = os.environ["RNO_G_DATA"] + "/" + f"station{station_id}/" + f"run{run}"
+    vc_name = [file for file in os.listdir(run_path) if file.startswith("volCal") and file.endswith(".root")][0]
+
+    vc = VoltageCalibration(run_path + "/" + vc_name)
+    vc.plot_ch(ch=channel_id)
