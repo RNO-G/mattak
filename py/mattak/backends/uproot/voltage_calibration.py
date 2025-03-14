@@ -400,15 +400,9 @@ def unpack_cal_residuals(cal_file : uproot.ReadOnlyDirectory) -> numpy.ndarray:
         both v_residuals and residuals have shape (points, 24)
 
     """
-    ave_res_graphs = cal_file["aveResidGraph_tree/aveResidGraph"].array(library="np")
-    vres = []
-    residual = []
-    for ave_res_graph in ave_res_graphs:
-        vres_ch = ave_res_graph.member("fX")
-        residual_ch = ave_res_graph.member("fY")
-        vres.append(vres_ch)
-        residual.append(residual_ch)
-    return numpy.array(vres) , numpy.array(residual)
+    res = numpy.array([[ele.member("fX"), ele.member("fY")] for ele in 
+            cal_file["aveResidGraph_tree/aveResidGraph"].array(library="np")])
+    return res[:, 0], res[:, 1]
 
 
 
