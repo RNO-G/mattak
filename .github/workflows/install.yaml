@@ -38,6 +38,7 @@ jobs:
         wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci/station23.tar.gz
         mkdir -p tests/data
         tar -xavf station23.tar.gz -C tests/data/
+        ls -l tests/data/station23/run1144
     - name: Get previous benchmark results
       uses: actions/cache/restore@v4
       with:
@@ -51,7 +52,7 @@ jobs:
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --benchmark ${{ github.sha }}
     - name: Calibrate a sample file (ROOTless)
       run: |
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers (ROOTless)
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --no-skip-incomplete --benchmark ${{ github.sha }}
@@ -81,7 +82,7 @@ jobs:
     - name: Calibrate a sample file
       run: |
         source root/bin/thisroot.sh
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers
       run: |
         source root/bin/thisroot.sh
@@ -94,8 +95,8 @@ jobs:
     - name: Compare backends
       run: |
         source root/bin/thisroot.sh
-        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s11_1687936603-1687938078.root
-        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s11_1687936603-1687938078.root --calibrate
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root --calibrate
     - name: Benchmark against previous results
       run: |
         python3 tests/evaluate_benchmarks.py --benchmark-file tests/benchmark.json ${{ github.sha }}
