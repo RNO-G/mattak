@@ -56,25 +56,17 @@ void mattak::Dataset::setupRadiantMeta()
 {
 
   // HACK: separately make the sample rate from the waveform file
-  clear(&sample_rate,true);
-  clear(&delays,true);
-  sample_rate.branch = wf.tree->GetBranch("radiant_sampling_rate");
-  if (sample_rate.branch)
-  {
-    sample_rate.ptr = new uint32_t; //ugh
-    sample_rate.file = wf.file;
-    sample_rate.tree = wf.tree;
-    sample_rate.branch->SetAddress(sample_rate.ptr);
-  }
+  clear(&wf_meta);
 
-  delays.branch = wf.tree->GetBranch("digitizer_readout_delay_ns");
-  if (delays.branch)
-  {
-    delays.ptr = new std::array<float, mattak::k::num_radiant_channels> {};
-    delays.file = wf.file;
-    delays.tree = wf.tree;
-    delays.branch->SetAddress(delays.ptr);
-  }
+  //copy the file/tree so we don't double count branches
+  wf_meta.file = TFile::Open(wf.file->GetName());
+  wf_meta.tree = (TTree*) wf_meta.file->Get(wf.tree->GetName());
+  wf_meta.branch = nullptr; // we don't use this directly for this, since I'm not sure how it interacts with SetBranchStatus
+  wf_meta.ptr = new mattak::Waveforms;
+  wf_meta.tree->SetBranchAddress(wf.branch->GetName(), &wf_meta.ptr);
+  wf_meta.tree->SetBranchStatus("*",0);
+  wf_meta.tree->SetBranchStatus("*radiant_sampling_rate",1);
+  wf_meta.tree->SetBranchStatus("*digitizer_readout_delay_ns*",1);
 }
 
 /** Silently check if file exists, supporting all protocols ROOT does */
@@ -154,8 +146,7 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
 void mattak::Dataset::unload()
 {
   clear(&wf);
-  clear(&sample_rate,true);
-  clear(&delays,true);
+  clear(&wf_meta);
   clear(&hd);
   clear(&ds);
   clear(&pd);
@@ -463,17 +454,31 @@ mattak::Header* mattak::Dataset::header(bool force)
 }
 
 template <typename T> 
-static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force)
+static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force = false, mattak::Dataset::tree_field<mattak::Waveforms> * index_field = nullptr)
 {
   if (force || field->loaded_entry != d->currentEntry())
   {
     if (d->isFullDataset() || d->getOpt().partial_skip_incomplete)
     {
-      field->branch->GetEntry(d->currentEntry());
+      auto current = d->currentEntry();
+      if (field->branch) field->branch->GetEntry(current);
+      else field->tree->GetEntry(current);
+      field->loaded_entry = current;
     }
     else
     {
-      int entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      int entry= -1;
+      if (index_field) 
+      {
+        entry = index_field->tree ? index_field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      }
+      else
+      {
+        entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      }
+
+      field->loaded_entry = d->currentEntry(); 
+
       if (entry < 0) 
       {
         field->missing_entry = true;
@@ -481,7 +486,8 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
       else
       {
         field->missing_entry = false; 
-        field->branch->GetEntry(entry);
+        if (field->branch) field->branch->GetEntry(entry);
+        else field->tree->GetEntry(entry);
       }
     }
   }
@@ -490,18 +496,25 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 
 float mattak::Dataset::radiantSampleRate(bool force)
 {
-  if (sample_rate.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
-  findIncompleteEntry(&sample_rate,this, force);
-  return sample_rate.missing_entry ? 3200 : ((float) *sample_rate.ptr);
+  if (wf_meta.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  findIncompleteEntry(&wf_meta,this, force, &wf);
+  if (wf_meta.missing_entry)
+  {
+    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  }
+  return wf_meta.ptr->radiant_sampling_rate;
 }
 
-static std::array<float, mattak::k::num_radiant_channels> zeros{}; 
+static float zeros[mattak::k::num_radiant_channels]; 
 
 const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 {
-  if (delays.ptr == nullptr) return (const float*) &zeros; 
-  findIncompleteEntry(&delays,this, force);
-  return (const float*)  (  delays.missing_entry ? &zeros : delays.ptr );
+  if (wf_meta.ptr == nullptr) 
+  {
+    return (const float*) zeros; 
+  }
+  findIncompleteEntry(&wf_meta,this, force, &wf);
+  return (const float*)  (  wf_meta.missing_entry ? zeros : wf_meta.ptr->digitizer_readout_delay_ns );
 }
 
 

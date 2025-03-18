@@ -146,13 +146,12 @@ namespace mattak
       static const char ** getPedestalTreeNames();
     private:
       tree_field<Waveforms> wf;
+      tree_field<Waveforms> wf_meta;
       tree_field<Header> hd;
       tree_field<DAQStatus> ds;
       tree_field<Pedestals> pd;
       file_field<RunInfo> runinfo;
 
-      tree_field<uint32_t> sample_rate;
-      tree_field<std::array<float,mattak::k::num_radiant_channels>> delays;
       void setupRadiantMeta();
 
       field<CalibratedWaveforms> calib_wf;
