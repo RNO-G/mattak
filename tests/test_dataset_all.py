@@ -3,7 +3,7 @@ import time
 import numpy
 import os
 
-stat = 11
+stat = 23
 r = 1144
 
 stations = [stat, stat, stat, 0, 0]
