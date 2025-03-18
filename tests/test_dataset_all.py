@@ -3,8 +3,8 @@ import time
 import numpy
 import os
 
-stat = 23
-r = 325
+stat = 11
+r = 1144
 
 stations = [stat, stat, stat, 0, 0]
 runs = [r, r, r, 0, 0]
