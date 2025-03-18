@@ -48,13 +48,13 @@ jobs:
         pip install -v .
     - name: Read a sample file (ROOTless)
       run: |
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --benchmark ${{ github.sha }}
     - name: Calibrate a sample file (ROOTless)
       run: |
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers (ROOTless)
       run: |
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot --no-skip-incomplete --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Cache ROOT
       id: cache-root
       uses: actions/cache@v4
@@ -77,15 +77,15 @@ jobs:
     - name: Read a sample file (ROOT)
       run: |
         source root/bin/thisroot.sh
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --benchmark ${{ github.sha }}
     - name: Calibrate a sample file
       run: |
         source root/bin/thisroot.sh
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --calibrate -vc tests/data/station23/run325/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s11_1687936603-1687938078.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers
       run: |
         source root/bin/thisroot.sh
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot --no-skip-incomplete --benchmark ${{ github.sha }}
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Read a sample file (all)
       run: |
         source root/bin/thisroot.sh
@@ -94,8 +94,8 @@ jobs:
     - name: Compare backends
       run: |
         source root/bin/thisroot.sh
-        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root
-        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run325/ -vc tests/data/station23/run325//volCalConsts_pol9_s11_1687936603-1687938078.root --calibrate
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s11_1687936603-1687938078.root
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s11_1687936603-1687938078.root --calibrate
     - name: Benchmark against previous results
       run: |
         python3 tests/evaluate_benchmarks.py --benchmark-file tests/benchmark.json ${{ github.sha }}
