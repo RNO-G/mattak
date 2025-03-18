@@ -78,6 +78,7 @@ if (NOT DEFINED ROOTLESS)
 
     set (INSTALL_SCRIPTS
       scripts/rno-g-convert-run
+      scripts/rno-g-convert-station
       scripts/rno-g-make-eventlists
     )
 
