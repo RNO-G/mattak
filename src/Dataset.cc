@@ -65,8 +65,9 @@ void mattak::Dataset::setupRadiantMeta()
   wf_meta.ptr = new mattak::Waveforms;
   wf_meta.tree->SetBranchAddress(wf.branch->GetName(), &wf_meta.ptr);
   wf_meta.tree->SetBranchStatus("*",0);
-  wf_meta.tree->SetBranchStatus("*radiant_sampling_rate",1);
-  wf_meta.tree->SetBranchStatus("*digitizer_readout_delay_ns*",1);
+  UInt_t found = 0;
+  wf_meta.tree->SetBranchStatus("*radiant_sampling_rate",1, &found);
+  wf_meta.tree->SetBranchStatus("*digitizer_readout_delay_ns*",1, &found);
 }
 
 /** Silently check if file exists, supporting all protocols ROOT does */
