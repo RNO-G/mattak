@@ -26,8 +26,8 @@ def find_daq_status_index(event_readout_time, daq_readout_times):
 
     # This would enforce the entry to be before the event. But
     # this causes a conflict with the pyroot backend
-    # if daq_readout_times[closest_idx] > event_readout_time:
-    #     closest_idx -= 1
+    if daq_readout_times[closest_idx] > event_readout_time and closest_idx > 0:
+        closest_idx -= 1
 
     return closest_idx
 
