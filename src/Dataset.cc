@@ -397,7 +397,7 @@ int mattak::Dataset::loadDir(const char * dir)
 
   if (full_dataset)
   {
-    ds.tree->BuildIndex("readout_time_radiant");
+    ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
   }
 
   //and the pedestal files
@@ -534,17 +534,12 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   {
     if (full_dataset)
     {
-      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(header(force)->readout_time);
-      if (ds_entry < 0)
-      {
-        ds.missing_entry = true;
-      }
-      else
-      {
-        ds.branch->GetEntry(ds_entry);
-        ds.missing_entry = false;
+      double readout_time = header(force)->readout_time;
+      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(readout_time, 1e9 * (readout_time - int(readout_time)));
+      if (ds_entry < 0) ds_entry = 0;  // this should only happen if it's the first one?  
+      ds.branch->GetEntry(ds_entry);
+      ds.missing_entry = false;
 
-      }
     }
     else
     {
