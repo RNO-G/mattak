@@ -256,7 +256,6 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     int row = chan_counter / ncols;
     int col = chan_counter % ncols;
     double text_scale_factor = col == 0 ? 1. / first_col_ratio : 1 ;
-    std::cout << text_scale_factor << std::endl;
 
     //pixel size fonts
     if (opt.font % 10 == 3)  text_scale_factor = 1;
