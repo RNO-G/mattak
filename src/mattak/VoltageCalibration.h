@@ -38,7 +38,7 @@ namespace mattak
 
   double * applyVoltageCalibration(
     int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int nResidPoints, const double * voltage_table,
-    const std::array<std::vector<double>, 4096>* adc_table);
+    const std::array<std::vector<double>, mattak::k::num_lab4_samples>* adc_table);
 
 
 #ifndef MATTAK_NOROOT
@@ -67,9 +67,9 @@ namespace mattak
       void readFitCoeffsFromFile(const char * inFile, bool cache_tables = true);
       bool readFitCoeffsFromFile(TFile *, bool cache_tables = true);
 
-      int getNresidPoints(int chan) const { return nResidPoints[chan>=mattak::k::num_radiant_channels/2]; }
-      const double * getPackedAveResid_volt(int chan) const { return isResid() ? &resid_volt[chan>=mattak::k::num_radiant_channels/2][0] : 0; }
-      const double * getPackedAveResid_adc(int chan) const { return isResid() ? &resid_adc[chan>=mattak::k::num_radiant_channels/2][0] : 0; }
+      int getNresidPoints(int chan) const { return nResidPoints[chan]; }
+      const double * getPackedAveResid_volt(int chan) const { return isResid() ? &resid_volt[chan][0] : 0; }
+      const double * getPackedAveResid_adc(int chan) const { return isResid() ? &resid_adc[chan][0] : 0; }
 
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
@@ -83,8 +83,8 @@ namespace mattak
       {
         if (has_cache_tables_)
         {
-          const std::array<std::vector<double>, 4096>* adc_table_channel = &cached_adc_tables_[chan];
-          return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getNresidPoints(chan), &resid_volt[int(chan / 12)][0], adc_table_channel);
+          const std::array<std::vector<double>, mattak::k::num_lab4_samples>* adc_table_channel = &cached_adc_tables_[chan];
+          return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getNresidPoints(chan), &resid_volt[chan][0], adc_table_channel);
         }
         else
         {
@@ -97,10 +97,8 @@ namespace mattak
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      const TGraphErrors * getAveResidGraph_dac1() const { return &graph_residAve[0]; }
-      const TGraphErrors * getAveResidGraph_dac2() const { return &graph_residAve[1]; }
-      TH2S * getResidHist_dac1() const { return hist_resid[0]; }
-      TH2S * getResidHist_dac2() const { return hist_resid[1]; }
+      TH2S * getResidHist(int channel) const;
+      TGraphErrors * getAveResidGraph(int channel) const;
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -109,7 +107,7 @@ namespace mattak
       uint32_t getEndTime() const { return end_time; }
       int scanSize() const { return vbias[0].size() ; }
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
-      const double * scanBias(int chan) const  { return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * scanBias(int chan) const  { return &vbias[chan][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
       bool isResid() const { return fit_isUsingResid; }
 
@@ -123,14 +121,14 @@ namespace mattak
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double, mattak::k::num_radiant_channels> adc_offset;
       std::array<std::array<TGraph, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> *graphs = 0;
-      std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
-      std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
-      std::array<TGraphErrors, 2> graph_residAve; // 2 DACs
-      std::array<int, 2> nResidPoints; // 2 DACs
-      std::array<TH2S*, 2> hist_resid = {}; // 2 DACs
+      std::array<std::vector<double>, mattak::k::num_radiant_channels> resid_volt;
+      std::array<std::vector<double>, mattak::k::num_radiant_channels> resid_adc;
+      std::array<TGraphErrors*, mattak::k::num_radiant_channels> graph_residAve = {};
+      std::array<int, mattak::k::num_radiant_channels> nResidPoints;
+      std::array<TH2S*, mattak::k::num_radiant_channels> hist_resid = {};
       std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
-      std::array<std::array<bool, 4>, 2> isResidOutOfBoxFrame; // 4 thresholds for each DAC
+      std::array<std::array<bool, 4>, mattak::k::num_radiant_channels> isResidOutOfBoxFrame;
       int fit_order = 9 ;
       int station_number = 0 ;
       double fit_vref = 1.5;
