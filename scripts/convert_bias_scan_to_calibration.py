@@ -33,6 +33,10 @@ def get_vref(run_folder:str):
             continue
         else:
             break
+    
+    if pedestal < 1. or pedestal > 2.:
+        logging.warning(f"pedestal value {pedestal} is outside range [1., 2.], using default value of 1.5")
+        pedestal = 1.5
 
     if pedestal == 1.5:
         logging.warning("Unable to open pedestal(s) file / find pedestal value, using default value of 1.5")
@@ -47,6 +51,8 @@ if __name__ == '__main__':
                                                    using PYROOT")
     parser.add_argument("bias_scan",
                         help = "path to bias scan file")
+    parser.add_argument("station",
+                        help = "station id")
     parser.add_argument("--destination_folder", required = False,
                         default = None,
                         help = "Optional path to folder where to store the resulting volCalConst file \
@@ -60,10 +66,14 @@ if __name__ == '__main__':
 
     bias_scan_path = os.path.abspath(args.bias_scan)
     bias_scan_directory =  os.path.dirname(bias_scan_path)
+    run_folder = os.path.basename(bias_scan_directory)
 
     if args.vref is None:
         if os.path.exists(f"{bias_scan_directory}/pedestal.root") or os.path.exists(f"{bias_scan_directory}/pedestals.root"):
             vref = get_vref(bias_scan_directory)
+        elif os.path.exists(f"{os.environ['RNO_G_DATA']}/station{args.station}/{run_folder}"):
+            logging.warning("Looking for pedestal in data folders")
+            vref = get_vref(f"{os.environ['RNO_G_DATA']}/station{args.station}/{run_folder}")
         else:
             logging.warning("Could not find \"pedestal(s).root\" in the same folder. Using default value for reference voltage of 1.5V")
             vref = 1.5
