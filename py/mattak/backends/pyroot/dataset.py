@@ -21,6 +21,10 @@ except AttributeError:
 
 cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
+# this is needed for newer versions of cppyy to remain backwards compatible, due to changes in uint8_t handling
+cppyy.cppdef(" uint8_t* cast_uint8_t(void * x) { return (uint8_t*) x; }")
+cast_uint8_t  = cppyy.gbl.cast_uint8_t
+
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
@@ -140,14 +144,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
             lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
 
-        # the default value for the sampling rate (3.2 GHz) which is used
-        # for data which does not contain this information in the waveform files
-        # is set in the header fils Waveforms.h
-        try:
-            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
-        except ReferenceError:
-            # Fall back to runinfo (as in uproot backend)
-            sampleRate = self.ds.info().radiant_sample_rate / 1000
+        # now use Dataset's faster sample rate getter
+        sampleRate = self.ds.radiantSampleRate() / 1000
 
         hdr = self.ds.header()
 
@@ -170,11 +168,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
         # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
         # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
         radiantStartWindows = numpy.copy(numpy.frombuffer(
-            cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
-            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
+                cast_uint8_t(hdr.trigger_info.radiant_info.start_windows),
+                dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
+
 
         readout_delay = numpy.copy(numpy.around(numpy.frombuffer(
-            cppyy.ll.cast['float*'](self.ds.raw().digitizer_readout_delay_ns),
+            cppyy.ll.reinterpret_cast['float*'](self.ds.radiantReadoutDelays()),
             dtype = numpy.float32, count=self.NUM_CHANNELS)))
 
         return mattak.Dataset.EventInfo(
@@ -191,7 +190,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate=sampleRate,
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
-            hasWaveforms=not isNully(self.ds.raw()),
+            hasWaveforms= self.ds.rawAvailable(),
             readoutDelay=readout_delay)
 
 

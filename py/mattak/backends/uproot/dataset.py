@@ -26,8 +26,8 @@ def find_daq_status_index(event_readout_time, daq_readout_times):
 
     # This would enforce the entry to be before the event. But
     # this causes a conflict with the pyroot backend
-    # if daq_readout_times[closest_idx] > event_readout_time:
-    #     closest_idx -= 1
+    if daq_readout_times[closest_idx] > event_readout_time and closest_idx > 0:
+        closest_idx -= 1
 
     return closest_idx
 
@@ -162,6 +162,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
                 self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
                 self._wfs = self.wf_tree[self.wf_branch]
+                wfs_included = self._wfs['event_number'].array()
+                self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
 
                 self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
                 self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
@@ -269,14 +271,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
 
     def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
-        kw = dict(entry_start = self.first, entry_stop = self.last)
+        kw = dict(entry_start = self.first, entry_stop = self.last, library='np')
 
         station = self._hds['station_number'].array(**kw)
         run = self._hds['run_number'].array(**kw)
         eventNumber = self._hds['event_number'].array(**kw)
         readoutTime = self._hds['readout_time'].array(**kw)
         triggerTime = self._hds['trigger_time'].array(**kw)
-        triggerInfo = self._hds['trigger_info'].array(**kw)
+        # triggerInfo is a branch, so we use awkward instead of numpy
+        triggerInfo = self._hds['trigger_info'].array(entry_start=self.first, entry_stop=self.last)
         pps = self._hds['pps_num'].array(**kw)
         sysclk = self._hds['sysclk'].array(**kw)
         sysclk_lastpps = self._hds['sysclk_last_pps'].array(**kw)
@@ -311,7 +314,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         try:
-            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(library='np', **kw)
+            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(**kw)
         except uproot.exceptions.KeyInFileError:
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
 
@@ -320,23 +323,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         infos = []
         info = None  # if range(0)
-        for i in range(self.last - self.first):
+        for i, t_info in zip(range(self.last - self.first), triggerInfo):
 
             if override_skip_incomplete is not None and override_skip_incomplete:
                 if eventNumber[i] not in self.events_with_waveforms.keys():
                     continue
 
             triggerType  = "UNKNOWN"
-            if triggerInfo[i]['trigger_info.radiant_trigger']:
-                which = triggerInfo[i]['trigger_info.which_radiant_trigger']
+            if t_info['trigger_info.radiant_trigger']:
+                which = t_info['trigger_info.which_radiant_trigger']
                 if which == -1:
                     which = "X"
                 triggerType = "RADIANT" + str(which)
-            elif triggerInfo[i]['trigger_info.lt_trigger']:
+            elif t_info['trigger_info.lt_trigger']:
                 triggerType = "LT"
-            elif triggerInfo[i]['trigger_info.force_trigger']:
+            elif t_info['trigger_info.force_trigger']:
                 triggerType = "FORCE"
-            elif triggerInfo[i]['trigger_info.pps_trigger']:
+            elif t_info['trigger_info.pps_trigger']:
                 triggerType = "PPS"
 
             radiantThrs = None
