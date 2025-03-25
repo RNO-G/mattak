@@ -342,9 +342,9 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         return None
 
 
-def find_voltage_calibration_for_dataset(dataset):
+def find_voltage_calibration_for_dataset(dataset, i=0):
     """ Wrapper around find_voltage_calibration """
-    dataset.setEntries(0)
+    dataset.setEntries(i)
     return find_voltage_calibration(dataset.rundir, dataset.station, dataset.eventInfo().triggerTime)
 
 
@@ -355,6 +355,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     The order of the search is:
         * run directory
         * under RNO_G_DATA/calibration/stationX
+        * under RNO_G_CAL/stationX        
 
     Parameters
     ----------
@@ -385,10 +386,18 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
                 vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
                 vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
                 break
+        
+        if not vc_list:
+            env_var = "RNO_G_CAL"
+            if env_var in os.environ:
+                vc_dir = f"{os.environ[env_var]}/station{station}"
+                vc_list = glob.glob(f"{vc_dir}/**/volCalConst*.root", recursive=True)
 
         if vc_dir is None:
             msg = ("Could not find a directory for the calibration files. "
-                "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?")
+                "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?"
+                "You can also set the RNO_G_CAL env variable to point to the calibration directory"
+                )
             if log_error:
                 logging.error(msg)
             else:
