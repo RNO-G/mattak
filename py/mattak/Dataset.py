@@ -9,6 +9,7 @@ import numpy
 import logging
 import warnings
 import libconf
+from functools import lru_cache
 
 
 @dataclass
@@ -380,20 +381,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     if vc_list:
         return rundir + "/" + vc_list[0]
 
-
-    vc_dir = None
-    # look in VC constants directory
-    for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
-        if env_var in os.environ:
-            try:
-                if env_var == "RNO_G_CAL":
-                    vc_dir = f"{os.environ[env_var]}/station{station}"
-                else:
-                    vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
-                vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
-                break
-            except FileNotFoundError:
-                pass
+    vc_dir, vc_list = find_all_volcal_files_station(station)
 
     if vc_dir is None:
         msg = ("Could not find a directory for the calibration files. "
@@ -432,3 +420,22 @@ def read_run_config(path : str) -> dict:
         conf = libconf.load(f)
 
     return conf
+
+# store for one station
+@lru_cache(maxsize=7)
+def find_all_volcal_files_station(station):
+    vc_dir = None
+    vc_list = []
+    # look in VC constants directory
+    for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
+        if env_var in os.environ:
+            try:
+                if env_var == "RNO_G_CAL":
+                    vc_dir = f"{os.environ[env_var]}/station{station}"
+                else:
+                    vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
+                vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
+                break
+            except FileNotFoundError:
+                pass
+    return vc_dir, vc_list
