@@ -376,7 +376,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
         if no calibration file was found
     """
     # try finding a calibration file in the run directory
-    vc_list = [vc for vc in os.listdir(rundir) if vc.startswith("volCalConst")]
+    vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
     if vc_list:
         return rundir + "/" + vc_list[0]
 
