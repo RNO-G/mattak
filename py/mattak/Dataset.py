@@ -407,7 +407,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_list)]
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
 
-    return os.path.join(vdir,vc_list[closest_idx])
+    return os.path.join(vc_dir,vc_list[closest_idx])
 
 
 def read_run_config(path : str) -> dict:
