@@ -289,6 +289,11 @@ class VoltageCalibration(object):
         -------
         waveform_volt : array of shape (num_channels, num_wf_samples)
             calibrated waveform in volt
+
+        Important note
+        --------------
+        No extrapolation of the voltage calibration is performed and ADC samples outside the calibrated range
+        will be clipped.
         """
 
         channels = channels or list(range(self.NUM_CHANNELS))
@@ -548,6 +553,11 @@ def calibrate(
     ------
     waveform_volt : array of shape (24, 2048)
         calibrated waveform in volt
+
+    Important note
+    --------------
+    No extrapolation of the voltage calibration is performed and ADC samples outside the calibrated range
+    will be clipped.
     """
     waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
