@@ -388,16 +388,10 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
             try:
                 if env_var == "RNO_G_CAL":
                     vc_dir = f"{os.environ[env_var]}/station{station}"
-                    run_nr = int(os.path.basename(rundir)[3:])
-                    run_list = [run for run in os.listdir(vc_dir) if run.startswith("run")]
-                    closest_idx = min(enumerate(run_list), key=lambda run : abs(int(run[1][3:]) - run_nr))[0]
-                    vc_list = [vc for vc in os.listdir(vc_dir + "/" + run_list[closest_idx]) if vc.startswith("volCalConst")]
-
-                    return vc_dir + "/" + run_list[closest_idx] + "/" + vc_list[0]
                 else:
                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
-                    vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
-                    break
+                vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
+                break
             except FileNotFoundError:
                 pass
 
@@ -419,13 +413,13 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
 
     # to marginally save time when there is only one file
     if len(vc_list) == 1:
-        return vc_dir + "/" + vc_list[0]
+        return os.path.join(vc_dir,vc_list[0])
 
     # extracting bias scan start time from cal_file name
     vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_list)]
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
 
-    return vdir + "/" + vc_list[closest_idx]
+    return os.path.join(vdir,vc_list[closest_idx])
 
 
 def read_run_config(path : str) -> dict:
