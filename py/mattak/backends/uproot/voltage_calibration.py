@@ -558,7 +558,6 @@ def calibrate(
         res = [numpy.interp(vsamples, vres[i], res[i]) for i in range(len(res))]
     else:
         vsamples = vres[0]  # assuming the same for all channels
-        print(vsamples)
 
     for c, wf_channel in enumerate(waveform_array):
         starting_window_channel = starting_window[c]
