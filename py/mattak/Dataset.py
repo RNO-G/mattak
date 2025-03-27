@@ -357,6 +357,10 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
         * run directory
         * under RNO_G_DATA/calibration/stationX
         * under RNO_G_CAL/stationX        
+    
+    Both RNO_G_DATA/calibration/ and RNO_G_CAL/ should contain all the volCalConst files directly under station directories.
+    The code does NOT assume an extra run folder structure
+    An example of a volCal path is RNO_G_CAL/stationX/volCalConst.. or RNO_G_DATA/calibration/stationX/volCalConst..
 
     Parameters
     ----------
