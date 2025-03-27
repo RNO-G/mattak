@@ -394,7 +394,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
         Function to manually set a voltage calibration after the dataset is initialised
         """
         if hasattr(self, 'vc'):
-            del self.vc
+            voltage_calibration_old = self.vc._VoltageCalibration__path
+            if voltage_calibration == voltage_calibration_old:
+                return
+            else:
+                del self.vc
         if isinstance(voltage_calibration, str):
             self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
         else:
