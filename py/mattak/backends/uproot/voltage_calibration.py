@@ -90,7 +90,8 @@ class VoltageCalibration(object):
                     self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(cal_file)
 
 
-                    if numpy.any(numpy.diff(self.__cal_residuals_v, axis=0) != 0):
+
+                    if not numpy.all(numpy.isclose(numpy.diff(self.__cal_residuals_v, axis=0), 0, atol=1e-1)):
                         raise ValueError("The pedestal voltage of the bias scan (residual) is different for the two DAC, "
                                         "the code expects them to be the same!")
 
