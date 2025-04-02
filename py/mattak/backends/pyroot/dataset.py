@@ -164,8 +164,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
             triggerType = "FORCE"
         elif hdr.trigger_info.pps_trigger:
             triggerType = "PPS"
-        elif hdr.trigger_info.lt_trigger:
-            triggerType = "LT"
 
         # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
         # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
