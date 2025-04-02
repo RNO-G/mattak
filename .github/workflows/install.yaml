@@ -3,6 +3,8 @@ name: Test install
 on:
   push:
   workflow_dispatch:
+  schedule: # run once a week on Sunday to prevent benchmark file from being evicted - there may be a better solution
+    - cron: '0 0 * * SUN'
 
 jobs:
   build:
@@ -29,19 +31,31 @@ jobs:
       uses: actions/cache@v4
       with:
         path: tests/data
-        key: data
+        key: test-data
     - name: Download sample file
       if: steps.cache-sample-file.outputs.cache-hit != 'true'
       run: |
-        wget https://rnog-data.zeuthen.desy.de/rnog_share/forced_triggers/station23_run325.root
-        mkdir -p tests/data/station23/run325
-        mv station23_run325.root tests/data/station23/run325/combined.root
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci/station23.tar.gz
+        mkdir -p tests/data
+        tar -xavf station23.tar.gz -C tests/data/
+        ls -l tests/data/station23/run1144
+    - name: Get previous benchmark results
+      uses: actions/cache/restore@v4
+      with:
+        path: tests/benchmark.json
+        key: benchmark-data
     - name: Test installation (ROOTless)
       run: |
         pip install -v .
     - name: Read a sample file (ROOTless)
       run: |
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend uproot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --benchmark ${{ github.sha }}
+    - name: Calibrate a sample file (ROOTless)
+      run: |
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
+    - name: Read incomplete data from headers (ROOTless)
+      run: |
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Cache ROOT
       id: cache-root
       uses: actions/cache@v4
@@ -64,9 +78,31 @@ jobs:
     - name: Read a sample file (ROOT)
       run: |
         source root/bin/thisroot.sh
-        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run325 --backend pyroot
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --benchmark ${{ github.sha }}
+    - name: Calibrate a sample file
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
+    - name: Read incomplete data from headers
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Read a sample file (all)
       run: |
         source root/bin/thisroot.sh
         export RNO_G_DATA="$PWD/tests/data/"
         python3 tests/test_dataset_all.py
+    - name: Compare backends
+      run: |
+        source root/bin/thisroot.sh
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root
+        python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root --calibrate
+    - name: Benchmark against previous results
+      run: |
+        python3 tests/evaluate_benchmarks.py --benchmark-file tests/benchmark.json ${{ github.sha }}
+    - name: Export benchmark results (only on main)
+      if: ${{ github.ref == 'refs/heads/main'}}
+      uses: actions/cache/save@v4
+      with:
+        key: benchmark-data
+        path: tests/benchmark.json

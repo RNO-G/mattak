@@ -2,6 +2,8 @@ import ROOT
 import sys
 import platform
 import os
+import logging
+logger = logging.getLogger(__name__)
 from mattak import __path__ as mattak_path
 
 # this is where pip puts the compiled files
@@ -26,25 +28,32 @@ if 'macOS' in currentPlatform:
 else:
     libmattakName = 'libmattak.so'
 
+try:
+    if ROOT.mattak is not None:
+        logger.debug("Found libmattak to be already loaded.")
+        loaded = True
+except:
+    pass
+
 if not loaded:
     if not silent_load(libmattakName):
         loaded_path = "LD_LIBRARY_PATH"
-        # print('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
+        logger.debug('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
         loaded = True
     elif not silent_load('build/'+libmattakName):
-        # print('Successsfully found ' + libmattakName + ' in build')
+        logger.debug('Successsfully found ' + libmattakName + ' in build')
         loaded_path = "build"
         loaded = True
     else:
         ROOT.gInterpreter.AddIncludePath(mattak_include_path)
         if not silent_load(os.path.join(mattak_path, libmattakName)):
-            print('Successsfully found ' + libmattakName + ' in ' + mattak_path)
+            logger.debug('Successsfully found ' + libmattakName + ' in ' + mattak_path)
             loaded_path = mattak_path
             loaded = True
         else:
           for path in sys.path:
              if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
-                 # print('Successsfully found ' + libmattakName + ' in ', path)
+                 logger.debug('Successsfully found ' + libmattakName + ' in ', path)
                  loaded_path = path
                  loaded = True
                  break

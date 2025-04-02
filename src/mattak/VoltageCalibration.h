@@ -38,7 +38,7 @@ namespace mattak
 
   double * applyVoltageCalibration(
     int nSamples_wf, const int16_t * in, double * out, int start_window, bool isOldFirmware, int nResidPoints, const double * voltage_table,
-    const std::array<std::vector<double>, 4096>* adc_table);
+    const std::array<std::vector<double>, mattak::k::num_lab4_samples>* adc_table);
 
 
 #ifndef MATTAK_NOROOT
@@ -48,23 +48,29 @@ namespace mattak
       VoltageCalibration()  { ; }
 
       /**
-       * Create a Voltage Calibration from bias_scan_file. If bias_scan_file ends with .root, it's assumed to contain a tree named pedestals with branch pedestals.
-       * Otherwise it's assumed to be afile which consists of a bunch of raw pedestals with associated vbiases.
-       * This does a polynomial fit of order fit_order . for each sample in each channel for voltages betwee fit_min_V and fit_max_V.
+       *
+       *
+       * Create a Voltage Calibration from bias_scan_file or a saved_coeff file. If bias_scan_file ends with .root, it's checked to see if it could be saved coefficients,
+       * otherwise it's assumed to contain a tree named pedestals with branch pedestals.
+       * Otherwise it's assumed to be a file which consists of a bunch of raw pedestals with associated vbiases.
+       * If we're loading bias scan files, this does a polynomial fit of order fit_order . for each sample in each channel for voltages betwee fit_min_V and fit_max_V.
        *
        * If fit_Vref is non-zero then the fit is fixed to cross the scan at that vref (useful if that's your nominal pedestal!)
-       *
-       *
        */
-      VoltageCalibration(const char * bias_scan_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
+      VoltageCalibration(const char * bias_scan_file_or_saved_coeff_file, double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
       VoltageCalibration(TTree * bias_scan_tree, const char * branch_name = "pedestals",  double fit_Vref = 1.5, int fit_order = 9, double fit_min_V  = 0.2, double fit_max_V = 2.2, bool isUsingResid = true);
+      VoltageCalibration(const VoltageCalibration & vc) = delete;
+      VoltageCalibration & operator=(const VoltageCalibration & vc) = delete;
+      virtual ~VoltageCalibration();
       void recalculateFits(int fit_order, double fit_min_V, double fit_max_V, double fit_Vref = 1.5, bool isUsingResid = true, uint32_t mask = 0xffffff, int turnover_threshold = 20);
       void saveFitCoeffsInFile();
-      void readFitCoeffsFromFile(const char * inFile, const bool cache_tables = true);
+      void readFitCoeffsFromFile(const char * inFile, bool cache_tables = true);
+      bool readFitCoeffsFromFile(TFile *, bool cache_tables = true);
 
-      int getNresidPoints(int chan) const { return nResidPoints[chan >= mattak::k::num_radiant_channels / 2]; }
-      const double * getPackedAveResid_volt(int chan) const { return &resid_volt[chan>=mattak::k::num_radiant_channels/2][0]; }
-      const double * getPackedAveResid_adc(int chan) const { return &resid_adc[chan>=mattak::k::num_radiant_channels/2][0]; }
+      int getNresidPoints(int chan) const { return nResidPoints[chan]; }
+      const double * getPackedAveResid_volt(int chan) const { return isResid() ? &resid_volt[chan][0] : 0; }
+      const double * getPackedAveResid_adc(int chan) const { return isResid() ? &resid_adc[chan][0] : 0; }
+
       int getFitOrder() const { return fit_order; }
       double getFitMin() const { return fit_min; }
       double getFitMax() const { return fit_max; }
@@ -77,8 +83,8 @@ namespace mattak
       {
         if (has_cache_tables_)
         {
-          const std::array<std::vector<double>, 4096>* adc_table_channel = &cached_adc_tables_[chan];
-          return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getNresidPoints(chan), &resid_volt[int(chan / 12)][0], adc_table_channel);
+          const std::array<std::vector<double>, mattak::k::num_lab4_samples>* adc_table_channel = &cached_adc_tables_[chan];
+          return applyVoltageCalibration(nSamples_wf, in, out, start_window, isOldFirmware, getNresidPoints(chan), &resid_volt[chan][0], adc_table_channel);
         }
         else
         {
@@ -91,10 +97,8 @@ namespace mattak
       TH2S * makeHist(int channel) const;
       TGraph * makeAdjustedInverseGraph(int channel, int sample, bool resid=false) const;
       TGraph * makeSampleGraph(int channel, int sample, bool resid=false) const;
-      TGraphErrors * getAveResidGraph_dac1() const { return graph_residAve[0]; }
-      TGraphErrors * getAveResidGraph_dac2() const { return graph_residAve[1]; }
-      TH2S * getResidHist_dac1() const { return hist_resid[0]; }
-      TH2S * getResidHist_dac2() const { return hist_resid[1]; }
+      TH2S * getResidHist(int channel) const;
+      TGraphErrors * getAveResidGraph(int channel) const;
       int getFitNdof(int channel, int samp) const { return fit_ndof[channel][samp]; }
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
@@ -103,7 +107,7 @@ namespace mattak
       uint32_t getEndTime() const { return end_time; }
       int scanSize() const { return vbias[0].size() ; }
       const int16_t * scanADCVals(int channel, int samp) const { return &scan_result[channel][samp][0]; }
-      const double * scanBias(int chan) const  { return &vbias[chan>=mattak::k::num_radiant_channels/2][0]; }
+      const double * scanBias(int chan) const  { return &vbias[chan][0]; }
       int scanTurnover(int chan, int samp) { return turnover_index[chan][samp]; }
       bool isResid() const { return fit_isUsingResid; }
 
@@ -116,38 +120,34 @@ namespace mattak
       std::array<std::array<double, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> fit_maxerr; //maximum error
       std::array<std::array<int, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> turnover_index; //where we start turning over
       std::array<double, mattak::k::num_radiant_channels> adc_offset;
-      std::array<std::array<TGraph*, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> graph;
-      std::array<std::vector<double>, 2> resid_volt;  // 2 DACs
-      std::array<std::vector<double>, 2> resid_adc;  // 2 DACs
-      std::array<TGraphErrors*, 2> graph_residAve; // 2 DACs
-      std::array<int, 2> nResidPoints; // 2 DACs
-      std::array<TH2S*, 2> hist_resid; // 2 DACs
+      std::array<std::array<TGraph, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> *graphs = 0;
+      std::array<std::vector<double>, mattak::k::num_radiant_channels> resid_volt;
+      std::array<std::vector<double>, mattak::k::num_radiant_channels> resid_adc;
+      std::array<TGraphErrors*, mattak::k::num_radiant_channels> graph_residAve = {};
+      std::array<int, mattak::k::num_radiant_channels> nResidPoints;
+      std::array<TH2S*, mattak::k::num_radiant_channels> hist_resid = {};
       std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
-      std::array<std::array<bool, 4>, 2> isResidOutOfBoxFrame; // 4 thresholds for each DAC
-      int fit_order;
-      int station_number;
-      double fit_vref;
-      double fit_min;
-      double fit_max;
-      uint32_t start_time;
-      int turnover_threshold;
+      std::array<std::array<bool, 4>, mattak::k::num_radiant_channels> isResidOutOfBoxFrame;
+      int fit_order = 9 ;
+      int station_number = 0 ;
+      double fit_vref = 1.5;
+      double fit_min = 0.2;
+      double fit_max = 2.2;
+      uint32_t start_time = 0;
+      int turnover_threshold = 20;
       void setupFromTree(TTree*t, const char * branch_name, double vref, int order, double min, double max, bool isUsingResid);
-      uint32_t end_time;
-      bool hasBiasScanData;
+      uint32_t end_time = 0;
+      bool hasBiasScanData = false;
       bool fit_isUsingResid = true;
-      bool left_equals_right;
-
+      bool left_equals_right = false;
       bool has_cache_tables_ = false;
       std::array<std::array<std::vector<double>, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> cached_adc_tables_;
 
-    ClassDef(VoltageCalibration, 4);
+    ClassDef(VoltageCalibration, 0);
   };
 #endif
 
-
-
 }
-
 
 #endif

@@ -3,5 +3,12 @@ install/
 __pycache__/
 
 # For VS code users
-.vscode/ 
+.vscode/
 
+# For test data
+tests/data/
+
+*.png
+*.out
+# The dot is important here!
+*.root

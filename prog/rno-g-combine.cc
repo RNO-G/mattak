@@ -154,7 +154,7 @@ int main (int nargs, char ** args)
   else
   {
     dss->SetBranchAddress(dss->GetName(),&ds); 
-    dss->BuildIndex("readout_time_radiant"); 
+    dss->BuildIndex("readout_time_radiant", "1e9*(readout_time_radiant - int(readout_time_radiant))"); 
   }
 
 
@@ -211,7 +211,7 @@ int main (int nargs, char ** args)
     hds->GetEntry(entry); 
     if (dss) 
     {
-      int status_entry = dss->GetEntryNumberWithBestIndex(hd->readout_time); 
+      int status_entry = dss->GetEntryNumberWithBestIndex(hd->readout_time, 1e9*(hd->readout_time - int(hd->readout_time))); 
       if (status_entry >= 0) 
       {
         dss->GetEntry(status_entry); 

@@ -21,6 +21,10 @@ except AttributeError:
 
 cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 
+# this is needed for newer versions of cppyy to remain backwards compatible, due to changes in uint8_t handling
+cppyy.cppdef(" uint8_t* cast_uint8_t(void * x) { return (uint8_t*) x; }")
+cast_uint8_t  = cppyy.gbl.cast_uint8_t
+
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
@@ -85,7 +89,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if verbose:
                     print(f"Found calibration file {cal_file}")
 
-                self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
+                self.set_calibration(cal_file, cache_calibration=cache_calibration)
             else:
                 if verbose:
                     print("No calibration file found")
@@ -97,6 +101,23 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
+
+        self.run_info = None
+        if isNully(self.ds.info()):
+            self.__read_run_info = False
+            warnings.warn("Could not read run info")
+        elif self.__read_run_info:
+            self.run_info = mattak.Dataset.RunInfo(
+                station=self.ds.info().station,
+                run=self.ds.info().run,
+                run_start_time=self.ds.info().run_start_time,
+                run_end_time=self.ds.info().run_end_time,
+                sampling_rate=self.ds.info().radiant_sample_rate,
+                run_config=f"{self.rundir}/cfg/acq.cfg"
+            )
+        else:
+            pass
+
 
     def set_calibration(self, path_or_object, cache_calibration):
         if isinstance(path_or_object, str):
@@ -121,16 +142,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
-            lowTrigThrs = numpy.array(daq_status.lt_coinc_trigger_thresholds)
+            lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
 
-        # the default value for the sampling rate (3.2 GHz) which is used
-        # for data which does not contain this information in the waveform files
-        # is set in the header fils Waveforms.h
-        try:
-            sampleRate = self.ds.raw().radiant_sampling_rate / 1000
-        except ReferenceError:
-            # Fall back to runinfo (as in uproot backend)
-            sampleRate = self.ds.info().radiant_sample_rate / 1000
+        # now use Dataset's faster sample rate getter
+        sampleRate = self.ds.radiantSampleRate() / 1000
 
         hdr = self.ds.header()
 
@@ -152,9 +167,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
         elif hdr.trigger_info.lt_trigger:
             triggerType = "LT"
 
-        radiantStartWindows = numpy.frombuffer(
-            cppyy.ll.cast['uint8_t*'](hdr.trigger_info.radiant_info.start_windows),
-            dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2)
+        # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
+        # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
+        radiantStartWindows = numpy.copy(numpy.frombuffer(
+                cast_uint8_t(hdr.trigger_info.radiant_info.start_windows),
+                dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
+
+
+        readout_delay = numpy.copy(numpy.around(numpy.frombuffer(
+            cppyy.ll.reinterpret_cast['float*'](self.ds.radiantReadoutDelays()),
+            dtype = numpy.float32, count=self.NUM_CHANNELS)))
 
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
@@ -170,17 +192,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate=sampleRate,
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
-            hasWaveforms=not isNully(self.ds.raw()))
+            hasWaveforms= self.ds.rawAvailable(),
+            readoutDelay=readout_delay)
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
-
         if self.multiple:
-            infos = []
-            for i in range(self.first, self.last):
-                infos.append(self._eventInfo(i))
-
-            return infos
+            return [self._eventInfo(idx) for idx in range(self.first, self.last)]
 
         return self._eventInfo(self.entry)
 
@@ -201,7 +219,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # the simple case first
         if not self.multiple:
-            return self._wfs(self.entry, calibrated)
+            # here a copy is needed to avoid overwriting the waveform in memory
+            return numpy.copy(self._wfs(self.entry, calibrated))
 
         if self.last - self.first < 0:
             return None

@@ -1,15 +1,15 @@
-#! /bin/bash 
+#! /bin/bash
 
-INDIR=${1-.} 
+INDIR=${1-.}
 OUTDIR=${2-$INDIR/root}
 FORCE=${3-0}
 STATION_OVERRIDE=${4--1}
 RUN_OVERRIDE=${5--1}
 
-if [ "${INDIR}" = "${OUTDIR}" ]; 
-then 
-  echo "Cannot put ROOT files into input directory" 
-  return -1 
+if [ "${INDIR}" = "${OUTDIR}" ];
+then
+  echo "Cannot put ROOT files into input directory"
+  exit 1
 fi
 
 echo "input dir is ${INDIR}"
@@ -18,24 +18,20 @@ echo "output dir is ${OUTDIR}"
 NEED_TO_UPDATE=1
 
 if [ ${FORCE} -eq 0 ]
-then 
+then
   if  [ -f ${OUTDIR}/rootified-list.txt -a -f ${OUTDIR}/aux/acq-file-list.txt ]  ;
   then
-    diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort ) 
+    diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort )
     NEED_TO_UPDATE=$?
-    echo "output dir found, need to update = $NEED_TO_UPDATE" 
-  fi; 
+    echo "output dir found, need to update = $NEED_TO_UPDATE"
+  fi;
 fi
 
+mkdir -p ${OUTDIR}
 
+if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
 
-
-
-mkdir -p ${OUTDIR} 
-
-if [ ${NEED_TO_UPDATE} -eq 1 ] ; then 
-
-  tmpfile=`mktemp`
+  tmpfile=$(mktemp)
 
   echo "Making rootified list" \
   && find ${INDIR} | sort -o $tmpfile \
@@ -49,17 +45,17 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* \
   && echo "Converting runinfo" \
   && rno-g-convert runinfo ${OUTDIR}/runinfo.root ${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE} \
+  && if [ -f ${INDIR}/bias_scan.dat.gz ]; then python3 convert_bias_scan_to_calibration.py ${INDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR}; fi \
   && echo "Copying aux and cfg"  \
   && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
   && cp $tmpfile ${OUTDIR}/rootified-list.txt
 
-  rm -f $tmpfile 
+  rm -f $tmpfile
 
   exit 1
 
-fi 
+fi
 
 
 exit 0
-

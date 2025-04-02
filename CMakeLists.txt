@@ -78,6 +78,7 @@ if (NOT DEFINED ROOTLESS)
 
     set (INSTALL_SCRIPTS
       scripts/rno-g-convert-run
+      scripts/rno-g-convert-station
       scripts/rno-g-make-eventlists
     )
 
@@ -126,12 +127,15 @@ if (NOT DEFINED ROOTLESS)
 
 
 
-    if (LIBRNO_G_SUPPORT)
+  if (LIBRNO_G_SUPPORT)
     add_program(rno-g-convert)
+    add_program(rno-g-test-voltage-calibration) 
     add_program(rno-g-readout-elapsed)
     endif( )
     add_program(rno-g-combine)
+    add_program(rno-g-test-apply-voltage-calibration) 
     add_program(rno-g-make-eventlist)
+    add_program(rno-g-count-events)
     add_program(rno-g-summary-tree)
   else()
     message(WARNING "No ROOT installation found. Skipping ROOTful version")
