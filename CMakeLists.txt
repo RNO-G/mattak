@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.0..4.0 FATAL_ERROR)
 project(mattak)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
