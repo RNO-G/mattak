@@ -1073,15 +1073,27 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
   if (!fit_isUsingResid) printf("\nNOTICE: 'fit_isUsingResid' is FALSE => The extra term residual function is not used!\n");
 
   bool isBadFit = false;
+  int nBadChannels = 0;
+  int nBadChannels_box = 0;
+  int nChannels_badSamplesFound = 0;
+  std::vector<bool> badSamplesFound(mattak::k::num_radiant_channels);
 
   for(int iChan = 0; iChan < mattak::k::num_radiant_channels; iChan++)
   {
+    int nBadSamples = 0;
+    badSamplesFound[iChan] = false;
+
     chisqValidation_tree->GetEntry(iChan);
     isBad_channelAveChisqPerDOF[iChan] = channelAveChisqPerDOF;
 
     if (isBad_channelAveChisqPerDOF[iChan])
     {
       printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+      nBadChannels++;
+    }
+
+    if (nBadChannels > 2)
+    {
       isBadFit = true;
     }
 
@@ -1094,7 +1106,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
       {
         printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
-        isBadFit = true;
+        nBadSamples++;
       }
 
       fitCoeffs_tree->GetEntry(iChan*mattak::k::num_lab4_samples+iSamp);
@@ -1102,6 +1114,18 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       {
         fit_coeffs[iChan][iSamp * (fit_order + 1) + iOrder] = coeff[iOrder];
       }
+    }
+
+    if (nBadSamples > 20)
+    {
+      badSamplesFound[iChan] = true;
+    }
+    
+    nChannels_badSamplesFound += badSamplesFound[iChan];
+
+    if (nChannels_badSamplesFound > 2)
+    {
+      isBadFit = true;
     }
 
     residValidation_tree->GetEntry(iChan);
@@ -1114,8 +1138,13 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
         else if (i == 1) printf("BAD FITTING WARNING: Some residuals in CH%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!\n", iChan);
         else if (i == 2) printf("BAD FITTING WARNING: Some residuals in CH%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!\n", iChan);
         else printf("BAD FITTING WARNING: Some residuals in CH%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!\n", iChan);
-        isBadFit = true;
+        nBadChannels_box++;
       }
+    }
+
+    if (nBadChannels_box > 2)
+    {
+      isBadFit = true;
     }
 
     // Average residuals for each channel
