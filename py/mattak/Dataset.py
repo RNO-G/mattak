@@ -206,7 +206,7 @@ class AbstractDataset(ABC):
                 # Get all event infos and count triggers of type trigger
                 self.setEntries((0, self.N()))
                 event_infos = self.eventInfo()
-                n_events = numpy.sum([event_info.triggerType == trigger for event_info in event_infos])
+                n_events = numpy.sum([event_info.triggerType.lower() == trigger.lower() for event_info in event_infos])
 
                 # restore the original entry
                 self.setEntries(orig_entry)
