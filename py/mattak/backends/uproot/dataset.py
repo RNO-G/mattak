@@ -26,8 +26,8 @@ def find_daq_status_index(event_readout_time, daq_readout_times):
 
     # This would enforce the entry to be before the event. But
     # this causes a conflict with the pyroot backend
-    # if daq_readout_times[closest_idx] > event_readout_time:
-    #     closest_idx -= 1
+    if daq_readout_times[closest_idx] > event_readout_time and closest_idx > 0:
+        closest_idx -= 1
 
     return closest_idx
 
@@ -162,6 +162,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
                 self.wf_tree, self.wf_branch = read_tree(self.wf_file, waveform_tree_names)
                 self._wfs = self.wf_tree[self.wf_branch]
+                wfs_included = self._wfs['event_number'].array()
+                self.events_with_waveforms = {ev: idx for idx, ev in enumerate(wfs_included)}
 
                 self.hd_file = uproot.open("%s/headers.root" % (self.rundir))
                 self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
@@ -323,10 +325,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         try:
-            if self._wfs is None:
-                raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
-
-            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(library='np', **kw)
+            readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(**kw)
         except uproot.exceptions.KeyInFileError:
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
 

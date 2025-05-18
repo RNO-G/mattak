@@ -1,0 +1,22 @@
+#! /bin/bash
+
+STATION=${1-13}
+RAWDIR=${2-/data/full/raw}
+ROOTDIR=${3-/data/full/root}
+NPROCS=${4-4}
+FORCE=${5-0}
+
+if [ "${RAWDIR}" = "${ROOTDIR}" ];
+then
+  echo "Cannot put ROOT files into input directory"
+  exit 1
+fi
+
+echo "raw dir is ${RAWDIR}/station$STATION"
+echo "output dir is ${ROOTDIR}/station$STATION"
+
+runs=`ls $RAWDIR/station$STATION/ | grep run`
+echo $runs
+
+parallel --jobs $NPROCS rno-g-convert-run $RAWDIR/station$STATION/{}  ${ROOTDIR}/station$STATION/{} $FORCE ::: $runs
+

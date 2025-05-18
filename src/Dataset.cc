@@ -56,25 +56,18 @@ void mattak::Dataset::setupRadiantMeta()
 {
 
   // HACK: separately make the sample rate from the waveform file
-  clear(&sample_rate,true);
-  clear(&delays,true);
-  sample_rate.branch = wf.tree->GetBranch("radiant_sampling_rate");
-  if (sample_rate.branch)
-  {
-    sample_rate.ptr = new uint32_t; //ugh
-    sample_rate.file = wf.file;
-    sample_rate.tree = wf.tree;
-    sample_rate.branch->SetAddress(sample_rate.ptr);
-  }
+  clear(&wf_meta);
 
-  delays.branch = wf.tree->GetBranch("digitizer_readout_delay_ns");
-  if (delays.branch)
-  {
-    delays.ptr = new std::array<float, mattak::k::num_radiant_channels> {};
-    delays.file = wf.file;
-    delays.tree = wf.tree;
-    delays.branch->SetAddress(delays.ptr);
-  }
+  //copy the file/tree so we don't double count branches
+  wf_meta.file = TFile::Open(wf.file->GetName());
+  wf_meta.tree = (TTree*) wf_meta.file->Get(wf.tree->GetName());
+  wf_meta.branch = nullptr; // we don't use this directly for this, since I'm not sure how it interacts with SetBranchStatus
+  wf_meta.ptr = new mattak::Waveforms;
+  wf_meta.tree->SetBranchAddress(wf.branch->GetName(), &wf_meta.ptr);
+  wf_meta.tree->SetBranchStatus("*",0);
+  UInt_t found = 0;
+  wf_meta.tree->SetBranchStatus("*radiant_sampling_rate",1, &found);
+  wf_meta.tree->SetBranchStatus("*digitizer_readout_delay_ns*",1, &found);
 }
 
 /** Silently check if file exists, supporting all protocols ROOT does */
@@ -93,6 +86,7 @@ template <typename D>
 static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = false)
 {
   clear(field);
+  if (verbose) std::cout << "Trying to open " << filename << std::endl;
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
   if (!field->file) return -1;
 
@@ -139,10 +133,10 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
 }
 
 template <typename D>
-static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool silent = true)
+static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool verbose = true)
 {
   clear(field);
-  field->file = silent ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
+  field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
   if (!field->file) return -1;
   field->ptr = (D*) field->file->Get(obj_name);
   gROOT->cd();
@@ -153,8 +147,7 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
 void mattak::Dataset::unload()
 {
   clear(&wf);
-  clear(&sample_rate,true);
-  clear(&delays,true);
+  clear(&wf_meta);
   clear(&hd);
   clear(&ds);
   clear(&pd);
@@ -360,7 +353,7 @@ int mattak::Dataset::loadDir(const char * dir)
       if (opt.verbose) std::cout << " ... full dataset not found " << std::endl;
 
       //let's load from combined file instead
-      if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names))
+      if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names, nullptr, opt.verbose))
       {
         //uh oh, we didn't find it there either :(
         std::cerr << "Failed to find waveforms.root or combined.root in " << dir << std::endl;
@@ -380,7 +373,7 @@ int mattak::Dataset::loadDir(const char * dir)
  
   //now load the header files
   if (opt.verbose) std::cout << "about to load headers " << std::endl;
-  if (setup(&hd, Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), header_tree_names))
+  if (setup(&hd, Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), header_tree_names, nullptr, opt.verbose))
   {
     std::cerr << "Failed to find headers.root or " << partial_file << " .root in " << dir << std::endl;
     return -1;
@@ -395,7 +388,7 @@ int mattak::Dataset::loadDir(const char * dir)
 
   //and the status files
   if (opt.verbose) std::cout << "about to load daqstatus " << std::endl;
-  if (setup(&ds, Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file), daqstatus_tree_names))
+  if (setup(&ds, Form("%s/%s.root", dir, full_dataset || !opt.partial_skip_incomplete ? "daqstatus" : partial_file), daqstatus_tree_names, nullptr, opt.verbose))
   {
     std::cerr << "Failed to find daqstatus.root or " << partial_file << " in " << dir << std::endl;
     return -1;
@@ -404,12 +397,12 @@ int mattak::Dataset::loadDir(const char * dir)
 
   if (full_dataset)
   {
-    ds.tree->BuildIndex("readout_time_radiant");
+    ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
   }
 
   //and the pedestal files
   if (opt.verbose) std::cout << "about to load pedestal " << std::endl;
-  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names))
+  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names, nullptr, opt.verbose))
   {
     std::cerr << "Failed to find pedestal.root in " << dir << " (This is usually ok if you don't need them) " << std::endl;
   }
@@ -420,7 +413,7 @@ int mattak::Dataset::loadDir(const char * dir)
 
   //and try the runinfo file
   if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
-  if (setup(&runinfo, Form("%s/runinfo.root", dir), "info"))
+  if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose))
   {
      std::cerr << "Failed to read runinfo ... " << std::endl;
   }
@@ -462,17 +455,31 @@ mattak::Header* mattak::Dataset::header(bool force)
 }
 
 template <typename T> 
-static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force)
+static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force = false, mattak::Dataset::tree_field<mattak::Waveforms> * index_field = nullptr)
 {
   if (force || field->loaded_entry != d->currentEntry())
   {
     if (d->isFullDataset() || d->getOpt().partial_skip_incomplete)
     {
-      field->branch->GetEntry(d->currentEntry());
+      auto current = d->currentEntry();
+      if (field->branch) field->branch->GetEntry(current);
+      else field->tree->GetEntry(current);
+      field->loaded_entry = current;
     }
     else
     {
-      int entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      int entry= -1;
+      if (index_field) 
+      {
+        entry = index_field->tree ? index_field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      }
+      else
+      {
+        entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
+      }
+
+      field->loaded_entry = d->currentEntry(); 
+
       if (entry < 0) 
       {
         field->missing_entry = true;
@@ -480,7 +487,8 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
       else
       {
         field->missing_entry = false; 
-        field->branch->GetEntry(entry);
+        if (field->branch) field->branch->GetEntry(entry);
+        else field->tree->GetEntry(entry);
       }
     }
   }
@@ -489,18 +497,25 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 
 float mattak::Dataset::radiantSampleRate(bool force)
 {
-  if (sample_rate.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
-  findIncompleteEntry(&sample_rate,this, force);
-  return sample_rate.missing_entry ? 3200 : ((float) *sample_rate.ptr);
+  if (wf_meta.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  findIncompleteEntry(&wf_meta,this, force, &wf);
+  if (wf_meta.missing_entry)
+  {
+    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  }
+  return wf_meta.ptr->radiant_sampling_rate;
 }
 
-static std::array<float, mattak::k::num_radiant_channels> zeros{}; 
+static float zeros[mattak::k::num_radiant_channels]; 
 
 const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 {
-  if (delays.ptr == nullptr) return (const float*) &zeros; 
-  findIncompleteEntry(&delays,this, force);
-  return (const float*)  (  delays.missing_entry ? &zeros : delays.ptr );
+  if (wf_meta.ptr == nullptr) 
+  {
+    return (const float*) zeros; 
+  }
+  findIncompleteEntry(&wf_meta,this, force, &wf);
+  return (const float*)  (  wf_meta.missing_entry ? zeros : wf_meta.ptr->digitizer_readout_delay_ns );
 }
 
 
@@ -519,17 +534,12 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   {
     if (full_dataset)
     {
-      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(header(force)->readout_time);
-      if (ds_entry < 0)
-      {
-        ds.missing_entry = true;
-      }
-      else
-      {
-        ds.branch->GetEntry(ds_entry);
-        ds.missing_entry = false;
+      double readout_time = header(force)->readout_time;
+      int ds_entry = ds.tree->GetEntryNumberWithBestIndex(readout_time, 1e9 * (readout_time - int(readout_time)));
+      if (ds_entry < 0) ds_entry = 0;  // this should only happen if it's the first one?  
+      ds.branch->GetEntry(ds_entry);
+      ds.missing_entry = false;
 
-      }
     }
     else
     {
