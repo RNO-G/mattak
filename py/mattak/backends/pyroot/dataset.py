@@ -102,6 +102,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
 
+        self.full = self.ds.isFullDataset()
+
         self.run_info = None
         if isNully(self.ds.info()):
             self.__read_run_info = False

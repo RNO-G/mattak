@@ -147,7 +147,7 @@ class AbstractDataset(ABC):
         # restore the original entry
         self.setEntries(orig_entry)
 
-        return last_event.triggerTime - first_event.triggerTime
+        return float(last_event.triggerTime - first_event.triggerTime)
 
     def is_calibration_run(self) -> bool:
         """ Returns True if the run is a calibration run  """
