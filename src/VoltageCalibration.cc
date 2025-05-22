@@ -960,7 +960,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   fitCoeffs_tree.SetDirectory(&f);
 
   TTree aveResidGraph_tree("aveResidGraph_tree", "aveResidGraph_tree");
-  TGraphErrors *p_aveResidGraph;
+  TGraphErrors *p_aveResidGraph = nullptr;
   aveResidGraph_tree.Branch("aveResidGraph", "TGraphErrors", &p_aveResidGraph);
   aveResidGraph_tree.SetDirectory(&f);
 
