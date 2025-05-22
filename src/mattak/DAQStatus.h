@@ -82,8 +82,8 @@ namespace mattak
       uint8_t radiant_prescalers_m1[mattak::k::num_radiant_channels] = {0};  //mHz?
       float radiant_scaler_period;
 
-      uint32_t lt_coinc_trigger_thresholds[mattak::k::num_lt_channels] = {0}; //
-      uint32_t lt_coinc_servo_thresholds[mattak::k::num_lt_channels] = {0}; //
+      uint32_t lt_trigger_thresholds[mattak::k::num_lt_channels] = {0}; //
+      uint32_t lt_servo_thresholds[mattak::k::num_lt_channels] = {0}; //
       uint32_t lt_phased_trigger_thresholds[mattak::k::num_lt_beams] = {0}; //
       uint32_t lt_phased_servo_thresholds[mattak::k::num_lt_beams] = {0}; //
       LTScalerGroup lt_1Hz_scalers;
