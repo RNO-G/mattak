@@ -96,7 +96,7 @@ namespace mattak
       RadiantVoltages radiant_voltages; 
       CalpulserInfo calinfo; 
     
-    ClassDef(DAQStatus, 5); 
+    ClassDef(DAQStatus, 6); 
   }; 
 
 }
