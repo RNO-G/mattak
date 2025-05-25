@@ -257,6 +257,9 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     int col = chan_counter % ncols;
     double text_scale_factor = col == 0 ? 1. / first_col_ratio : 1 ;
 
+    //pixel size fonts
+    if (opt.font % 10 == 3)  text_scale_factor = 1;
+
     TString the_title = g->GetTitle();
     g->SetTitle(""); // we'll draw it ourselves...
 
@@ -270,9 +273,60 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
 
 
     TLatex ltx;
-    ltx.SetTextFont(42);
+    ltx.SetTextFont(opt.font ?: 42);
     ltx.SetTextSize(opt.title_size * text_scale_factor);
 
+
+
+    gPad->SetRightMargin(0.02);
+
+
+    if (!opt.share_yaxis || col == 0)
+    {
+      gPad->SetLeftMargin(opt.left_margin);
+      g->GetYaxis()->SetTitleSize(opt.ytitle_size * text_scale_factor);
+      g->GetYaxis()->SetLabelSize(opt.ylabel_size * text_scale_factor);
+      g->GetYaxis()->SetLabelOffset(opt.ylabel_offset / text_scale_factor);
+      g->GetYaxis()->CenterTitle(opt.ytitle_center * text_scale_factor);
+      g->GetYaxis()->SetTitleOffset(opt.ytitle_offset / text_scale_factor);
+      if (opt.font)
+      {
+        g->GetYaxis()->SetTitleFont(opt.font);
+        g->GetYaxis()->SetLabelFont(opt.font);
+      }
+    }
+    else
+    {
+      gPad->SetLeftMargin(0.02);
+      g->GetYaxis()->SetTitle("");
+      g->GetYaxis()->SetLabelSize(0);
+    }
+
+
+    if (!opt.share_xaxis || row == nrows - 1)
+    {
+      g->GetXaxis()->SetTitleSize(opt.xtitle_size * text_scale_factor);
+      g->GetXaxis()->SetTitleOffset(opt.xtitle_offset / text_scale_factor);
+      g->GetXaxis()->SetLabelOffset(opt.xlabel_offset  + (1-text_scale_factor) * opt.xlabel_size);
+      g->GetXaxis()->SetLabelSize(opt.xlabel_size * text_scale_factor);
+      g->GetXaxis()->CenterTitle(opt.xtitle_center * text_scale_factor);
+
+      if (opt.font)
+      {
+        g->GetXaxis()->SetTitleFont(opt.font);
+        g->GetXaxis()->SetLabelFont(opt.font);
+      }
+      gPad->SetBottomMargin(opt.bottom_margin);
+    }
+    else
+    {
+      g->GetXaxis()->SetTitle("");
+      g->GetXaxis()->SetLabelSize(0);
+      gPad->SetBottomMargin(0.01);
+    }
+
+    g->GetYaxis()->SetNdivisions(opt.yndivisions);
+    g->GetXaxis()->SetNdivisions(opt.xndivisions);
 
     if (!opt.show_title || opt.share_xaxis) gPad->SetTopMargin(0.01);
     else
@@ -289,44 +343,6 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
     }
 
 
-
-    gPad->SetRightMargin(0.02);
-
-
-    if (!opt.share_yaxis || col == 0)
-    {
-      gPad->SetLeftMargin(opt.left_margin);
-      g->GetYaxis()->SetTitleSize(opt.ytitle_size * text_scale_factor);
-      g->GetYaxis()->SetLabelSize(opt.ylabel_size * text_scale_factor);
-      g->GetYaxis()->SetLabelOffset(opt.ylabel_offset / text_scale_factor);
-      g->GetYaxis()->CenterTitle(opt.ytitle_center * text_scale_factor);
-      g->GetYaxis()->SetTitleOffset(opt.ytitle_offset / text_scale_factor);
-    }
-    else
-    {
-      gPad->SetLeftMargin(0.02);
-      g->GetYaxis()->SetTitle("");
-      g->GetYaxis()->SetLabelSize(0);
-    }
-
-
-    if (!opt.share_xaxis || row == nrows - 1)
-    {
-      g->GetXaxis()->SetTitleSize(opt.xtitle_size * text_scale_factor);
-      g->GetXaxis()->SetTitleOffset(opt.xtitle_offset / text_scale_factor);
-      g->GetXaxis()->SetLabelOffset(opt.xlabel_offset / text_scale_factor);
-      g->GetXaxis()->SetLabelSize(opt.xlabel_size * text_scale_factor);
-      g->GetXaxis()->CenterTitle(opt.xtitle_center * text_scale_factor);
-    }
-    else
-    {
-      g->GetXaxis()->SetTitle("");
-      g->GetXaxis()->SetLabelSize(0);
-      gPad->SetBottomMargin(0.01);
-    }
-
-    g->GetYaxis()->SetNdivisions(opt.yndivisions);
-    g->GetXaxis()->SetNdivisions(opt.xndivisions);
 
     if (opt.stats)
     {
