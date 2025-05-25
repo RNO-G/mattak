@@ -67,6 +67,9 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->trigger_info.lt_info.window = head->lt_simple_trigger_cfg.window;
   this->trigger_info.lt_info.num_coinc = head->lt_simple_trigger_cfg.num_coinc;
   this->trigger_info.lt_info.vppmode = head->lt_simple_trigger_cfg.vpp_mode;
+  this->trigger_info.lt_info.channel_mask=head->lt_simple_trigger_cfg.channel_mask;
+  this->trigger_info.lt_info.beam_mask=head->lt_phased_trigger_cfg.beam_mask;
+
 
 
 
