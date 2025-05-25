@@ -93,7 +93,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.codes[0],&code.codes[1], &code.codes[2], &code.codes[3]);
 
     //check if next line exists for reading older files
-    if (std::getline(ifs,line)!= 0)
+    if (std::getline(ifs,line))
     {
       sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.fine_codes[0],&code.fine_codes[1], &code.fine_codes[2], &code.fine_codes[3]);
     }
