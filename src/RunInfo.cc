@@ -91,6 +91,12 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     sscanf(line.c_str(),"# Flower gain codes, station=%d, run=%d,  time=%d", &code.station,&code.run, &code.when);
     std::getline(ifs,line);
     sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.codes[0],&code.codes[1], &code.codes[2], &code.codes[3]);
+
+    //check if next line exists for reading older files
+    if (std::getline(ifs,line)!= 0)
+    {
+      sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.fine_codes[0],&code.fine_codes[1], &code.fine_codes[2], &code.fine_codes[3]);
+    }
     flower_codes.push_back(code);
   }
 
@@ -173,7 +179,7 @@ int mattak::RunInfo::lookupFirmwareVersion(const std::string & verkey, const std
   if (!val) return 1;
 
 
-  return 3 != sscanf(ver.c_str(), "%02hhu.%02hhu.%02hhu", &val->station, &val->major, &val->minor) 
+  return 3 != sscanf(ver.c_str(), "%02hhu.%02hhu.%02hhu", &val->major, &val->minor, &val->rev) 
   || 3 != sscanf(date.c_str(), "%hu-%02hhu.%02hhu", &val->year, &val->month, &val->day); 
 
 }
@@ -194,4 +200,12 @@ float mattak::FlowerGainCode::gain(unsigned chan)
 
   if (codes[chan] >= sizeof(table)/sizeof(*table)) return 50;
   return table[codes[chan]];
+}
+
+float mattak::FlowerGainCode::fine_gain(unsigned chan)
+{
+  if (chan >= k::num_lt_channels) return -1;
+  if (fine_codes[chan]>31) return 33/64;
+  if (fine_codes[chan]<0) return 1;
+  return 1-fine_codes[chan]/64;
 }
