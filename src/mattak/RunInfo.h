@@ -14,9 +14,9 @@ namespace mattak
 
   struct FirmwareVersion : public TObject
   {
-    uint8_t station = 0;
     uint8_t major = 0;
     uint8_t minor = 0;
+    uint8_t rev = 0;
     uint8_t day = 0;
     uint8_t month = 0;
     uint16_t year = 0;
