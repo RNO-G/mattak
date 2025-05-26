@@ -97,6 +97,10 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     {
       sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.fine_codes[0],&code.fine_codes[1], &code.fine_codes[2], &code.fine_codes[3]);
     }
+    if (std::getline(ifs,line))
+    {
+      sscanf(line.c_str(),"%f %f %f %f", &code.rms[0],&code.rms[1], &code.rms[2], &code.rms[3]);
+    }
     flower_codes.push_back(code);
   }
 

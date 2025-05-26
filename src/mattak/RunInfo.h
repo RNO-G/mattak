@@ -28,12 +28,13 @@ namespace mattak
   {
     uint8_t codes[k::num_lt_channels]  = {0};
     uint8_t fine_codes[k::num_lt_channels]  = {0};
+    float rms[k::num_lt_channels]  = {0};
     float gain(unsigned chan);
     float fine_gain(unsigned chan);
     time_t when = 0;
     int station = 0;
     int run = 0;
-    ClassDef(FlowerGainCode, 2);
+    ClassDef(FlowerGainCode, 3);
   };
 
   class RunInfo : public TObject
@@ -76,7 +77,7 @@ namespace mattak
 
     private:
       std::unordered_map<std::string,std::string> kvp;
-      ClassDef(RunInfo, 2);
+      ClassDef(RunInfo, 3);
   };
 }
 
