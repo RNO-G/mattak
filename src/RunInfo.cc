@@ -173,8 +173,8 @@ int mattak::RunInfo::lookupFirmwareVersion(const std::string & verkey, const std
   if (!val) return 1;
 
 
-  return 3 != sscanf(ver.c_str(), "%02hhu.%02hhu.%02hhu", &val->station, &val->major, &val->minor) 
-  || 3 != sscanf(date.c_str(), "%hu-%02hhu.%02hhu", &val->year, &val->month, &val->day); 
+  return 3 != sscanf(ver.c_str(), "%02hhu.%02hhu.%02hhu", &val->major, &val->minor, &val->rev)
+  || 3 != sscanf(date.c_str(), "%hu-%02hhu.%02hhu", &val->year, &val->month, &val->day);
 
 }
 
