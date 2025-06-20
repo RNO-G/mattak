@@ -24,6 +24,11 @@ namespace mattak
     uint16_t trig_per_chan[mattak::k::num_lt_channels] = {0};
     uint16_t servo_coinc = 0;
     uint16_t servo_per_chan[mattak::k::num_lt_channels] = {0};
+    uint16_t trig_phased = 0;
+    uint16_t trig_per_beam[mattak::k::num_lt_beams] = {0};
+    uint16_t servo_phased = 0;
+    uint16_t servo_per_beam[mattak::k::num_lt_beams] = {0};
+
   }; 
 
   struct RadiantVoltages
@@ -79,6 +84,8 @@ namespace mattak
 
       uint32_t lt_trigger_thresholds[mattak::k::num_lt_channels] = {0}; //
       uint32_t lt_servo_thresholds[mattak::k::num_lt_channels] = {0}; //
+      uint32_t lt_phased_trigger_thresholds[mattak::k::num_lt_beams] = {0}; //
+      uint32_t lt_phased_servo_thresholds[mattak::k::num_lt_beams] = {0}; //
       LTScalerGroup lt_1Hz_scalers;
       LTScalerGroup lt_1Hz_gated_scalers;
       LTScalerGroup lt_100Hz_scalers;
@@ -89,7 +96,7 @@ namespace mattak
       RadiantVoltages radiant_voltages; 
       CalpulserInfo calinfo; 
     
-    ClassDef(DAQStatus, 4); 
+    ClassDef(DAQStatus, 6); 
   }; 
 
 }
