@@ -16,9 +16,7 @@
 #include "TTree.h" 
 #include "TRandom.h" 
 #include "TEventList.h"
-#include "TRandom3.h" 
-#include "Compression.h"
-
+#include "TRandom3.h"
 
 
 int main (int nargs, char ** args) 
@@ -71,7 +69,7 @@ int main (int nargs, char ** args)
 
 
 
-  TFile of(args[1],"RECREATE","CombinedFile",ROOT::CompressionSettings(ROOT::kLZMA,5)); 
+  TFile of(args[1],"RECREATE","CombinedFile",ROOT::CompressionSettings(ROOT::RCompressionSetting::EAlgorithm::kLZMA,5)); 
   mattak::Waveforms * wf = 0;
   mattak::Header * hd = 0;
   mattak::DAQStatus * ds = 0;
