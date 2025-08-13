@@ -20,7 +20,7 @@ namespace mattak
     uint8_t day = 0;
     uint8_t month = 0;
     uint16_t year = 0;
-    ClassDef(FirmwareVersion, 1);
+    ClassDef(FirmwareVersion,2);
   };
 
 
