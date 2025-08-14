@@ -290,7 +290,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # we always read all information at once and associate the to the
             # event below.
             self._radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
-            self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            try:
+                self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            except uproot.exceptions.KeyInFileError:
+                self._lowTrigThrs = None
+                self._lowTrigThrs = numpy.array(self._dss['lt_coinc_trigger_thresholds[4]'])
             self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
