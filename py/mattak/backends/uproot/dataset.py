@@ -293,7 +293,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
             try:
                 self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
             except uproot.exceptions.KeyInFileError:
-                self._lowTrigThrs = None
                 self._lowTrigThrs = numpy.array(self._dss['lt_coinc_trigger_thresholds[4]'])
             self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
