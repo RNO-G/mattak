@@ -106,6 +106,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self._radiantThrs = None
         self._lowTrigThrs = None
+        self._lowphasedTrigThrs = None
 
         # special case where data_dir is a file
         if os.path.isfile(data_path):
@@ -290,7 +291,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # we always read all information at once and associate the to the
             # event below.
             self._radiantThrs = numpy.array(self._dss[f'radiant_thresholds[{self.NUM_CHANNELS}]'])
-            self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            try:
+                self._lowTrigThrs = numpy.array(self._dss['lt_trigger_thresholds[4]'])
+            except uproot.exceptions.KeyInFileError:
+                self._lowTrigThrs = numpy.array(self._dss['lt_coinc_trigger_thresholds[4]'])
+            try:
+                self._lowphasedTrigThrs = numpy.array(self._dss['lt_phased_trigger_thresholds[12]'])
+            except uproot.exceptions.KeyInFileError:
+                self._lowphasedTrigThrs = None
             self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
