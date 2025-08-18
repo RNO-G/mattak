@@ -144,7 +144,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
             lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
-            lowphasedTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+            if self._lowphasedTrigThrs is None:
+                    lowphasedTrigThrs = None
+            else:
+                lowphasedTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
 
         # now use Dataset's faster sample rate getter
         sampleRate = self.ds.radiantSampleRate() / 1000
