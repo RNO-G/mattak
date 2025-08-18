@@ -352,6 +352,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             radiantThrs = None
             lowTrigThrs = None
+            lowphasedTrigThrs = None
             if self.__read_daq_status:
                 # associate daq infomation of event based on readout times
                 readout_time = readoutTime[i]
@@ -359,6 +360,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 lt_idx = find_daq_status_index(readout_time, self._readout_time_lt)
                 radiantThrs = self._radiantThrs[radiant_idx]
                 lowTrigThrs = self._lowTrigThrs[lt_idx]
+                if self._lowphasedTrigThrs is None:
+                    logging.warning("lowphasedTrigThrs is not available in this dataset")
+                    lowphasedTrigThrs = None
+                else:
+                    lowphasedTrigThrs = self._lowphasedTrigThrs[lt_idx]
 
             info = mattak.Dataset.EventInfo(
                 eventNumber = eventNumber[i],
@@ -374,6 +380,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 sampleRate = sampleRate[i],
                 radiantThrs = radiantThrs,
                 lowTrigThrs = lowTrigThrs,
+                lowphasedTrigThrs = lowphasedTrigThrs,
                 hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True,
                 readoutDelay=readout_delay[i]
             )
