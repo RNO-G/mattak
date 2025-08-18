@@ -361,7 +361,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 radiantThrs = self._radiantThrs[radiant_idx]
                 lowTrigThrs = self._lowTrigThrs[lt_idx]
                 if self._lowphasedTrigThrs is None:
-                    logging.warning("lowphasedTrigThrs is not available in this dataset")
                     lowphasedTrigThrs = None
                 else:
                     lowphasedTrigThrs = self._lowphasedTrigThrs[lt_idx]
