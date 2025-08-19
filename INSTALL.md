@@ -1,6 +1,8 @@
 # Installation manual
 
-`mattak` is a C++ library that also has a python API. This manual includes a description of how to "Build mattak from source" as well as how to install it via pip. The former is relevant for all those who like to contribute to / develop the C++ version, while the latter is sufficient when using mattak in python. The python API supports either a ROOT or uproot backend for reading data. Depending on which backend you use, the requirements may differ. For users interesting in reading data you may want to also read doc/ReadingData.md.
+`mattak` is a C++ library that also has a python API. This manual includes a description of how to "Build mattak from source" as well as how to install it via pip. The former is relevant for all those who like to contribute to / develop the C++ version, while the latter is sufficient when using mattak in python only. The python API supports either a ROOT or uproot backend for reading data. Depending on which backend you use, the requirements may differ. For users interesting in reading data you may want to also read doc/ReadingData.md.
+
+Keep in mind that mattak is shipped with RNO-G's cvmfs environments! So you do not need to install it yourself and can make use of the cvmfs installation if you are not planning on making changes to mattak. For more information see `/cvmfs/rnog.opensciencegrid.org/software/README.md` on your local cluster with cvmfs access.
 
 ## Installing with pip
 
