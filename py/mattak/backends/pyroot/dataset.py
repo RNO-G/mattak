@@ -25,6 +25,10 @@ cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 cppyy.cppdef(" uint8_t* cast_uint8_t(void * x) { return (uint8_t*) x; }")
 cast_uint8_t  = cppyy.gbl.cast_uint8_t
 
+
+cppyy.cppdef(" int16_t* cast_int16_t(void * x) { return (int16_t*) x; }")
+cast_int16_t  = cppyy.gbl.cast_int16_t
+
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
@@ -206,9 +210,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if isNully(wf):
             return None
 
-        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
-                                dtype = 'float64' if calibrated else 'int16',
-                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        if calibrated:
+            wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
+                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        else:
+            # FS: I think a np.copy is not necessary here because we do it in wfs()
+            wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
+                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        return wfs
 
 
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
