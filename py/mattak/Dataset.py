@@ -407,7 +407,7 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
 
     vc_basenames = [os.path.basename(vc) for vc in vc_list]
     # extracting bias scan start time from cal_file name
-    vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
+    vc_start_times = [(i, float(re.split(r"\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
     closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
 
     return vc_list[closest_idx]
