@@ -27,6 +27,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
+    lowphasedTrigThrs: Optional[numpy.ndarray]
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
 
