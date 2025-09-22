@@ -11,7 +11,7 @@ set(RNO_G_INSTALL_DIR "" CACHE STRING "Installation directory for RNO-G library"
 
 # Logic to set the installation path
 if(PIP_INSTALLATION)
-  set(RNO_G_INSTALL_DIR "${CMAKE_BINARY_DIR}/build" CACHE STRING "Installation directory for RNO-G library" FORCE)
+  set(RNO_G_INSTALL_DIR "./build" CACHE STRING "Installation directory for RNO-G library" FORCE)
 elseif(RNO_G_INSTALL_DIR)
   # Already specified by command line or cached value
   message(STATUS "RNO_G_INSTALL_DIR is set to ${RNO_G_INSTALL_DIR}")
