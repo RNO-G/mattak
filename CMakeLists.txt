@@ -119,7 +119,7 @@ if (NOT DEFINED ROOTLESS)
       message(STATUS "librno-g path set to: ${LIBRNO_G_PATH}")
       message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/install/lib/")
 
-      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/)
+      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/ ${LIBRNO_G_PATH}/build)
       
       message(STATUS "Found librno-g: ${RNO_G_LIB}")
       
