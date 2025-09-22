@@ -45,5 +45,5 @@ version="[5]" \
 targetClass="mattak::DAQStatus" \
 target="lt_trigger_thresholds,lt_servo_thresholds" \
 embed="true" \
-include="cstdlib,cstdint \
-code="{ for(int i=0;i<mattak::k::num_lt_channels;i++){ lt_trigger_thresholds[i]=onfile.lt_coinc_trigger_thresholds[i]; lt_servo_thresholds[i]=onfile.lt_coinc_servo_thresholds[i]; } }"
+include="cstdlib,cstdint" \
+code="{  for(int i=0;i<mattak::k::num_lt_channels;i++){ lt_trigger_thresholds[i]=onfile.lt_coinc_trigger_thresholds[i]; lt_servo_thresholds[i]=onfile.lt_coinc_servo_thresholds[i]; }  }" \
