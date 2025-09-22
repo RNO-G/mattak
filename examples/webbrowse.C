@@ -172,7 +172,7 @@ void draw_ds()
 
   for (int ch = 0; ch < 4; ch++)
   {
-    N = st->Draw(Form("lt_1Hz_scalers.trig_per_chan[%d]:lt_1Hz_scalers.servo_per_chan[%d]:lt_coinc_trigger_thresholds[%d]:lt_coinc_servo_thresholds[%d]:readout_time_lt", ch,ch,ch,ch),"","goff"); 
+    N = st->Draw(Form("lt_1Hz_scalers.trig_per_chan[%d]:lt_1Hz_scalers.servo_per_chan[%d]:lt_trigger_thresholds[%d]:lt_servo_thresholds[%d]:readout_time_lt", ch,ch,ch,ch),"","goff"); 
 
     TGraph * gth = new TGraph(N, st->GetVal(4), st->GetV3()); 
     gth->SetTitle(Form("LT ch%d trig.; readout time; threshold [arb]", ch));
