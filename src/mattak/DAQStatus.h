@@ -18,13 +18,13 @@ namespace mattak
 
   struct LTScalerGroup
   {
-    # Used for the high-low coincidence trigger
+    // Used for the high-low coincidence trigger
     uint16_t trig_coinc = 0;
     uint16_t trig_per_chan[mattak::k::num_lt_channels] = {0};
     uint16_t servo_coinc = 0;
     uint16_t servo_per_chan[mattak::k::num_lt_channels] = {0};
 
-    # Used for the phased-array trigger
+    // Used for the phased-array trigger
     uint16_t trig_phased = 0;
     uint16_t trig_per_beam[mattak::k::num_lt_beams] = {0};
     uint16_t servo_phased = 0;
