@@ -2,17 +2,25 @@ cmake_minimum_required(VERSION 3.0...4.0 FATAL_ERROR)
 project(mattak)
 set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 
-
+# Define the option for pip installation
 option(PIP_INSTALLATION "Used by scikit-build-core to set correct default installation path" OFF)
 
+# Define the install dir as a cached variable, so it can be set from command line
+# CACHE STRING allows it to be overridden via -D
+set(RNO_G_INSTALL_DIR "" CACHE STRING "Installation directory for RNO-G library")
+
+# Logic to set the installation path
 if(PIP_INSTALLATION)
-  set(RNO_G_INSTALL_DIR ./build)
+  set(RNO_G_INSTALL_DIR "${CMAKE_BINARY_DIR}/build" CACHE STRING "Installation directory for RNO-G library" FORCE)
+elseif(RNO_G_INSTALL_DIR)
+  # Already specified by command line or cached value
+  message(STATUS "RNO_G_INSTALL_DIR is set to ${RNO_G_INSTALL_DIR}")
 elseif(DEFINED ENV{RNO_G_INSTALL_DIR})
-  message("RNO_G_INSTALL_DIR is set to $ENV{RNO_G_INSTALL_DIR}")
-  set(RNO_G_INSTALL_DIR $ENV{RNO_G_INSTALL_DIR})
+  message(STATUS "RNO_G_INSTALL_DIR is set from environment variable: $ENV{RNO_G_INSTALL_DIR}")
+  set(RNO_G_INSTALL_DIR "$ENV{RNO_G_INSTALL_DIR}" CACHE STRING "Installation directory for RNO-G library" FORCE)
 else()
-  message(WARNING "Will install to /usr/local  RNO_G_INSTALL_DIR not set")
-  set(RNO_G_INSTALL_DIR "/usr/local")
+  message(WARNING "RNO_G_INSTALL_DIR not set, defaulting to /usr/local")
+  set(RNO_G_INSTALL_DIR "/usr/local" CACHE STRING "Installation directory for RNO-G library" FORCE)
 endif()
 
 set(UTIL_LIB_DIR ${RNO_G_INSTALL_DIR}/lib)
@@ -107,13 +115,20 @@ if (NOT DEFINED ROOTLESS)
 
 
     if (LIBRNO_G_SUPPORT)
-      add_definitions( -DLIBRNO_G_SUPPORT )
-      find_library(RNO_G_LIB rno-g PATHS ${LIBRNO_G_PATH}/build ${UTIL_LIB_DIR})
+      add_definitions(-DLIBRNO_G_SUPPORT)
+      message(STATUS "librno-g path set to: ${LIBRNO_G_PATH}")
+      message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/install/lib/")
+
+      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/)
+      
+      message(STATUS "Found librno-g: ${RNO_G_LIB}")
+      
       find_package(ZLIB REQUIRED)
       include_directories(${UTIL_INC_DIR})
       include_directories(${LIBRNO_G_PATH}/src)
       include_directories(${LIBNUPHASE_PATH})
       target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES})
+
     else()
       target_link_libraries(${libname} ${ROOT_LIBRARIES})
     endif()
