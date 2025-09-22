@@ -329,10 +329,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if eventNumber[i] not in self.events_with_waveforms.keys():
                     continue
 
-            if override_skip_incomplete is not None and override_skip_incomplete:
-                if eventNumber[i] not in self.events_with_waveforms.keys():
-                    continue
-
             triggerType  = "UNKNOWN"
             if t_info['trigger_info.radiant_trigger']:
                 which = t_info['trigger_info.which_radiant_trigger']
