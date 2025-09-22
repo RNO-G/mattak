@@ -26,6 +26,7 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
 
   this->radiant_scaler_period = status->radiant_scaler_period; 
 
+  // For the coincidence trigger
   for (int i = 0; i < mattak::k::num_lt_channels; i++) 
   {
     this->lt_trigger_thresholds[i] = status->lt_trigger_thresholds[i];
@@ -38,6 +39,7 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
     this->lt_100Hz_scalers.servo_per_chan[i] = status->lt_scalers.s_100Hz.servo_per_chan[i];
   }
 
+  // For the phased-array trigger
   for (int i = 0; i < mattak::k::num_lt_beams; i++) 
   {
     this->lt_phased_trigger_thresholds[i] = status->lt_phased_trigger_thresholds[i];
@@ -54,6 +56,8 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
   this->lt_ncycles = status->lt_scalers.ncycles;
   this->lt_cycle_counter = status->lt_scalers.cycle_counter;
   this->lt_scaler_counter = status->lt_scalers.scaler_counter_1Hz;
+
+  // For the coincidence trigger
   this->lt_1Hz_scalers.trig_coinc = status->lt_scalers.s_1Hz.trig_coinc;
   this->lt_1Hz_scalers.servo_coinc = status->lt_scalers.s_1Hz.servo_coinc;
   this->lt_1Hz_gated_scalers.trig_coinc = status->lt_scalers.s_1Hz_gated.trig_coinc;
@@ -61,6 +65,7 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
   this->lt_100Hz_scalers.trig_coinc = status->lt_scalers.s_100Hz.trig_coinc;
   this->lt_100Hz_scalers.servo_coinc = status->lt_scalers.s_100Hz.servo_coinc;
 
+  // For the phased-array trigger
   this->lt_1Hz_scalers.trig_phased = status->lt_scalers.s_1Hz.trig_phased;
   this->lt_1Hz_scalers.servo_phased = status->lt_scalers.s_1Hz.servo_phased;
   this->lt_1Hz_gated_scalers.trig_phased = status->lt_scalers.s_1Hz_gated.trig_phased;
