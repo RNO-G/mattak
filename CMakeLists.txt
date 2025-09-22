@@ -34,14 +34,16 @@ set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
 if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
-#---Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
+  
+  # Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
   find_package(ROOT COMPONENTS Matrix Minuit)
-  if( ROOT_FOUND)
+  
+  if(ROOT_FOUND)
     set(libname mattak)
     set(DICTNAME G__${libname})
 
 
-    include(${ROOT_USE_FILE} )
+    include(${ROOT_USE_FILE})
     include_directories( ${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
 
     option (LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
