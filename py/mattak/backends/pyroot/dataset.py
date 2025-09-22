@@ -25,6 +25,10 @@ cppyy.cppdef(" bool is_nully(void *p) { return !p; }")
 cppyy.cppdef(" uint8_t* cast_uint8_t(void * x) { return (uint8_t*) x; }")
 cast_uint8_t  = cppyy.gbl.cast_uint8_t
 
+
+cppyy.cppdef(" int16_t* cast_int16_t(void * x) { return (int16_t*) x; }")
+cast_int16_t  = cppyy.gbl.cast_int16_t
+
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
@@ -139,10 +143,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         radiantThrs = None
         lowTrigThrs = None
+        lowphasedTrigThrs = None
         if self.__read_daq_status:
             daq_status = self.ds.status()
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
-            lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+            try:
+                lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
+            except AttributeError:
+                lowTrigThrs = numpy.array(daq_status.lt_coinc_trigger_thresholds)
+            try:
+                lowphasedTrigThrs = numpy.array(daq_status.lt_phased_trigger_thresholds)
+            except AttributeError:
+                lowphasedTrigThrs = None
 
         # now use Dataset's faster sample rate getter
         sampleRate = self.ds.radiantSampleRate() / 1000
@@ -190,6 +202,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate=sampleRate,
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
+            lowphasedTrigThrs=lowphasedTrigThrs,
             hasWaveforms= self.ds.rawAvailable(),
             readoutDelay=readout_delay)
 
@@ -206,9 +219,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if isNully(wf):
             return None
 
-        return numpy.frombuffer(cppyy.ll.cast['double*' if calibrated else 'int16_t*'](wf.radiant_data),
-                                dtype = 'float64' if calibrated else 'int16',
-                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        if calibrated:
+            wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
+                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        else:
+            # FS: I think a np.copy is not necessary here because we do it in wfs()
+            wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
+                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        return wfs
 
 
     def wfs(self, calibrated : bool = False) -> Optional[numpy.ndarray]:
