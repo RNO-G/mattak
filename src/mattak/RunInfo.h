@@ -31,7 +31,8 @@ namespace mattak
     time_t when = 0;
     int station = 0;
     int run = 0;
-    ClassDef(FlowerGainCode, 1);
+    float rms[k::num_lt_channels]  = {0};
+    ClassDef(FlowerGainCode, 2);
   };
 
   class RunInfo : public TObject
@@ -74,7 +75,7 @@ namespace mattak
 
     private:
       std::unordered_map<std::string,std::string> kvp;
-      ClassDef(RunInfo, 2);
+      ClassDef(RunInfo, 3);
   };
 }
 
