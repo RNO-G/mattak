@@ -5,6 +5,9 @@ set(CMAKE_BUILD_TYPE "RelWithDebInfo")
 # Define the option for pip installation
 option(PIP_INSTALLATION "Used by scikit-build-core to set correct default installation path" OFF)
 
+# Define option to install pybinds
+option(WITH_PYBIND "Build Python bindings using pybind11" ON)
+
 # Define the install dir as a cached variable, so it can be set from command line
 # CACHE STRING allows it to be overridden via -D
 set(RNO_G_INSTALL_DIR "" CACHE STRING "Installation directory for RNO-G library")
@@ -30,8 +33,6 @@ set(UTIL_SHARE_DIR ${RNO_G_INSTALL_DIR}/share)
 set(LD_UTIL ${RNO_G_INSTALL_DIR}/lib)
 set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
-
-
 if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
   
@@ -39,17 +40,16 @@ if (NOT DEFINED ROOTLESS)
   find_package(ROOT COMPONENTS Matrix Minuit)
   
   if(ROOT_FOUND)
+    message(STATUS "Found ROOT from: ${ROOT_INCLUDE_DIRS}")
     set(libname mattak)
     set(DICTNAME G__${libname})
 
-
     include(${ROOT_USE_FILE})
-    include_directories( ${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
+    include_directories(${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
 
-    option (LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
+    option(LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
 
-    set (LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)" )
-
+    set(LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)")
 
     set(H_FILES
       mattak/Header.h
@@ -69,7 +69,6 @@ if (NOT DEFINED ROOTLESS)
 
     configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY)
     configure_file("${CMAKE_CURRENT_BINARY_DIR}/Version.cc.in" "Version.cc" COPYONLY)
-
 
     set(CC_FILES
       src/Header.cc
@@ -115,7 +114,6 @@ if (NOT DEFINED ROOTLESS)
 
     install (FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${libname}_rdict.pcm DESTINATION ${UTIL_LIB_DIR} )
 
-
     if (LIBRNO_G_SUPPORT)
       add_definitions(-DLIBRNO_G_SUPPORT)
       message(STATUS "librno-g path set to: ${LIBRNO_G_PATH}")
@@ -135,8 +133,8 @@ if (NOT DEFINED ROOTLESS)
       target_link_libraries(${libname} ${ROOT_LIBRARIES})
     endif()
 
-    set (BINSRCDIR prog)
-    macro(add_program binary_name )
+    set(BINSRCDIR prog)
+    macro(add_program binary_name)
       add_executable(${binary_name} ${BINSRCDIR}/${binary_name}.cc)
       target_link_libraries(${binary_name}  ${ROOT_LIBRARIES} ${libname})
       if (LIBNUPHASE_SUPPORT)
@@ -144,9 +142,6 @@ if (NOT DEFINED ROOTLESS)
       endif()
       INSTALL (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${binary_name} DESTINATION ${UTIL_BIN_DIR})
     endmacro()
-
-
-
 
   if (LIBRNO_G_SUPPORT)
     add_program(rno-g-convert)
@@ -163,7 +158,7 @@ if (NOT DEFINED ROOTLESS)
   endif()
 endif()
 
-if(NOT DEFINED PYBINDLESS)
+if(WITH_PYBIND)
   find_package(pybind11 CONFIG REQUIRED)
   include_directories(${PROJECT_SOURCE_DIR}/src)
   add_library(mattak_noroot MODULE src/VoltageCalibration.cc)
