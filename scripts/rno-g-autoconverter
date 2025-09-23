@@ -11,6 +11,11 @@ EVENTLISTS=/data/eventlists
 FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
 
+# Override STATIONS with command line arguments if provided
+if [ $# -gt 0 ]; then
+  STATIONS="$*"
+fi
+
 if [ -f /rno-g/etc/autoconverter.env ]
 then
   source /rno-g/etc/autoconverter.env
