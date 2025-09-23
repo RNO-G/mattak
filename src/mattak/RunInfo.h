@@ -20,7 +20,7 @@ namespace mattak
     uint8_t day = 0;
     uint8_t month = 0;
     uint16_t year = 0;
-    ClassDef(FirmwareVersion, 1);
+    ClassDef(FirmwareVersion,2);
   };
 
 
@@ -31,7 +31,8 @@ namespace mattak
     time_t when = 0;
     int station = 0;
     int run = 0;
-    ClassDef(FlowerGainCode, 1);
+    float rms[k::num_lt_channels]  = {0};
+    ClassDef(FlowerGainCode, 2);
   };
 
   class RunInfo : public TObject
@@ -74,7 +75,7 @@ namespace mattak
 
     private:
       std::unordered_map<std::string,std::string> kvp;
-      ClassDef(RunInfo, 2);
+      ClassDef(RunInfo, 3);
   };
 }
 

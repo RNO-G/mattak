@@ -87,10 +87,16 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     if (!ifs.good()) break;
     FlowerGainCode code;
     std::string line;
+
     std::getline(ifs,line);
-    sscanf(line.c_str(),"# Flower gain codes, station=%d, run=%d,  time=%d", &code.station,&code.run, &code.when);
+    sscanf(line.c_str(),"# Flower gain codes, station=%d, run=%d,  time=%d", &code.station, &code.run, &code.when);
+
     std::getline(ifs,line);
     sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.codes[0],&code.codes[1], &code.codes[2], &code.codes[3]);
+
+    if(std::getline(ifs,line)) 
+      sscanf(line.c_str(),"%f %f %f %f", &code.rms[0],&code.rms[1], &code.rms[2], &code.rms[3]);
+
     flower_codes.push_back(code);
   }
 

@@ -298,7 +298,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             try:
                 self._lowphasedTrigThrs = numpy.array(self._dss['lt_phased_trigger_thresholds[12]'])
             except uproot.exceptions.KeyInFileError:
-                self._lowphasedTrigThrs = None
+                self._lowphasedTrigThrs = None  # not available in old data, set to numpy.zeros(12) below
+
             self._readout_time_radiant = numpy.array(self._dss['readout_time_radiant'])
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
@@ -361,7 +362,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 radiantThrs = self._radiantThrs[radiant_idx]
                 lowTrigThrs = self._lowTrigThrs[lt_idx]
                 if self._lowphasedTrigThrs is None:
-                    lowphasedTrigThrs = None
+                    lowphasedTrigThrs = numpy.zeros(12)  # not available in old data
                 else:
                     lowphasedTrigThrs = self._lowphasedTrigThrs[lt_idx]
 
