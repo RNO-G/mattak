@@ -381,7 +381,6 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     None
         if no calibration file was found
     """
-    print(run_nr)
     # try finding a calibration file in the data's run directory
     vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
     if vc_list:
@@ -408,9 +407,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
     vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
 
-    print("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
-    print(vc_file)
-    print(type(vc_file))
+    logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
     return vc_file
 
 
