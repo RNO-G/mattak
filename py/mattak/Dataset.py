@@ -408,6 +408,11 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         return None
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
+    if vc_run_nrs[closest_idx] - run_nr > 100:
+        logging.error(f"Skipping voltage calibration, \
+                      closest volCal found was run {vc_run_list[closest_idx]}, \
+                      which is more than 100 runs away from the data")
+        return None
     vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
 
     logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
@@ -439,6 +444,8 @@ def find_all_volcal_runs_station(station):
                 else:
                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
                 vc_run_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("run")]
+                if len(vc_run_list) == 0:
+                    continue
                 break
             except FileNotFoundError:
                 pass
