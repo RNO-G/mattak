@@ -9,6 +9,7 @@ import numpy
 import logging
 import warnings
 import libconf
+from functools import lru_cache
 
 
 @dataclass
@@ -343,19 +344,24 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         return None
 
 
-def find_voltage_calibration_for_dataset(dataset):
+def find_voltage_calibration_for_dataset(dataset, i=0):
     """ Wrapper around find_voltage_calibration """
-    dataset.setEntries(0)
-    return find_voltage_calibration(dataset.rundir, dataset.station, dataset.eventInfo().triggerTime)
+    dataset.setEntries(i)
+    return find_voltage_calibration(dataset.rundir, dataset.station, dataset.run)
 
 
-def find_voltage_calibration(rundir, station, time, log_error=False):
+def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     """
-    Function to find the calibration file that lays closest to given time.
+    Function to find the calibration file that lays closest to given run number.
     Returns None if no file was found
     The order of the search is:
         * run directory
         * under RNO_G_DATA/calibration/stationX
+        * under RNO_G_CAL/stationX        
+    
+    Both RNO_G_DATA/calibration/ and RNO_G_CAL/ should contain all the volCalConst files under their respective run folders
+    The code assumes a RUN FOLDER STRUCTURE
+    An example of a volCal path is RNO_G_CAL/stationX/runY/volCalConst.. or RNO_G_DATA/calibration/stationX/runY/volCalConst..
 
     Parameters
     ----------
@@ -363,8 +369,8 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
         run directory, found by each backend individually
     station : int
         station number, read from runfile to account for station = 0 case
-    time : float
-        time of run, read as first time in trigger times
+    run_nr : float
+        run number, the logic assigns the voltage calibration with the run number closest to the data run number
     log_error : bool (Default: False)
         If True, log error if you can not find a calibration file. If False, only log a debug message.
 
@@ -375,42 +381,42 @@ def find_voltage_calibration(rundir, station, time, log_error=False):
     None
         if no calibration file was found
     """
-    # try finding a calibration file in the run directory
-    vc_list = glob.glob(f"{rundir}/volCalConst*.root")
+    # try finding a calibration file in the data's run directory
+    vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
+    if vc_list:
+        if len(vc_list) > 1:
+            raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
+                                  this should not be possible is something wrong with the rootify process?")
+        return rundir + "/" + vc_list[0]
 
-    vc_dir = None
-    if not vc_list:
-        # look in VC constants directory
-        for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA"]:
-            if env_var in os.environ:
-                vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
-                vc_list = glob.glob(f"{vc_dir}/volCalConst*.root")
-                break
+    vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
 
-        if vc_dir is None:
-            msg = ("Could not find a directory for the calibration files. "
-                "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?")
-            if log_error:
-                logging.error(msg)
-            else:
-                logging.debug(msg)
+    if vc_dir is None:
+        msg = ("Could not find a directory for the calibration files. "
+            "Was `RNO_G_DATA` or `RNO_G_ROOT_DATA` defined as a system env variable?"
+            "You can also set the RNO_G_CAL env variable to directly point to the calibration directory"
+            )
+        if log_error:
+            logging.error(msg)
+        else:
+            logging.debug(msg)
 
-            return None
+        return None
 
-        if not vc_list:
-            logging.error("Could not find any calibration files")
-            return None
+    if not vc_run_list:
+        logging.error("Could not find any calibration run files")
+        return None
 
-    # to marginally save time when there is only one file
-    if len(vc_list) == 1:
-        return vc_list[0]
+    closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
+    if vc_run_nrs[closest_idx] - run_nr > 100:
+        logging.error(f"Skipping voltage calibration, \
+                      closest volCal found was run {vc_run_list[closest_idx]}, \
+                      which is more than 100 runs away from the data")
+        return None
+    vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
 
-    vc_basenames = [os.path.basename(vc) for vc in vc_list]
-    # extracting bias scan start time from cal_file name
-    vc_start_times = [(i, float(re.split(r"\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
-    closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
-
-    return vc_list[closest_idx]
+    logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
+    return vc_file
 
 
 def read_run_config(path : str) -> dict:
@@ -423,3 +429,44 @@ def read_run_config(path : str) -> dict:
         conf = libconf.load(f)
 
     return conf
+
+# store for one station
+@lru_cache(maxsize=7)
+def find_all_volcal_runs_station(station):
+    vc_dir = None
+    vc_run_list = []
+    # look in VC constants directory
+    for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
+        if env_var in os.environ:
+            try:
+                if env_var == "RNO_G_CAL":
+                    vc_dir = f"{os.environ[env_var]}/station{station}"
+                else:
+                    vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
+                vc_run_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("run")]
+                if len(vc_run_list) == 0:
+                    continue
+                break
+            except FileNotFoundError:
+                pass
+    vc_run_nrs = [int(vc_run.split("run")[1]) for vc_run in vc_run_list]
+    return vc_dir, vc_run_list, vc_run_nrs
+
+# # store for one station
+# @lru_cache(maxsize=7)
+# def find_all_volcal_files_station(station):
+#     vc_dir = None
+#     vc_list = []
+#     # look in VC constants directory
+#     for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
+#         if env_var in os.environ:
+#             try:
+#                 if env_var == "RNO_G_CAL":
+#                     vc_dir = f"{os.environ[env_var]}/station{station}"
+#                 else:
+#                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
+#                 vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
+#                 break
+#             except FileNotFoundError:
+#                 pass
+#     return vc_dir, vc_list
