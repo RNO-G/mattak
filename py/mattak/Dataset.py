@@ -405,10 +405,6 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         logging.error("Could not find any calibration run files")
         return None
 
-    # extracting bias scan start time from cal_file name
-    vc_start_times = [(i, float(re.split(r"\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
-    closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
-
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
     vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
 
