@@ -28,6 +28,7 @@ class EventInfo:
     sampleRate: Optional[float]  # Sample rate, in GSa/s
     radiantThrs: Optional[numpy.ndarray]
     lowTrigThrs: Optional[numpy.ndarray]
+    lowphasedTrigThrs: Optional[numpy.ndarray]
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
 
@@ -351,7 +352,7 @@ def find_voltage_calibration_for_dataset(dataset, i=0):
 
 def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     """
-    Function to find the calibration file that lays closest to given time.
+    Function to find the calibration file that lays closest to given run number.
     Returns None if no file was found
     The order of the search is:
         * run directory
@@ -405,8 +406,8 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         return None
 
     # extracting bias scan start time from cal_file name
-    # vc_start_times = [(i, float(re.split("\W+|_", el)[3])) for i, el in enumerate(vc_list)]
-    # closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
+    vc_start_times = [(i, float(re.split(r"\W+|_", el)[3])) for i, el in enumerate(vc_basenames)]
+    closest_idx = min(vc_start_times, key = lambda pair : numpy.abs(pair[1] - time))[0]
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
     vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")

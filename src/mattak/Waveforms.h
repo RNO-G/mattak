@@ -61,12 +61,13 @@ namespace mattak
     bool share_yaxis = false;//if true, rows will share y axis
     bool share_xaxis = false;//if true, columns will share x axis (implies show_title = false)
 
+    int font = 0;
     double title_size = 0.1;
 
     double xlabel_size = 0.045;
     double xtitle_size = 0.065;
     double xtitle_offset = 0.75;
-    double xlabel_offset = 0.0025;
+    double xlabel_offset = 0.005;
     bool xtitle_center = false;
     int xndivisions = 505;
 
@@ -78,8 +79,9 @@ namespace mattak
     int yndivisions = 510;
 
     double left_margin = 0.15; // not used if share_yaxis and col > 0
+    double bottom_margin = 0.1; // not used if share_xaxis and row not last
 
-    //map from CHANNEL NUMBER (not plotted waveform) to annotation
+   //map from CHANNEL NUMBER (not plotted waveform) to annotation
     std::map<int,const char *> annotations_map;
     //map from CHANNEL NUMBER (not plotted waveform) to title
     std::map<int,const char *> titles_map;

@@ -8,8 +8,13 @@ STAGING=/data/staging
 TRASH=/data/staging/trash
 EVENTLISTS=/data/eventlists
 
-FRAC=0.025
+FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
+
+# Override STATIONS with command line arguments if provided
+if [ $# -gt 0 ]; then
+  STATIONS="$*"
+fi
 
 if [ -f /rno-g/etc/autoconverter.env ]
 then
@@ -21,17 +26,19 @@ echo "Fraction: $FRAC"
 
 #TODO, make this work in parallel
 
+# don't expand globs to themselves if no match
+shopt -s nullglob
+
 for st in ${STATIONS} ; do
-  echo "STATION $st"
   for run in $INGRESS/station${st}/run* ; do
     brun=$(basename $run)
-    echo "RUN  $brun"
+    echo "Station $st: $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
     if [ $updated -eq 1 ] ; then
-      echo "COPYING TO STAGING"
+      echo "RUN UPDATED! -- COPYING TO STAGING"
       outdir=${OUTBOX}/station${st}/$brun
 
       #if the outdir already exists, move out of the outbox, and delete it
@@ -48,20 +55,26 @@ for st in ${STATIONS} ; do
       cp -p $rootdir/daqstatus.root $stagedir
       cp -p $rootdir/pedestal.root $stagedir
       cp -p $rootdir/runinfo.root $stagedir
-      cp -p $rootdir/volCalConsts_pol9_*.root $stagedir
-      cp -p -r $rootdir/aux $stagedir
-      cp -p -r $rootdir/cfg $stagedir
+
+      # voltage calibration files are currenlty not procuced. Hence, this line produces an error message
+      #cp -p $rootdir/volCalConsts_pol9_*.root $stagedir
+
+      # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)! They are copied directly from INGRESS to desy!
+      #cp -p -r $rootdir/aux $stagedir
+      #cp -p -r $rootdir/cfg $stagedir
+      echo "RUN rno-g-combine"
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
       mkdir -p $EVENTLISTS/station${st}
       rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
+      echo "MOVE $brun to OUTBOX"
       mv $stagedir $outdir
     fi
   done
 done
 
 # synchronize ingress with archived
-rsync -a --exclude=".*" $INGRESS $ARCHIVED 
+rsync -a --exclude=".*" $INGRESS $ARCHIVED
 
 
 #eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations

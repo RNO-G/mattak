@@ -89,8 +89,7 @@ class VoltageCalibration(object):
                     self.__cal_param = unpack_cal_parameters(cal_file)
                     self.__cal_residuals_v, self.__cal_residuals_adc = unpack_cal_residuals(cal_file)
 
-
-                    if numpy.any(numpy.diff(self.__cal_residuals_v, axis=0) != 0):
+                    if not numpy.all(numpy.isclose(numpy.diff(self.__cal_residuals_v, axis=0), 0, atol=1e-1)):
                         raise ValueError("The pedestal voltage of the bias scan (residual) is different for the two DAC, "
                                         "the code expects them to be the same!")
 
@@ -289,6 +288,11 @@ class VoltageCalibration(object):
         -------
         waveform_volt : array of shape (num_channels, num_wf_samples)
             calibrated waveform in volt
+
+        Important note
+        --------------
+        No extrapolation of the voltage calibration is performed and ADC samples outside the calibrated range
+        will be clipped.
         """
 
         channels = channels or list(range(self.NUM_CHANNELS))
@@ -322,7 +326,7 @@ class VoltageCalibration(object):
             return self.calibrate(waveform_array, starting_window)
         else:
             return calibrate(
-                waveform_array, self.__cal_param, [self.__voltage, self.__voltage],
+                waveform_array, self.__cal_param, self.__cal_residuals_v,
                 self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
 
     def plot_ch(self, ax1=None, xs=numpy.linspace(-1000, 1000, 100), ch=0):
@@ -531,9 +535,9 @@ def calibrate(
         array of one waveform
     param : array of shape (24 * 4096, 10)
         the parameters found in the calibration file
-    vres : array of shape (points, 2)
-        the voltage points of the residuals, shape
-    res : array of shape (points, 2)
+    vres : array of shape (points, 24)
+        the voltage points of the residuals
+    res : array of shape (points, 24)
         the ADC values of the residuals
     starting_window : int | float
         the sample on which the run started
@@ -548,6 +552,11 @@ def calibrate(
     ------
     waveform_volt : array of shape (24, 2048)
         calibrated waveform in volt
+
+    Important note
+    --------------
+    No extrapolation of the voltage calibration is performed and ADC samples outside the calibrated range
+    will be clipped.
     """
     waveform_volt = numpy.zeros_like(waveform_array, dtype=float)
 
@@ -555,9 +564,9 @@ def calibrate(
         # "discrete" inverse
         vsamples = numpy.arange(fit_min, fit_max, accuracy)
         # residuals split over DACs
-        res = (numpy.interp(vsamples, vres[0], res[0]), numpy.interp(vsamples, vres[1], res[1]))
+        res = [numpy.interp(vsamples, vres[i], res[i]) for i in range(len(res))]
     else:
-        vsamples = vres[0]  # assuming both are the same
+        vsamples = vres[0]  # assuming the same for all channels
 
     for c, wf_channel in enumerate(waveform_array):
         starting_window_channel = starting_window[c]
@@ -569,11 +578,10 @@ def calibrate(
         if starting_window_channel >= 16:
             samples_idx += num_wf_samples
 
-        dac = int(c / 12)
         param_channel = param_channel[samples_idx]
         for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
             # discrete inverse
-            adcsamples = numpy.polyval(p[::-1], vsamples) + res[dac]
+            adcsamples = numpy.polyval(p[::-1], vsamples) + res[c]
             volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
             waveform_volt[c, s] = volt
 
@@ -581,6 +589,7 @@ def calibrate(
 
 
 if __name__ == "__main__":
+    from mattak.Dataset import Dataset
     import os
     run = 1144
     station_id = 23
@@ -590,3 +599,9 @@ if __name__ == "__main__":
 
     vc = VoltageCalibration(run_path + "/" + vc_name)
     vc.plot_ch(ch=channel_id)
+
+    ds = Dataset(0, 0, run_path, backend="uproot")
+    wf = ds.wfs(calibrated=False)
+    vc = VoltageCalibration(run_path + "/" + vc_name, caching=False)
+    vc(wf, numpy.zeros(24, dtype=int))
+    print(wf)

@@ -129,6 +129,7 @@ namespace mattak
       std::array<bool, mattak::k::num_radiant_channels> isBad_channelAveChisqPerDOF;
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
       std::array<std::array<bool, 4>, mattak::k::num_radiant_channels> isResidOutOfBoxFrame;
+      std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isSampleBroken;
       int fit_order = 9 ;
       int station_number = 0 ;
       double fit_vref = 1.5;
