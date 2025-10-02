@@ -384,6 +384,9 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     # try finding a calibration file in the data's run directory
     vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
     if vc_list:
+        if len(vc_list) > 1:
+            raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
+                                  this should not be possible is something wrong with the rootify process?")
         return rundir + "/" + vc_list[0]
 
     vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
