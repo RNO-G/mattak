@@ -65,6 +65,7 @@ if (NOT DEFINED ROOTLESS)
       mattak/Version.h
       mattak/VoltageCalibration.h
       mattak/Dataset.h
+      mattak/Monitoring.h
     )
 
     configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY)
@@ -82,6 +83,7 @@ if (NOT DEFINED ROOTLESS)
       src/RunInfo.cc
       src/VoltageCalibration.cc
       src/Dataset.cc
+      src/Monitoring.cc
       ${CMAKE_CURRENT_BINARY_DIR}/Version.cc
       )
 

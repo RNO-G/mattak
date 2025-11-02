@@ -21,6 +21,7 @@
 #pragma link C++ class mattak::Sensors+;
 #pragma link C++ class mattak::LTEStats+;
 #pragma link C++ class mattak::GNSS+;
+#pragma link C++ class mattak::Monitoring+;
 
 #pragma link C++ class mattak::RunInfo+;
 #pragma link C++ class mattak::FirmwareVersion+;
