@@ -38,10 +38,10 @@ namespace mattak
     bool radiant_trigger = false;  // True if this is a trigger from the RADIANT tunnel diodes
     bool lt_trigger = false;  // True if this is a trigger from the low-threshold board
     int8_t which_radiant_trigger = -1; //which of the radiant triggers triggered. This is not reliably known so may be -1 even if radiant_trigger is true; 
-
+    int8_t which_lt_trigger = -1; //which lt trigger is used to make lt_trigger. 0 is the hi-lo and 1 is the phased. -1 for an error or not lt_trigger
     RadiantTriggerInfo radiant_info; 
     LTTriggerInfo lt_info; 
-    ClassDef(TriggerInfo,2); 
+    ClassDef(TriggerInfo,3); 
   }; 
 
 

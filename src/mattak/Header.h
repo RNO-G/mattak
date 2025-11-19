@@ -76,7 +76,7 @@ namespace mattak
       TriggerInfo trigger_info;
 
 
-    ClassDef(Header,1);
+    ClassDef(Header,2);
   };
 
 

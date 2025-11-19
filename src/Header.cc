@@ -44,12 +44,20 @@ mattak::Header::Header(const rno_g_header_t * head)
   if (this->trigger_info.radiant_trigger)
   {
     this->trigger_info.which_radiant_trigger =
-    (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT0) ? 0 :
-    (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT1) ? 1 :
-    -1;
+      (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT0) ? 0 :
+      (head->trigger_type & RNO_G_TRIGGER_RF_RADIANT1) ? 1 :
+      -1;
   }
   else this->trigger_info.which_radiant_trigger=-128;
 
+  if (this->trigger_info.lt_trigger)
+  {
+    this->trigger_info.which_lt_trigger =
+      (head->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE) ? 0 :
+      (head->trigger_type & RNO_G_TRIGGER_RF_LT_PHASED) ? 1 :
+      -1;
+  }
+  else this->trigger_info.which_lt_trigger = -1;
 
   for (int i = 0 ; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
