@@ -431,7 +431,7 @@ def read_run_config(path : str) -> dict:
     return conf
 
 # store for one station
-@lru_cache(maxsize=7)
+@lru_cache(maxsize=64)
 def find_all_volcal_runs_station(station):
     vc_dir = None
     vc_run_list = []
@@ -451,22 +451,3 @@ def find_all_volcal_runs_station(station):
                 pass
     vc_run_nrs = [int(vc_run.split("run")[1]) for vc_run in vc_run_list]
     return vc_dir, vc_run_list, vc_run_nrs
-
-# # store for one station
-# @lru_cache(maxsize=7)
-# def find_all_volcal_files_station(station):
-#     vc_dir = None
-#     vc_list = []
-#     # look in VC constants directory
-#     for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
-#         if env_var in os.environ:
-#             try:
-#                 if env_var == "RNO_G_CAL":
-#                     vc_dir = f"{os.environ[env_var]}/station{station}"
-#                 else:
-#                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
-#                 vc_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("volCalConst")]
-#                 break
-#             except FileNotFoundError:
-#                 pass
-#     return vc_dir, vc_list

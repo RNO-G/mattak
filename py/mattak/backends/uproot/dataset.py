@@ -413,11 +413,12 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if voltage_calibration == voltage_calibration_old:
                 return
             else:
+                logging.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
                 del self.vc
         if isinstance(voltage_calibration, str):
             self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
         else:
-            Raise(ValueError("This function only accepts path to voltage calibration"))
+            raise ValueError("This function only accepts path to voltage calibration")
 
     def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, override_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
         """
