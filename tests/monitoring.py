@@ -42,6 +42,7 @@ class MonitoringAnalyzer:
         self.root_files = []
         self.current_file = None
         self.data = {} ## mattak.Dataset.Dataset object
+        self.metadata = {}
         self.monitoringData = ROOT.mattak.Monitoring()
         self.processors = []
         self.backend = self._detect_backend(backend)
@@ -111,7 +112,7 @@ class MonitoringAnalyzer:
             for run in self.station_run_info[st]:
                 print(f"  Run {run}: \t{self.station_run_info[st][run]['path']}")
         return self.station_run_info
-    def run(self,files=None,station=None,run=None):
+    def run(self,files=None,station=None,run=None,output_file=None):
         """Loop through all combined.root files in directory and process them."""
         if files:
             ## accept user-specified input files
@@ -142,9 +143,12 @@ class MonitoringAnalyzer:
                     print(f"Could not load data for station {int(st)}, run {int(r)}")
                 if self.data:
                     self.process_data()
-                    output_file = self.output_dir / "test_monitoring.root"
+                    if output_file is None:
+                        output_file = self.output_dir / "test_monitoring.root"
+                    else:
+                        output_file = self.output_dir / output_file
                     self.write_monitoring_root(str(output_file))
-                self.close()
+                # self.close()
     
     def add_processor(self, processor):
         """Add a processing function to the pipeline."""
@@ -192,13 +196,13 @@ class MonitoringAnalyzer:
         print(f"Successfully wrote to {output_file}")
         return True
     
-    def close(self):
-        """Close the ROOT file."""
-        if self.current_file:
-            if self.backend == "pyroot":
-                self.current_file.Close()
-            else:
-                self.current_file.close()
+    # def close(self):
+    #     """Close the ROOT file."""
+    #     if self.current_file:
+    #         if self.backend == "pyroot":
+    #             self.current_file.Close()
+    #         else:
+    #             self.current_file.close()
 
 
 def default_processor(self):

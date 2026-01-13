@@ -15,7 +15,6 @@
 #include <map>
 #include <vector>
 
-
 namespace mattak 
 {
   class Monitoring : public TObject 
@@ -50,6 +49,7 @@ namespace mattak
       float radiant_voltage = 0.0f;
 
       // Future-proofing: generic key-value storage
+      std::map<std::string, std::string> trigger_type;
       std::map<std::string, float> runParameters; // for run-level parameters
       std::map<std::string, std::vector<float>> eventParameters; // for event-level parameters
 

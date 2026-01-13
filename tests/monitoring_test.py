@@ -6,9 +6,12 @@ import argparse
 import os
 import ROOT
 # from ROOT.mattak import monitoring
+import monitoring
 import mattak.backends.pyroot.mattakloader
 # ROOT.gInterpreter.Declare('#include "mattak/Monitoring.h"')
 # ROOT.gSystem.Load("libmattak.so")
+
+from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_signal_to_noise_ratio
 
 station = 23
 run = 999
@@ -20,70 +23,58 @@ try:
 except Exception as e:
     print("Error creating DAQStatus object:", e)
 try:
-    monitoring = ROOT.mattak.Monitoring(run,station)
-    print("Successfully created Monitoring object:", monitoring)
+    monitoring_obj = ROOT.mattak.Monitoring(run,station)
+    print("Successfully created Monitoring object:", monitoring_obj)
 except Exception as e:
     print("Error creating Monitoring object:", e)
 
-# quit())
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-preferred_file= "combined"
-combined_file = os.path.join(RNO_G_DATA, f"station{station:d}/run{run}/{preferred_file}.root")
-file_dirname = os.path.dirname(combined_file)
-backend = "pyroot"
+## Run MonitoringAnalyzer to generate monitoring.root
+def extract_all_parameters(self):
+    """Example processor to extract all parameters."""
+    print("Extracting all parameters")
+    self.monitoringData.station_number = self.data.station
+    self.monitoringData.run_number = self.data.run
+    self.monitoringData.num_events = self.data.N()
+    print("Number of events:", self.monitoringData.num_events)
+    ie = 0
+    for ev in self.data.iterate():
+        info = ev[0]
+        info_dict = info.__dict__
+        self.metadata[ie]= info_dict
+        # self.metadata[ie]['wfs'] = ev[1]
+        ie += 1
+def calculate_vrms(self):
+    num_events = self.data.N()
+    print("Calculating vrms for", num_events, "events")
+    vrms_list = [[0 for ch in range(24)] for ie in range(num_events)]
+    ie = 0
+    for ev in self.data.iterate():
+        wfs = ev[1]
+        for ch,wf in enumerate(wfs):
+            noise = get_split_trace_noise_RMS(wf, segments=4, lowest=2)
+            vrms = get_signal_to_noise_ratio(wf,noise, window_size=3)
+            vrms_list[ie][ch] = vrms
+        ie += 1
+    self.metadata['vrms'] = vrms_list
 
-### Read combined.root file
-print(f"Load datasets with station = {station}, run = {run}, data_dir = {RNO_G_DATA}, preferred_file = {preferred_file}")
-d = mattak.Dataset.Dataset(station, run, data_path=RNO_G_DATA, backend=backend, preferred_file="combined")
-print("Number of events:",d.N())
-print(d.eventInfo())
-# print(d.wfs())
 
-mean = 0
-start = time.time()
-i = 0
-print("Iterate over events:")
-for ev in d.iterate():
-    # print("i:",i,ev)
-    # print(ev[1]) ## ev[0]: eventInfo, ev[1]: wfs
-    mean += np.average(ev[1])
-    i += 1
-end = time.time()
-
-print("mean",mean / d.N())
-print("time:{:.3f} seconds".format(end - start))
-## Create monitoring obeject
-monitoring_obj = ROOT.mattak.Monitoring()
-print("Monitoring object:")
-print(monitoring_obj)
-print("run_number:",monitoring_obj.run_number)
-print("station_number:",monitoring_obj.station_number)
-monitoring_obj.runParameters["test_float"] = 3.14
-my_array = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-monitoring_obj.eventParameters["test_array"] = my_array
-print("extra runParameters:",monitoring_obj.runParameters["test_float"])
-print("extra eventParameters:",monitoring_obj.eventParameters["test_array"])
-
-### Write Monitoring.root fil
-# with ROOT.TFile.Open(test_monitoring, "RECREATE") as m:
-#     monitoring_tree = ROOT.TTree("Monitoring")
-#     monitoring_obj = ROOT.mattak.Monitoring() ##
-#     t.Branch("mon", monitoring_obj)
-#     for event in d.iterate():
-#         # Fill monitoring_obj with relevant data from event
-#         monitoring_obj.run_number = event[0]['run']
-#         monitoring_obj.radiant_voltage = d.station
-#         monitoring_tree.Fill()
+analyzer = monitoring.MonitoringAnalyzer(directory=RNO_G_DATA,output_dir=HERE,backend="pyroot")
+# analyzer.add_processor(monitoring.default_processor)
+analyzer.add_processor(extract_all_parameters)
+analyzer.add_processor(calculate_vrms)
+analyzer.run(station=[station], run=[run], output_file="test_monitoring.root")  
 
 ### Open and Read Monitoring.root file for verification
 # f = ROOT.TFile.Open(test_monitoring, "READ")
-f = ROOT.TFile.Open(os.path.join(RNO_G_DATA, "monitoring/test_monitoring.root"), "READ")
+f = ROOT.TFile.Open(os.path.join(HERE,"test_monitoring.root"), "READ")
 print("Reading Monitoring.root file:",f.GetName())
 obj = f.Get("Monitoring")
 print("Retrieved Monitoring object from file:")
 print("station number",obj.station_number)
 print("run number",obj.run_number)
+print("readoutDelay",obj.eventParameters['readoutDelay'])
 
 #########
 f.Close()
