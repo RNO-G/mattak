@@ -14,8 +14,6 @@ station = 23
 run = 999
 RNO_G_DATA = os.environ["RNO_G_DATA"]
 HERE = os.path.dirname(os.path.abspath(__file__))
-test_monitoring = os.path.join(HERE, "test_monitoring.root")
-
 try:
     daqstatus = ROOT.mattak.DAQStatus()
     print("Successfully created DAQStatus object:", daqstatus)
@@ -27,10 +25,9 @@ try:
 except Exception as e:
     print("Error creating Monitoring object:", e)
 
-# quit()
-
+# quit())
 HERE = os.path.dirname(os.path.abspath(__file__))
-test_monitoring = os.path.join(HERE, "test_monitoring.root")
+
 preferred_file= "combined"
 combined_file = os.path.join(RNO_G_DATA, f"station{station:d}/run{run}/{preferred_file}.root")
 file_dirname = os.path.dirname(combined_file)
@@ -38,13 +35,9 @@ backend = "pyroot"
 
 ### Read combined.root file
 print(f"Load datasets with station = {station}, run = {run}, data_dir = {RNO_G_DATA}, preferred_file = {preferred_file}")
-d = mattak.Dataset.Dataset(station, run, data_path=RNO_G_DATA, backend=backend, preferred_file="header")
+d = mattak.Dataset.Dataset(station, run, data_path=RNO_G_DATA, backend=backend, preferred_file="combined")
 print("Number of events:",d.N())
 print(d.eventInfo())
-# print(d.wfs())
-
-# d.setEntries((1,2))
-# print(d.eventInfo())
 # print(d.wfs())
 
 mean = 0
@@ -82,14 +75,15 @@ print("extra eventParameters:",monitoring_obj.eventParameters["test_array"])
 #         monitoring_obj.run_number = event[0]['run']
 #         monitoring_obj.radiant_voltage = d.station
 #         monitoring_tree.Fill()
+
 ### Open and Read Monitoring.root file for verification
 # f = ROOT.TFile.Open(test_monitoring, "READ")
-
-# for key in f.GetListOfKeys():
-#     print(key.GetName())
-#     obj = key.ReadObj()
-#     print(obj)
-
+f = ROOT.TFile.Open(os.path.join(RNO_G_DATA, "monitoring/test_monitoring.root"), "READ")
+print("Reading Monitoring.root file:",f.GetName())
+obj = f.Get("Monitoring")
+print("Retrieved Monitoring object from file:")
+print("station number",obj.station_number)
+print("run number",obj.run_number)
 
 #########
-# f.Close()
+f.Close()
