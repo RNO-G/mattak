@@ -122,16 +122,7 @@ class MonitoringAnalyzer:
         else:
             ## auto-detect input files from directory structure
             self._detect_station_run_info(station=station,run=run)
-            # for st in self.station_run_info:
-            #     for r in self.station_run_info[st]:
-            #         path = Path(self.station_run_info[st][r]["path"])
-            #         combined_file = path / "combined.root"
-            #         if combined_file.exists():
-            #             self.root_files.append(combined_file)
-        # if not self.root_files:
-        #     print(f"No combined.root files found in {self.directory}")
-        #     return
-        
+
         for st in self.station_run_info:
             for r in self.station_run_info[st]:
                 self.data = {}
@@ -196,15 +187,6 @@ class MonitoringAnalyzer:
         print(f"Successfully wrote to {output_file}")
         return True
     
-    # def close(self):
-    #     """Close the ROOT file."""
-    #     if self.current_file:
-    #         if self.backend == "pyroot":
-    #             self.current_file.Close()
-    #         else:
-    #             self.current_file.close()
-
-
 def default_processor(self):
     """Basic processor example."""
     print("Running default processor")
