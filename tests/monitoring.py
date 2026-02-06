@@ -18,6 +18,8 @@ import mattak.backends.pyroot.mattakloader
 from pathlib import Path
 import re
 import mattak.Dataset
+from NuRadioReco.modules.io.RNO_G.readRNOGDataMattak import readRNOGData
+
 
 class MonitoringAnalyzer:
     """Analyzer for reading combined.root files and creating monitoring.root output."""
@@ -122,23 +124,42 @@ class MonitoringAnalyzer:
         else:
             ## auto-detect input files from directory structure
             self._detect_station_run_info(station=station,run=run)
+            ## collect combined.root files
+            for st in self.station_run_info:
+                for r in self.station_run_info[st]:
+                    file_path = self.station_run_info[st][r]["path"]+"/combined.root"
+                    ## check if edited combined.root exists, if not skip
+                    if not Path(file_path).exists():
+                        print(f"File {file_path} does not exist. Skipping station {st}, run {r}.")
+                        continue
+                    else: 
+                        self.root_files.append(file_path)
+        print(f"Found {len(self.root_files)} combined.root files to process.")
+        if not self.root_files:
+            print("No files to process. Exiting.")
+            return
+        ## initialize rnog reader
+        readerRNOG = readRNOGData(run_table_path=None, load_run_table=False)
 
-        for st in self.station_run_info:
-            for r in self.station_run_info[st]:
-                self.data = {}
-                print(f"Reading file with backend {self.backend}")
-                try:
-                    self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
-                    print(f"Loaded data for station {int(st)}, run {int(r)}")
-                except:
-                    print(f"Could not load data for station {int(st)}, run {int(r)}")
-                if self.data:
-                    self.process_data()
-                    if output_file is None:
-                        output_file = self.output_dir / "test_monitoring.root"
-                    else:
-                        output_file = self.output_dir / output_file
-                    self.write_monitoring_root(str(output_file))
+        for file in self.root_files: 
+            self.current_file = file  
+            self.data = {}
+            print(f"Reading file with backend {self.backend}")
+
+            self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
+            try:
+                # self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
+                readerRNOG = readerRNOG.begin(self.current_file, convert_to_voltage=False)
+                print(f"Loaded data for station {int(st)}, run {int(r)}")
+            except:
+                print(f"Could not load data for station {int(st)}, run {int(r)}")
+            if self.data:
+                self.process_data()
+                if output_file is None:
+                    output_file = self.output_dir / "test_monitoring.root"
+                else:
+                    output_file = self.output_dir / output_file
+                self.write_monitoring_root(str(output_file))
                 # self.close()
     
     def add_processor(self, processor):
