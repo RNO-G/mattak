@@ -43,7 +43,8 @@ class MonitoringAnalyzer:
         self.output_dir.mkdir(exist_ok=True)
         self.root_files = []
         self.current_file = None
-        self.data = {} ## mattak.Dataset.Dataset object
+        ## self.data = {} ## mattak.Dataset.Dataset object
+        self.readerRNOG = None
         self.metadata = {}
         self.monitoringData = ROOT.mattak.Monitoring()
         self.processors = []
@@ -139,28 +140,28 @@ class MonitoringAnalyzer:
             print("No files to process. Exiting.")
             return
         ## initialize rnog reader
-        readerRNOG = readRNOGData(run_table_path=None, load_run_table=False)
+        self.readerRNOG = readRNOGData(run_table_path=None, load_run_table=False)
 
         for file in self.root_files: 
             self.current_file = file  
-            self.data = {}
             print(f"Reading file with backend {self.backend}")
 
             self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
             try:
                 # self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
-                readerRNOG = readerRNOG.begin(self.current_file, convert_to_voltage=False)
+                self.readerRNOG = readerRNOG.begin(self.current_file, convert_to_voltage=False)
                 print(f"Loaded data for station {int(st)}, run {int(r)}")
+
             except:
                 print(f"Could not load data for station {int(st)}, run {int(r)}")
-            if self.data:
+            if self.readerRNOG:
                 self.process_data()
                 if output_file is None:
                     output_file = self.output_dir / "test_monitoring.root"
                 else:
                     output_file = self.output_dir / output_file
                 self.write_monitoring_root(str(output_file))
-                # self.close()
+                self.close()
     
     def add_processor(self, processor):
         """Add a processing function to the pipeline."""
@@ -207,6 +208,15 @@ class MonitoringAnalyzer:
                 file[key] = uproot.writing.identify.to_TTree(arrays)
         print(f"Successfully wrote to {output_file}")
         return True
+    def close(self):
+        """Close any open files or resources."""
+        if self.readerRNOG:
+            n_events_total = self.readerRNOG.end()
+            print(f"Closed RNO-G reader. Total events processed: {n_events_total}")
+            self.readerRNOG = None
+        self.current_file = None
+        self.metadata = {}
+        self.monitoringData = None
     
 def default_processor(self):
     """Basic processor example."""
