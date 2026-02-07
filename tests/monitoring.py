@@ -149,13 +149,14 @@ class MonitoringAnalyzer:
             self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
             try:
                 # self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
-                self.readerRNOG = readerRNOG.begin(self.current_file, convert_to_voltage=False)
+                self.readerRNOG.begin(self.current_file, convert_to_voltage=False)
                 print(f"Loaded data for station {int(st)}, run {int(r)}")
 
             except:
                 print(f"Could not load data for station {int(st)}, run {int(r)}")
             if self.readerRNOG:
-                self.process_data()
+                for event in self.readerRNOG.run():
+                    self.process_data(event)
                 if output_file is None:
                     output_file = self.output_dir / "test_monitoring.root"
                 else:
@@ -167,11 +168,11 @@ class MonitoringAnalyzer:
         """Add a processing function to the pipeline."""
         self.processors.append(processor)
     
-    def process_data(self):
+    def process_data(self, event):
         """Process data through registered processors sequentially."""
         for processor in self.processors:
-            processor(self)
-            print(f"Applied processor: {processor.__name__}")
+            processor(self,event)
+            print(f"Applied event processor: {processor.__name__}")
     
     def write_monitoring_root(self, output_file):
         """Write processed data to monitoring.root."""
@@ -218,15 +219,18 @@ class MonitoringAnalyzer:
         self.metadata = {}
         self.monitoringData = None
     
-def default_processor(self):
+def default_processor(self,event):
     """Basic processor example."""
     print("Running default processor")
-    print("Number of events:",self.data.N())
-    ## listing availble data
-    print(self.data.eventInfo())
-    self.monitoringData.run_number = int(self.data.run)
-    self.monitoringData.station_number = int(self.data.station)
-
+    keys = ["triggerType", "triggerTime", "readoutTime", "radiantThrs", "lowTrigThrs"]
+    event_info = self.readerRNOG.get_events_information(keys=keys)
+    self.metadata["event_info"] = event_info
+    print("Extracted event information:")
+    for key in keys:
+        try:
+            print(f"{key}: {event_info[key]}")
+        except KeyError:
+            print(f"{key} not found in event information.")
 
 if __name__ == "__main__":
     import os
