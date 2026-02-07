@@ -19,7 +19,7 @@ from pathlib import Path
 import re
 import mattak.Dataset
 from NuRadioReco.modules.io.RNO_G.readRNOGDataMattak import readRNOGData
-
+from NuRadioReco.utilities import units
 
 class MonitoringAnalyzer:
     """Analyzer for reading combined.root files and creating monitoring.root output."""
@@ -149,7 +149,17 @@ class MonitoringAnalyzer:
             self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
             try:
                 # self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
-                self.readerRNOG.begin(self.current_file, convert_to_voltage=False)
+                self.readerRNOG.begin(self.current_file, 
+                                      convert_to_voltage=False,
+                                      read_calibrated_data=False,
+                                      apply_baseline_correction='none',
+                                      run_types=["physics"],
+                                      run_time_range=None,
+                                      max_trigger_rate=0 * units.Hz,
+                                      mattak_kwargs={"backend":"pyroot"},
+                                      overwrite_sampling_rate=None,
+                                      max_in_mem=256,use_fallback_time=True
+                                      )
                 print(f"Loaded data for station {int(st)}, run {int(r)}")
 
             except:
@@ -212,8 +222,7 @@ class MonitoringAnalyzer:
     def close(self):
         """Close any open files or resources."""
         if self.readerRNOG:
-            n_events_total = self.readerRNOG.end()
-            print(f"Closed RNO-G reader. Total events processed: {n_events_total}")
+            self.readerRNOG.end()
             self.readerRNOG = None
         self.current_file = None
         self.metadata = {}
