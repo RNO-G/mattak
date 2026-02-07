@@ -42,6 +42,7 @@ class MonitoringAnalyzer:
         else:
             self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
+        self.output_file = None
         self.root_files = []
         self.current_file = None
         ## self.data = {} ## mattak.Dataset.Dataset object
@@ -119,6 +120,7 @@ class MonitoringAnalyzer:
         return self.station_run_info
     def run(self,files=None,station=None,run=None,output_file=None):
         """Loop through all combined.root files in directory and process them."""
+        self.output_file = output_file
         if files:
             ## accept user-specified input files
             if not isinstance(files, list):
@@ -170,14 +172,14 @@ class MonitoringAnalyzer:
                 for ie,event in enumerate(self.readerRNOG.run()):
                     self.process_data(event)
                     if self.debug and ie >= 1:
-                        print("Debug mode: processed 10 events, stopping.")
+                        print("Debug mode: processed 2 events, stopping.")
                         break  
-                if output_file is None:
-                    output_file = self.output_dir / "test_monitoring.root"
-                else:
-                    output_file = self.output_dir / output_file
-                self.write_monitoring_root(str(output_file))
     def end(self):
+        if self.output_file is None:
+            self.output_file = self.output_dir / "test_monitoring.root"
+        else:
+            self.output_file = self.output_dir / self.output_file
+        self.write_monitoring_root(str(self.output_file))
         self.close()
     
     def add_processor(self, processor):
