@@ -15,7 +15,7 @@ from NuRadioReco.utilities import units
 from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_signal_to_noise_ratio
 
 station = 23
-run = 999
+run = 3400
 RNO_G_DATA = os.environ["RNO_G_DATA"]
 HERE = os.path.dirname(os.path.abspath(__file__))
 try:
@@ -50,10 +50,13 @@ def calculate_vrms(self,event):
     self.metadata["event_info"]["snr"] = [snrs] if "snr" not in self.metadata["event_info"] else self.metadata["event_info"]["snr"] + [snrs]
 
     
-from NuRadioReco.modules.RNO_G import channelBlockOffsetFitter
-block_fitter = channelBlockOffsetFitter.channelBlockOffsets()
+from NuRadioReco.modules.RNO_G.channelBlockOffsetFitter import channelBlockOffsets, fit_block_offsets, _calculate_block_offsets
+block_fitter = channelBlockOffsets()
 def fit_block_offsets(self,event):
-    pass
+    traces,times = event.get_waveforms()
+    #(n_events, n_channels, n_cuncks)
+    block_offsets = _calculate_block_offsets(np.array([traces]),block_size=128)
+    self.metadata["event_info"]["block_offsets"] = [block_offsets] if "block_offsets" not in self.metadata["event_info"] else self.metadata["event_info"]["block_offsets"] + [block_offsets]
 
 from NuRadioReco.modules.RNO_G import channelGlitchDetector
 glitch_detector = channelGlitchDetector.channelGlitchDetector()
