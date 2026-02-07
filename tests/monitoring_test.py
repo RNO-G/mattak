@@ -8,6 +8,7 @@ import ROOT
 # from ROOT.mattak import monitoring
 import monitoring
 import mattak.backends.pyroot.mattakloader
+from NuRadioReco.utilities import units
 # ROOT.gInterpreter.Declare('#include "mattak/Monitoring.h"')
 # ROOT.gSystem.Load("libmattak.so")
 
@@ -31,39 +32,46 @@ except Exception as e:
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 ## Run MonitoringAnalyzer to generate monitoring.root
-def extract_all_parameters(self):
+def extract_all_parameters(self,event):
     """Example processor to extract all parameters."""
     print("Extracting all parameters")
-    self.monitoringData.station_number = self.data.station
-    self.monitoringData.run_number = self.data.run
-    self.monitoringData.num_events = self.data.N()
-    print("Number of events:", self.monitoringData.num_events)
-    ie = 0
-    for ev in self.data.iterate():
-        info = ev[0]
-        info_dict = info.__dict__
-        self.metadata[ie]= info_dict
-        # self.metadata[ie]['wfs'] = ev[1]
-        ie += 1
-def calculate_vrms(self):
-    num_events = self.data.N()
-    print("Calculating vrms for", num_events, "events")
-    vrms_list = [[0 for ch in range(24)] for ie in range(num_events)]
-    ie = 0
-    for ev in self.data.iterate():
-        wfs = ev[1]
-        for ch,wf in enumerate(wfs):
-            noise = get_split_trace_noise_RMS(wf, segments=4, lowest=2)
-            vrms = get_signal_to_noise_ratio(wf,noise, window_size=3)
-            vrms_list[ie][ch] = vrms
-        ie += 1
-    self.metadata['vrms'] = vrms_list
+
+from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_signal_to_noise_ratio 
+def calculate_vrms(self,event):
+    traces,times = event.get_waveforms()
+    noises = [get_split_trace_noise_RMS(traces[i], segments=4,lowest=2) for i in range(len(traces))] 
+    snrs = [get_signal_to_noise_ratio(traces[i],noises[i],window_size=3) for i in range(len(traces))]
+    # sampling_rate = event.get_sampling_rate()
+    sampling_rate = (1./(times[0][1]-times[0][0]))
+    print("event",event.get_id(),"traces shape",np.array(traces).shape)
+    print(f"sampling rate {sampling_rate:.2f}")
+
+    self.metadata["event_info"]["Vrms"] = [noises] if "Vrms" not in self.metadata["event_info"] else self.metadata["event_info"]["Vrms"] + [noises]
+    self.metadata["event_info"]["snr"] = [snrs] if "snr" not in self.metadata["event_info"] else self.metadata["event_info"]["snr"] + [snrs]
+
+    
+from NuRadioReco.modules.RNO_G import channelBlockOffsetFitter
+block_fitter = channelBlockOffsetFitter.channelBlockOffsets()
+def fit_block_offsets(self,event):
+    pass
+
+from NuRadioReco.modules.RNO_G import channelGlitchDetector
+glitch_detector = channelGlitchDetector.channelGlitchDetector()
+glitch_detector.begin()
+def detect_channel_glitches(self,event):
+    """Glitch detection processor."""
+    station = event.get_station()
+    glitch_detector.run(event,station)
+    has_glitch = channelGlitchDetector.has_glitch(event)
+    self.metadata["event_info"]["has_glitch"] = [has_glitch] if "has_glitch" not in self.metadata["event_info"] else self.metadata["event_info"]["has_glitch"] + [has_glitch]
 
 
 analyzer = monitoring.MonitoringAnalyzer(directory=RNO_G_DATA,output_dir=HERE,backend="pyroot")
-# analyzer.add_processor(monitoring.default_processor)
-analyzer.add_processor(extract_all_parameters)
+analyzer.add_processor(monitoring.default_processor)
+# analyzer.add_processor(extract_all_parameters)
 analyzer.add_processor(calculate_vrms)
+analyzer.add_processor(fit_block_offsets)
+analyzer.add_processor(detect_channel_glitches)
 analyzer.run(station=[station], run=[run], output_file="test_monitoring.root")  
 
 ### Open and Read Monitoring.root file for verification
