@@ -26,7 +26,8 @@ class MonitoringAnalyzer:
     
     def __init__(self, directory, 
                  output_dir=None,
-                 backend=None):
+                 backend=None,
+                 debug=False):
         """
         Initialize the analyzer with input directory and output directory.
         
@@ -49,6 +50,7 @@ class MonitoringAnalyzer:
         self.monitoringData = ROOT.mattak.Monitoring()
         self.processors = []
         self.backend = self._detect_backend(backend)
+        self.debug = debug
         if self.backend == "uproot":
             print("uproot backend is under development. expect limited functionality.")
         print(f"Using backend: {self.backend}")
@@ -165,14 +167,18 @@ class MonitoringAnalyzer:
             except:
                 print(f"Could not load data for station {int(st)}, run {int(r)}")
             if self.readerRNOG:
-                for event in self.readerRNOG.run():
+                for ie,event in enumerate(self.readerRNOG.run()):
                     self.process_data(event)
+                    if self.debug and ie >= 1:
+                        print("Debug mode: processed 10 events, stopping.")
+                        break  
                 if output_file is None:
                     output_file = self.output_dir / "test_monitoring.root"
                 else:
                     output_file = self.output_dir / output_file
                 self.write_monitoring_root(str(output_file))
-                self.close()
+    def end(self):
+        self.close()
     
     def add_processor(self, processor):
         """Add a processing function to the pipeline."""
