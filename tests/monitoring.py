@@ -157,7 +157,7 @@ class MonitoringAnalyzer:
                                       run_time_range=None,
                                       max_trigger_rate=0 * units.Hz,
                                       mattak_kwargs={"backend":"pyroot"},
-                                      overwrite_sampling_rate=None,
+                                      overwrite_sampling_rate=3.2*units.GHz,
                                       max_in_mem=256,use_fallback_time=True
                                       )
                 print(f"Loaded data for station {int(st)}, run {int(r)}")
