@@ -17,15 +17,9 @@
 
 namespace mattak 
 {
+  
   class Monitoring : public TObject 
   {
-    // struct MonitoringData 
-    // {
-    //   int run_number;
-    //   double radiant_voltage;
-    //   double battery_voltage;
-    //   double wind_speed;
-    // };
     public:
       // default constructor
       Monitoring() = default;
@@ -33,6 +27,14 @@ namespace mattak
       Monitoring(uint32_t run, uint16_t station);
       // destructor
       ~Monitoring() = default;
+      struct runParameter
+      {
+        std::string name;
+        float mean;
+        float std;
+        float min;
+        float max;
+      };
       
       // Basic identifying information
       uint32_t run_number = 0;
@@ -49,13 +51,13 @@ namespace mattak
       float radiant_voltage = 0.0f;
 
       // Future-proofing: generic key-value storage
-      std::map<std::string, std::string> trigger_type;
-      std::map<std::string, float> runParameters; // for run-level parameters
+      std::vector<std::string> trigger_type;
+      std::vector< Monitoring::runParameter> runParameters; // for run-level parameters
       std::map<std::string, std::vector<float>> eventParameters; // for event-level parameters
 
     // private:
     // everything is public for simplicity
-    ClassDef(Monitoring,2);
+    ClassDef(Monitoring,3);
 
   };
 
