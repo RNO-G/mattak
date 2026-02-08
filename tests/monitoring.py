@@ -172,8 +172,9 @@ class MonitoringAnalyzer:
                 for ie,event in enumerate(self.readerRNOG.run()):
                     self.process_data(event)
                     if self.debug and ie >= 1:
-                        print("Debug mode: processed 2 events, stopping.")
-                        break  
+                        print(f"Debug mode: processed {ie+1} events, stopping.")
+                        break 
+                    self.monitoringData.num_events = ie+1
     def end(self):
         if self.output_file is None:
             self.output_file = self.output_dir / "test_monitoring.root"
