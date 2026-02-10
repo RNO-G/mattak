@@ -171,7 +171,7 @@ class MonitoringAnalyzer:
             if self.readerRNOG:
                 for ie,event in enumerate(self.readerRNOG.run()):
                     self.process_data(event)
-                    if self.debug and ie >= 1:
+                    if self.debug and ie > 10:
                         print(f"Debug mode: processed {ie+1} events, stopping.")
                         break 
                     self.monitoringData.num_events = ie+1

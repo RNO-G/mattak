@@ -119,6 +119,7 @@ def summarize_metadata(metadata):
             }
         if key == "Vrms":
             all_vrms = np.array(values)
+            print("all_vrms shape",all_vrms.shape)
             summary[key] = {
                 "name": "Vrms by channel",
                 "mean": np.mean(all_vrms,axis=0),
@@ -138,26 +139,36 @@ def summarize_metadata(metadata):
     return summary
 def print_summary(summary):
     """Print the summary of metadata."""
+    out_string = "=== Metadata Summary ===\n"
     for key, stats in summary.items():
         if key == "block_offsets":
             continue
         if key == "event_info":
-            print("number of events:", stats["num_events"])
-            continue
-        print(f"\n{stats['name']}:")
-        if key == "has_glitch":
-            print(f"  Total events: {stats['total_events']}")
-            print(f"  Events with glitches: {stats['num_glitches']}")
-            print(f"  Glitch rate: {stats['glitch_rate']:.2%}")
+            # print("number of events:", stats["num_events"])
+            out_string += f"{stats['name']}:\n"
+            out_string += f"  Number of events: {stats['num_events']}\n"
         elif key == "trigger_type_distribution":
-            print("  Trigger type distribution:")
+            out_string += f"  Trigger type distribution:\n"
             for t in stats["types"]:
-                print(f"    {t}: {stats['counts'][t]} events")
+                out_string += f"    {t}: {stats['counts'][t]:d} events\n"
+        elif key == "low_trig_thresholds":
+            out_string += f"{stats['name']}:\n"
+            for ch in range(stats['mean'].shape[0]):
+                out_string += f"  Channel {ch}: mean={stats['mean'][ch]:.2f}, std={stats['std'][ch]:.2f}, min={stats['min'][ch]:.2f}, max={stats['max'][ch]:.2f}\n"
+
+        elif key == "has_glitch":
+            out_string += f"\n{stats['name']}:\n"
+            # print(f"  Total events: {stats['total_events']}")
+            # print(f"  Events with glitches: {stats['num_glitches']}")
+            # print(f"  Glitch rate: {stats['glitch_rate']:.2%}")
+            out_string += f"  Total events: {stats['total_events']}\n"
+            out_string += f"  Events with glitches: {stats['num_glitches']}\n"
+            out_string += f"  Glitch rate: {stats['glitch_rate']:.2%}\n"
         else:
-            print(f"  Mean: {stats['mean']}")
-            print(f"  Std: {stats['std']}")
-            print(f"  Min: {stats['min']}")
-            print(f"  Max: {stats['max']}")
+            for k,v in stats.items():
+                out_string += f"  {k.capitalize()}: {v}\n"
+    print(out_string)
+    return out_string
 def dump_metadata(metadata, obj,summary=None):
     """Dump metadata to a Monitoring object"""
     if summary is None:
@@ -200,6 +211,9 @@ def dump_metadata(metadata, obj,summary=None):
             eventParameters[f"lowTrigThrs_ch{ch}"] = lowTrigThrs[:,ch]
     print("assigning event parameters to Monitoring object")
     obj.eventParameters = eventParameters
+    ## TODO: add run-level parameters like block offsets, glitch presence, etc.
+    ## BUT run-level can be calculated from event-level parameters with trigger-type selection
+    # so maybe not necessary to store separately?
 station = 23
 run = 3400
 analyzer = monitoring.MonitoringAnalyzer(directory=RNO_G_DATA,output_dir=HERE,backend="pyroot",debug=True)
@@ -211,7 +225,7 @@ analyzer.add_processor(detect_channel_glitches)
 analyzer.run(station=[station], run=[run], output_file="test_monitoring.root")  
 meta = analyzer.metadata
 summary = summarize_metadata(meta)
-print_summary(summary)
+summary_text = print_summary(summary)
 analyzer.monitoringData.run_number = run
 print("Test run number",analyzer.monitoringData.run_number)
 dump_metadata(meta, analyzer.monitoringData,summary=summary)
