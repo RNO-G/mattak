@@ -48,7 +48,7 @@ class MonitoringAnalyzer:
         ## self.data = {} ## mattak.Dataset.Dataset object
         self.readerRNOG = None
         self.metadata = {}
-        self.monitoringData = ROOT.mattak.Monitoring()
+        self.monitoringData = None # ROOT.mattak.Monitoring()
         self.processors = []
         self.backend = self._detect_backend(backend)
         self.debug = debug
@@ -146,7 +146,11 @@ class MonitoringAnalyzer:
         ## initialize rnog reader
         self.readerRNOG = readRNOGData(run_table_path=None, load_run_table=False)
 
-        for file in self.root_files: 
+        for file in self.root_files:
+            ## clear metadata and monitoring data for each file
+            self.close()
+            self.monitoringData = ROOT.mattak.Monitoring() 
+
             self.current_file = file  
             print(f"Reading file with backend {self.backend}")
 
@@ -175,12 +179,16 @@ class MonitoringAnalyzer:
                         print(f"Debug mode: processed {ie+1} events, stopping.")
                         break 
                     self.monitoringData.num_events = ie+1
+                if self.output_file is None:
+                    self.output_file = self.output_dir / "test_monitoring.root"
+                else:
+                    self.output_file = self.output_dir / self.output_file
+                self.write_monitoring_root(str(self.output_file))
+                ## self.close()
     def end(self):
-        if self.output_file is None:
-            self.output_file = self.output_dir / "test_monitoring.root"
-        else:
-            self.output_file = self.output_dir / self.output_file
-        self.write_monitoring_root(str(self.output_file))
+        if self.readerRNOG:
+            self.readerRNOG.end()
+            self.readerRNOG = None
         self.close()
     
     def add_processor(self, processor):
@@ -230,9 +238,6 @@ class MonitoringAnalyzer:
         return True
     def close(self):
         """Close any open files or resources."""
-        if self.readerRNOG:
-            self.readerRNOG.end()
-            self.readerRNOG = None
         self.current_file = None
         self.metadata = {}
         self.monitoringData = None
