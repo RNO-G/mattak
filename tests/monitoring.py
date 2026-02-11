@@ -152,9 +152,9 @@ class MonitoringAnalyzer:
             self.monitoringData = ROOT.mattak.Monitoring() 
 
             self.current_file = file  
-            print(f"Reading file with backend {self.backend}")
+            # print(f"Reading file with backend {self.backend}")
 
-            self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
+            # self.current_file = self.station_run_info[st][r]["path"]+"/combined.root"
             try:
                 # self.data = mattak.Dataset.Dataset(int(st), int(r), data_path=str(self.directory), backend=self.backend, preferred_file="combined")
                 self.readerRNOG.begin(self.current_file, 
@@ -179,6 +179,7 @@ class MonitoringAnalyzer:
                         print(f"Debug mode: processed {ie+1} events, stopping.")
                         break 
                     self.monitoringData.num_events = ie+1
+                self.get_run_parameters()
                 ## self.close()
     def end(self):
         ## write monitoring.root output if data was processed
@@ -243,6 +244,33 @@ class MonitoringAnalyzer:
         self.current_file = None
         self.metadata = {}
         self.monitoringData = None
+    def get_run_parameters(self):
+        print("Calculating run parameters...")
+        print("Metadata keys:", self.metadata.keys())
+        metadata = self.metadata
+        obj = self.monitoringData
+        runParameters = []
+        if "Vrms" in metadata:
+            print("calculating run parameters for Vrms")
+            vrms = np.array(metadata["Vrms"],dtype=np.float64)
+            runParam_vrms = ROOT.mattak.Monitoring.runParameter()
+            runParam_vrms.name = "Vrms by channel"
+            runParam_vrms.mean = np.mean(vrms,axis=0).tolist()
+            runParam_vrms.std = np.std(vrms,axis=0).tolist()
+            runParam_vrms.min = np.min(vrms,axis=0).tolist()
+            runParam_vrms.max = np.max(vrms,axis=0).tolist()
+            runParameters.append(runParam_vrms)
+        if "snr" in metadata:
+
+            snr = np.array(metadata["snr"],dtype=np.float64)
+            runParam_snr = ROOT.mattak.Monitoring.runParameter()
+            runParam_snr.name = "SNR by channel"
+            runParam_snr.mean = np.mean(snr,axis=0).tolist()
+            runParam_snr.std = np.std(snr,axis=0).tolist()
+            runParam_snr.min = np.min(snr,axis=0).tolist()
+            runParam_snr.max = np.max(snr,axis=0).tolist()
+            runParameters.append(runParam_snr)
+        obj.runParameters = runParameters
     
 def default_processor(self,event):
     """Basic processor example."""

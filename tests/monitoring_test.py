@@ -16,24 +16,18 @@ from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_
 
 RNO_G_DATA = os.environ["RNO_G_DATA"]
 HERE = os.path.dirname(os.path.abspath(__file__))
-try:
-    daqstatus = ROOT.mattak.DAQStatus()
-    print("Successfully created DAQStatus object:", daqstatus)
-except Exception as e:
-    print("Error creating DAQStatus object:", e)
-try:
-    monitoring_obj = ROOT.mattak.Monitoring(run,station)
-    print("Successfully created Monitoring object:", monitoring_obj)
-except Exception as e:
-    print("Error creating Monitoring object:", e)
-
-HERE = os.path.dirname(os.path.abspath(__file__))
+# try:
+#     daqstatus = ROOT.mattak.DAQStatus()
+#     print("Successfully created DAQStatus object:", daqstatus)
+# except Exception as e:
+#     print("Error creating DAQStatus object:", e)
+# try:
+#     monitoring_obj = ROOT.mattak.Monitoring(run,station)
+#     print("Successfully created Monitoring object:", monitoring_obj)
+# except Exception as e:
+#     print("Error creating Monitoring object:", e)
 
 ## Run MonitoringAnalyzer to generate monitoring.root
-def extract_all_parameters(self,event):
-    """Example processor to extract all parameters."""
-    print("Extracting all parameters")
-
 from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_signal_to_noise_ratio 
 def calculate_vrms(self,event):
     times,traces = event.get_waveforms() ## n-channels, n-samples
@@ -168,10 +162,12 @@ def print_summary(summary):
                 out_string += f"  {k.capitalize()}: {v}\n"
     print(out_string)
     return out_string
-def dump_metadata(metadata, obj,summary=None):
+def dump_metadata(self,event):
     """Dump metadata to a Monitoring object"""
-    if summary is None:
-        summary = summarize_metadata(metadata)
+    obj = self.monitoringData
+    metadata = self.metadata
+    # if summary is None:
+    #     summary = summarize_metadata(metadata)
     ## set single-value metadata fields
     obj.run_number = run
     obj.station_number = station
@@ -193,7 +189,7 @@ def dump_metadata(metadata, obj,summary=None):
     if "has_glitch" in metadata:
         has_glitch = np.array(metadata["has_glitch"],dtype=bool)
         eventParameters["has_glitch"] = has_glitch
-    if "event_info" in summary:
+    if "event_info" in metadata:
         trigger_types = np.array([metadata["event_info"][eid]['triggerType'] for eid in metadata["event_info"]],dtype=str)
         trigger_time = np.array([metadata["event_info"][eid]['triggerTime'] for eid in metadata["event_info"]],dtype=np.float64)
         readout_time = np.array([metadata["event_info"][eid]['readoutTime'] for eid in metadata["event_info"]],dtype=np.float64)
@@ -210,30 +206,24 @@ def dump_metadata(metadata, obj,summary=None):
             eventParameters[f"lowTrigThrs_ch{ch}"] = lowTrigThrs[:,ch]
     print("assigning event parameters to Monitoring object")
     obj.eventParameters = eventParameters
-    ## TODO: add run-level parameters like block offsets, glitch presence, etc.
-    ## BUT run-level can be calculated from event-level parameters with trigger-type selection
-    # so maybe not necessary to store separately?
+    
 station = 23
 run = 3400
 analyzer = monitoring.MonitoringAnalyzer(directory=RNO_G_DATA,output_dir=HERE,backend="pyroot",debug=True)
 analyzer.add_processor(monitoring.default_processor)
-# analyzer.add_processor(extract_all_parameters)
 analyzer.add_processor(calculate_vrms)
 analyzer.add_processor(detect_block_offset)
 analyzer.add_processor(detect_channel_glitches)
+analyzer.add_processor(dump_metadata)
+
 analyzer.run(station=[station], run=[run], output_file="test_monitoring.root")  
-meta = analyzer.metadata
-summary = summarize_metadata(meta)
-summary_text = print_summary(summary)
+# meta = analyzer.metadata
+# summary = summarize_metadata(meta)
+# summary_text = print_summary(summary)
+# dump_metadata(meta, analyzer.monitoringData,summary=summary)
 analyzer.monitoringData.run_number = run
 print("Test run number",analyzer.monitoringData.run_number)
-dump_metadata(meta, analyzer.monitoringData,summary=summary)
-test_runParam = {"name": "test param",
-                 "mean": [0.5],
-                 "std": [0.1],
-                 "min": [0.0],
-                 "max": [1.0]}
-analyzer.monitoringData.runParameters = []
+
 analyzer.end()
 
 
@@ -248,10 +238,15 @@ print("station number",obj.station_number)
 print("run number",obj.run_number)
 obj.run_number = 3411
 print("run number",obj.run_number)
-print("Event parameters:",type(obj.eventParameters), obj.eventParameters['Vrms_0'])  # print first 10 values of lowTrigThrs for channel 0
+print("Event parameters:")  # print first 10 values of lowTrigThrs for channel 0
 keys = ['Vrms_0','Vrms_1','Vrms_2','Vrms_3','snr_0','snr_1','snr_2','snr_3']
 for key in keys:
-    print((np.array(obj.eventParameters[key],dtype=np.float64))[:5])
-print(obj.runParameters)  
+    print(key,(np.array(obj.eventParameters[key],dtype=np.float64))[:5])
+print("run parameters:",obj.runParameters.size()) 
+print(obj.runParameters[0].name)
+print(" mean",np.array(obj.runParameters[0].mean)[:5])
+print(" std",np.array(obj.runParameters[0].std)[:5])
+print(" max",np.array(obj.runParameters[0].max)[:5])
+print(" min",np.array(obj.runParameters[0].min)[:5])  
 #########
 f.Close()
