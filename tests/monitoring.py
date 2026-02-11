@@ -179,13 +179,15 @@ class MonitoringAnalyzer:
                         print(f"Debug mode: processed {ie+1} events, stopping.")
                         break 
                     self.monitoringData.num_events = ie+1
-                if self.output_file is None:
-                    self.output_file = self.output_dir / "test_monitoring.root"
-                else:
-                    self.output_file = self.output_dir / self.output_file
-                self.write_monitoring_root(str(self.output_file))
                 ## self.close()
     def end(self):
+        ## write monitoring.root output if data was processed
+        if self.output_file is None:
+                    self.output_file = self.output_dir / "test_monitoring.root"
+        else:
+            self.output_file = self.output_dir / self.output_file
+        self.write_monitoring_root(str(self.output_file))
+
         if self.readerRNOG:
             self.readerRNOG.end()
             self.readerRNOG = None
@@ -251,7 +253,7 @@ def default_processor(self,event):
     print("Extracted event information:")
     for key in keys:
         try:
-            print(f"{key}: {event_info[key]}")
+            print(f"{key}: {event_info[event.get_id()][key]}")
         except KeyError:
             print(f"{key} not found in event information.")
 

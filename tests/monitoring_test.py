@@ -36,12 +36,12 @@ def extract_all_parameters(self,event):
 
 from NuRadioReco.utilities.trace_utilities import get_split_trace_noise_RMS,get_signal_to_noise_ratio 
 def calculate_vrms(self,event):
-    traces,times = event.get_waveforms() ## n-channels, n-samples
+    times,traces = event.get_waveforms() ## n-channels, n-samples
     noises = [get_split_trace_noise_RMS(traces[i], segments=4,lowest=2) for i in range(len(traces))] 
     snrs = [get_signal_to_noise_ratio(traces[i],noises[i],window_size=3) for i in range(len(traces))]
-    # sampling_rate = event.get_sampling_rate()
+
     sampling_rate = (1./(times[0][1]-times[0][0]))
-    print("event",event.get_id(),"traces shape",np.array(traces).shape)
+    print("event",event.get_id())
     print(f"sampling rate {sampling_rate:.2f}")
 
     self.metadata["Vrms"] = [noises] if "Vrms" not in self.metadata else self.metadata["Vrms"] + [noises]
@@ -51,7 +51,7 @@ def calculate_vrms(self,event):
 from NuRadioReco.modules.RNO_G.channelBlockOffsetFitter import channelBlockOffsets, fit_block_offsets, _calculate_block_offsets
 block_fitter = channelBlockOffsets()
 def detect_block_offset(self,event):
-    traces,times = event.get_waveforms()
+    times,traces = event.get_waveforms()
     #(n_events=1, n_channels, n_cuncks)
     block_offsets = _calculate_block_offsets(np.array(traces),block_size=128)
     self.metadata["block_offsets"] = [block_offsets] if "block_offsets" not in self.metadata else self.metadata["block_offsets"] + [block_offsets]
@@ -65,7 +65,6 @@ def detect_channel_glitches(self,event):
     glitch_detector.run(event,station)
     has_glitch = channelGlitchDetector.has_glitch(event)
     self.metadata["has_glitch"] = [has_glitch] if "has_glitch" not in self.metadata else self.metadata["has_glitch"] + [has_glitch]
-
 def summarize_metadata(metadata):
     """Summarize the collected metadata."""
     summary = {}
@@ -229,7 +228,12 @@ summary_text = print_summary(summary)
 analyzer.monitoringData.run_number = run
 print("Test run number",analyzer.monitoringData.run_number)
 dump_metadata(meta, analyzer.monitoringData,summary=summary)
-
+test_runParam = {"name": "test param",
+                 "mean": [0.5],
+                 "std": [0.1],
+                 "min": [0.0],
+                 "max": [1.0]}
+analyzer.monitoringData.runParameters = []
 analyzer.end()
 
 
@@ -244,7 +248,10 @@ print("station number",obj.station_number)
 print("run number",obj.run_number)
 obj.run_number = 3411
 print("run number",obj.run_number)
-print("Event parameters:",obj.eventParameters['Vrms_0'])  # print first 10 values of lowTrigThrs for channel 0
-
+print("Event parameters:",type(obj.eventParameters), obj.eventParameters['Vrms_0'])  # print first 10 values of lowTrigThrs for channel 0
+keys = ['Vrms_0','Vrms_1','Vrms_2','Vrms_3','snr_0','snr_1','snr_2','snr_3']
+for key in keys:
+    print((np.array(obj.eventParameters[key],dtype=np.float64))[:5])
+print(obj.runParameters)  
 #########
 f.Close()

@@ -30,10 +30,10 @@ namespace mattak
       struct runParameter
       {
         std::string name;
-        float mean;
-        float std;
-        float min;
-        float max;
+        std::vector<float> mean;
+        std::vector<float> std;
+        std::vector<float> min;
+        std::vector<float> max;
       };
       
       // Basic identifying information
@@ -57,7 +57,7 @@ namespace mattak
 
     // private:
     // everything is public for simplicity
-    ClassDef(Monitoring,3);
+    ClassDef(Monitoring,4);
 
   };
 
