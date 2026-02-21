@@ -27,11 +27,12 @@ namespace mattak
       Monitoring(uint32_t run, uint16_t station);
       // destructor
       ~Monitoring() = default;
+      // small struct for extra run parameter
       struct runParameter
       {
         std::string name;
         std::vector<float> mean;
-        std::vector<float> std;
+        std::vector<float> stddev;
         std::vector<float> min;
         std::vector<float> max;
       };
@@ -41,19 +42,13 @@ namespace mattak
       uint16_t station_number = 0;
 
       // Monitoring quantities (initial minimal set)
-      uint32_t num_events = 0; // total number of events (in the run or file?)
-      double unixTime = 0;   // seconds since epoch associated with firtst event (of the run or file?)
-      // system house-keeping or environmental parameters of interest for the run
-      float system_voltage = 0.0f;
-      float battery_level = 0.0f;
-      float wind_speed = 0.0f;
-      float temperature = 0.0f;
-      float radiant_voltage = 0.0f;
+      uint32_t num_events = 0; // total number of events
+      float rms_per_channel[24]; // root mean square per channel
+
 
       // Future-proofing: generic key-value storage
-      std::vector<std::string> trigger_type;
-      std::vector< Monitoring::runParameter> runParameters; // for run-level parameters
-      std::map<std::string, std::vector<float>> eventParameters; // for event-level parameters
+      std::vector< Monitoring::runParameter> extraParameters; // for run-level parameters
+
 
     // private:
     // everything is public for simplicity
