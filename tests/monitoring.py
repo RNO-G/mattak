@@ -126,7 +126,7 @@ if __name__ == "__main__":
         output_file = os.path.join(HERE,"monitoring.root")
 
         make_monitoring(data,st,r,output_file=output_file)
-        break
+        
     ################################################################
     ## Reading objects from file
     check_file(output_file)
