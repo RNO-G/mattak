@@ -94,49 +94,6 @@ def check_file(file_path):
     rms_per_channel = np.array(mon.rms_per_channel,dtype=float)
     print('rms:',rms_per_channel[:4])
     print('avg:',(np.mean(np.array(all_rms)**2,axis=0)**0.5)[:4])
-# def _init_monitoring_object(self, station, run_number):
-#     self.monitoringData = ROOT.mattak.Monitoring(run_number,station)
-#     # self.monitoringData.runNumber = int(run_number)
-#     # self.monitoringData.stationNumber = int(station)
-# def _init_event_tree(self):
-#     self.event_tree = ROOT.TTree("eventSummary", "Event-level monitoring")
-    
-#     ## branch for TTree
-#     self.metadata['eventNumber'] = array.array('I', [0]) 
-#     self.metadata['triggerType'] = ROOT.std.string()
-
-#     self.event_tree.Branch("eventNumber", self.metadata['eventNumber'], "eventNumber/i")
-#     self.event_tree.Branch("triggerType", self.metadata['triggerType'])
-   
-# def write_monitoring_root(self, output_file):
-#     """Write processed data to monitoring.root."""
-#     if self.backend != "pyroot":
-#         raise NotImplementedError("Only pyroot backend shown here")
-
-#     output = ROOT.TFile(output_file, "RECREATE")
-#     # Run-level TTree
-#     t_run = ROOT.TTree("runSummary", "Run-level monitoring")
-#     t_run.Branch("monitoring", self.monitoringData)
-#     t_run.Fill()
-#     t_run.Write()
-
-#     # Event-level TTree
-#     self.event_tree.Write()
-
-#     output.Close()
-#     print(f"Successfully wrote monitoring file: {output_file}")
-#     return True
-
-# def _reset_run_state(self):
-#     self.num_events = 0
-#     self.metadata = {}       
-#     self.monitoringData = None
-#     self.event_tree = None
-# def _init_monitoring_object(self, station, run_number):
-#     self.monitoringData = ROOT.mattak.Monitoring()
-#     self.monitoringData.runNumber = int(run_number)
-#     self.monitoringData.stationNumber = int(station)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
