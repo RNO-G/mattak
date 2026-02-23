@@ -35,10 +35,9 @@ ClassImp(mattak::Monitoring);
 //     return fstatus;
 // }
 mattak::Monitoring::Monitoring(uint32_t run, uint16_t station)
+  : run_number(run), station_number(station)
 {
-    this->run_number = run;
-    this->station_number = station;
-};
+}
 
 
 

@@ -21,8 +21,8 @@ namespace mattak
   class Monitoring : public TObject 
   {
     public:
-      // default constructor
-      Monitoring() = default;
+      // explicit default constructor
+      Monitoring() : run_number(0), station_number(0) {}
       // constructor with parameters
       Monitoring(uint32_t run, uint16_t station);
       // destructor
