@@ -22,8 +22,7 @@
 #pragma link C++ class mattak::LTEStats+;
 #pragma link C++ class mattak::GNSS+;
 #pragma link C++ class mattak::Monitoring+;
-#pragma link C++ class std::map<std::string, float>+;
-#pragma link C++ class std::map<std::string, std::vector<float>>+;
+#pragma link C++ struct mattak::runParameter+;
 
 #pragma link C++ class mattak::RunInfo+;
 #pragma link C++ class mattak::FirmwareVersion+;
