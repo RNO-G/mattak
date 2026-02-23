@@ -2,7 +2,7 @@
 #define __MONITORING_H__
 
 #include "TObject.h"
-#include <vector>
+#include <array>
 
 
 namespace mattak
@@ -17,9 +17,9 @@ namespace mattak
       // destructor
       ~EventSummary() = default;
 
-      int rms_per_channel[24]; // root mean square per channel
+      std::array<float, 24> rms_per_channel; // root mean square per channel
 
-      ClassDef(EventSummary, 3);
+      ClassDef(EventSummary, 1);
   };
 
 
@@ -37,7 +37,7 @@ namespace mattak
       int fstation_number = 0;
       int fevent_count = 0;
 
-    ClassDef(RunSummary, 2);
+    ClassDef(RunSummary, 1);
 
   };
 
