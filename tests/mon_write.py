@@ -16,9 +16,9 @@ def get_run_summary(dataset):
 
 def write_event_summary(event_summary, event_info, wfs):
 
-    rms = np.std(wfs, axis=1).astype(np.float32).tolist()
+    rms = np.std(wfs, axis=1).astype(np.float32)
     for i in range(24):
-        event_summary.rms_per_channel[i] = int(rms[i])
+        event_summary.rms_per_channel[i] = rms[i]
 
     return rms
 
@@ -51,41 +51,11 @@ t.Branch("EventSummary", event_summary)
 rms = []
 for ev, wfs in dataset.iterate():
 
-    # rms.append(write_event_summary(event_summary, ev, wfs))
-    rms = np.std(wfs, axis=1).astype(np.float32).tolist()
-    for i in range(24):
-        event_summary.rms_per_channel[i] = int(rms[i])
-
+    write_event_summary(event_summary, ev, wfs)
     t.Fill()
-    # print(np.array(event_summary.rms_per_channel))
 
 
 f.WriteObject(run_summary, "run")
 
 f.Write()
 f.Close()
-
-
-f = ROOT.TFile(str(monitoring_file_path), "READ")
-event_tree = f.Get("events")
-
-event_tree.Print()
-for entry in event_tree:
-    evt = entry.EventSummary
-    print(np.array(evt.rms_per_channel))
-
-# event_summary = ROOT.mattak.EventSummary()
-# t.SetBranchAddress("EventSummary", event_summary)
-
-# for i in range(event_tree.GetEntries()):
-#     event_tree.GetEntry(i)
-#     print(np.array(event_summary.rms_per_channel))
-
-# del run_summary
-# del event_summary
-
-# from matplotlib import pyplot as plt
-# fig, ax = plt.subplots()
-# ax.hist(np.array(rms).flatten(), bins=np.linspace(0., 50))
-# ax.set_xlabel("RMS per channel / ADC counts")
-# plt.show()
