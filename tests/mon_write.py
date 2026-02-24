@@ -10,6 +10,18 @@ import pathlib
 import os
 
 
+def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
+    """ Assigns a 1D numpy array to a ROOT std::vector """
+    if np_array.ndim != 1:
+        raise ValueError("Only 1D numpy arrays are supported.")
+
+    cpp_vector.clear()
+    cpp_vector.reserve(len(np_array))
+    for val in np_array:
+        cpp_vector.push_back(val)
+
+
+
 def get_run_summary(dataset):
     run_summary = ROOT.mattak.RunSummary()
     run_summary.frun_number = dataset.run
@@ -20,12 +32,13 @@ def get_run_summary(dataset):
 def write_event_summary(event_summary, event_info, wfs):
 
     rms = np.std(wfs, axis=1).astype(np.float32)
-    for i in range(24):
-        event_summary.rms_per_channel[i] = rms[i]
+    assign_numpy_array_to_cpp_vector(event_summary.rms, rms)
+
+    amax = np.max(np.abs(wfs), axis=1).astype(np.float32)
+    assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
 
     event_summary.event_number = event_info.eventNumber
 
-    return rms
 
 run_dir = pathlib.Path(sys.argv[1])
 
@@ -76,19 +89,19 @@ for ev, wfs in dataset.iterate():
 for trigger_type in avg_spectra:
     avg_spectra[trigger_type] /= event_counts.get(trigger_type, 1)
 
-for freq in frequencies:
-    run_summary.frequencies.push_back(freq)
+assign_numpy_array_to_cpp_vector(run_summary.frequencies, frequencies)
 
 def fill_spectra(run_summary_obj, trigger_type):
     for i in range(24):
-        for ele in avg_spectra[trigger_type][i]:
-            run_summary_obj[i].push_back(ele)
+        vec = ROOT.std.vector("float")()
+        assign_numpy_array_to_cpp_vector(vec, avg_spectra[trigger_type][i])
+        run_summary_obj.push_back(vec)
 
-fill_spectra(run_summary.avg_spectrum_per_channel, "total")
-fill_spectra(run_summary.avg_spectrum_per_channel_force, "FORCE")
-fill_spectra(run_summary.avg_spectrum_per_channel_rf0, "RADIANT0")
-fill_spectra(run_summary.avg_spectrum_per_channel_rf1, "RADIANT1")
-fill_spectra(run_summary.avg_spectrum_per_channel_lt, "LT")
+fill_spectra(run_summary.avg_spectrum, "total")
+fill_spectra(run_summary.avg_spectrum_force, "FORCE")
+fill_spectra(run_summary.avg_spectrum_rf0, "RADIANT0")
+fill_spectra(run_summary.avg_spectrum_rf1, "RADIANT1")
+fill_spectra(run_summary.avg_spectrum_lt, "LT")
 
 run_summary.n_events = event_counts.get("total", 0)
 run_summary.n_force_triggers = event_counts.get("FORCE", 0)

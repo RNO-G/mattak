@@ -4,8 +4,9 @@ import sys
 import mattak.backends.pyroot.mattakloader  # ensure the library is loaded before importing the class
 import mattak.backends.pyroot.dataset
 
+import matplotlib.pyplot as plt
 import numpy as np
-import cppyy
+
 
 def convert_rdf_to_numpy(rdf):
     """ Returns a dictionary of column names to numpy arrays from a ROOT RDataFrame. """
@@ -33,10 +34,17 @@ for entry in event_tree:
     event_summary = entry.EventSummary
 
     event_id = event_summary.event_number
-    rms = np.array(event_summary.rms_per_channel, dtype=np.float32)
+    rms = np.array(event_summary.rms, dtype=np.float32)
 
 # Access option 2: via ROOT's RDataFrame
 
 rf = ROOT.RDataFrame(event_tree)
 data = convert_rdf_to_numpy(rf)
-print(data)
+
+fig, ax = plt.subplots(1, 1)
+
+ax.plot(np.array(run_summary.frequencies), np.array(run_summary.avg_spectrum_force[0]))
+ax.set_xlabel("Frequency (Hz)")
+ax.set_ylabel("RMS")
+ax.legend()
+plt.show()

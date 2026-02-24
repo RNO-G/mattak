@@ -4,7 +4,6 @@
 #include "TObject.h"
 
 #include <cstdint>
-#include <array>
 #include <vector>
 
 namespace mattak
@@ -20,7 +19,11 @@ namespace mattak
       ~EventSummary() = default;
 
       uint32_t event_number = 0;
-      std::array<float, 24> rms_per_channel; // root mean square per channel
+      std::vector<float> rms; // root mean square per channel
+
+      std::vector<float> max_abs_amplitude;
+
+      std::vector<float> glitching_test_statitic;
 
       ClassDef(EventSummary, 1);
   };
@@ -47,11 +50,11 @@ namespace mattak
       uint32_t n_rf1_triggers = 0;
 
       std::vector<float> frequencies; // frequencies of the FFT bins
-      std::array<std::vector<float>, 24> avg_spectrum_per_channel; // average spectrum per channel (e.g. average FFT amplitude per frequency bin)
-      std::array<std::vector<float>, 24> avg_spectrum_per_channel_force;
-      std::array<std::vector<float>, 24> avg_spectrum_per_channel_lt;
-      std::array<std::vector<float>, 24> avg_spectrum_per_channel_rf0;
-      std::array<std::vector<float>, 24> avg_spectrum_per_channel_rf1;
+      std::vector<std::vector<float>> avg_spectrum; // average spectrum per channel (e.g. average FFT amplitude per frequency bin)
+      std::vector<std::vector<float>> avg_spectrum_force;
+      std::vector<std::vector<float>> avg_spectrum_lt;
+      std::vector<std::vector<float>> avg_spectrum_rf0;
+      std::vector<std::vector<float>> avg_spectrum_rf1;
 
     ClassDef(RunSummary, 1);
   };
