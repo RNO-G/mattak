@@ -404,6 +404,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
         """ Helper to access uproot file """
         return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
 
+    def set_calibration(self, voltage_calibration : str, cache_calibration : Optional[bool] = True):
+        """
+        Function to manually set a voltage calibration after the dataset is initialised
+        """
+        if hasattr(self, 'vc'):
+            voltage_calibration_old = self.vc._VoltageCalibration__path
+            if voltage_calibration == voltage_calibration_old:
+                return
+            else:
+                logging.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
+                del self.vc
+        if isinstance(voltage_calibration, str):
+            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
+        else:
+            raise ValueError("This function only accepts path to voltage calibration")
+
     def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, override_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
         """
         Returns the waveform data for the selected event(s).

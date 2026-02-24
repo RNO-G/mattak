@@ -2,6 +2,9 @@ build/
 install/
 __pycache__/
 
+# For Mac users
+.DS_Store
+
 # For VS code users
 .vscode/
 
@@ -12,3 +15,5 @@ tests/data/
 *.out
 # The dot is important here!
 *.root
+*.npz
+*.tar.gz
