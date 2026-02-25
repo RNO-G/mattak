@@ -1,4 +1,10 @@
 #! /usr/bin/env python3
+"""
+Script for efficiently collecting event information from RNO-G root files using uproot.
+This is intended to be used for monitoring purposes, e.g. to quickly check the trigger rates and other event properties
+for a given set of runs. Not meant for detailed analysis or long-term storage of the resulting files.
+"""
+
 import mattak.backends.uproot.dataset as uproot_dataset
 import collect_runinfo
 import os
