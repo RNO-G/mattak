@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 import mattak.backends.uproot.dataset as uproot_dataset
 import collect_runinfo
 import os
