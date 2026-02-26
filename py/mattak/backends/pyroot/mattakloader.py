@@ -16,11 +16,11 @@ libmattakName = None
 currentPlatform = platform.platform()
 
 def silent_load(what):
-  current = ROOT.gErrorIgnoreLevel
-  ROOT.gErrorIgnoreLevel = ROOT.kFatal
-  ret = ROOT.gSystem.Load(what)
-  ROOT.gErrorIgnoreLevel = current
-  return ret
+    current = ROOT.gErrorIgnoreLevel
+    ROOT.gErrorIgnoreLevel = ROOT.kFatal
+    ret = ROOT.gSystem.Load(what)
+    ROOT.gErrorIgnoreLevel = current
+    return ret
 
 if 'macOS' in currentPlatform:
     # print('macOS detected...')
@@ -51,12 +51,12 @@ if not loaded:
             loaded_path = mattak_path
             loaded = True
         else:
-          for path in sys.path:
-             if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
-                 logger.debug('Successsfully found ' + libmattakName + ' in ', path)
-                 loaded_path = path
-                 loaded = True
-                 break
+            for path in sys.path:
+                if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
+                    logger.debug('Successsfully found ' + libmattakName + ' in ', path)
+                    loaded_path = path
+                    loaded = True
+                    break
 
 if not loaded:
     raise Exception('Could not load '+ libmattakName)

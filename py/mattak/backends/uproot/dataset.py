@@ -221,35 +221,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.run_info = None
         self.runfile = None
-        if self.__read_run_info and self.runfile is None:
-            # try to get the run info, if we're using combined tree, try looking in there
-            # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
-
-            if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)):
-                with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo:
-                    # we'll abuse configparser to read the runinfo, but we have to add a dummy
-                    # section to properly abuse it
-                    config = configparser.ConfigParser()
-                    config.read_string('[dummy]\n' + fruninfo.read())
-                    run_info = config['dummy']
-
-                    run_info = {k.lower().replace("-", "_"): v for k, v in run_info.items()}
-
-                    if "run_end_time" not in run_info:
-                        raise ValueError(
-                            "Could not find \"RUN-END-TIME\" in runinfo.txt. "
-                            "This indicates that the run data are incomplete")
-
-                    self.run_info = mattak.Dataset.RunInfo(
-                        station=run_info["station"],
-                        run=run_info["run"],
-                        run_start_time=run_info["run_start_time"],
-                        run_end_time=run_info["run_end_time"],
-                        sampling_rate=run_info["radiant_samplerate"],
-                        run_config=f"{self.rundir}/cfg/acq.cfg"
-                    )
-
-
+        if self.__read_run_info:
+            self._read_run_info()
 
         self.has_calib = False
         if voltage_calibration is None:
@@ -270,6 +243,41 @@ class Dataset(mattak.Dataset.AbstractDataset):
         else:
             self.has_calib = False
 
+    def _read_run_info(self):
+        # try to get the run info, if we're using combined tree, try looking in there
+        # doh, uproot can't read the runinfo ROOT files... let's parse the text files instead
+
+        if os.path.exists("%s/aux/runinfo.txt" % (self.rundir)):
+            with open("%s/aux/runinfo.txt" % (self.rundir)) as fruninfo:
+                # we'll abuse configparser to read the runinfo, but we have to add a dummy
+                # section to properly abuse it
+                config = configparser.ConfigParser()
+                config.read_string('[dummy]\n' + fruninfo.read())
+                run_info = config['dummy']
+
+                run_info = {k.lower().replace("-", "_"): v for k, v in run_info.items()}
+
+                if "run_end_time" not in run_info:
+                    raise ValueError(
+                        "Could not find \"RUN-END-TIME\" in runinfo.txt. "
+                        "This indicates that the run data are incomplete")
+
+                if os.path.exists("%s/aux/flower_gain_codes.0.txt" % (self.rundir)):
+                    with open("%s/aux/flower_gain_codes.0.txt" % (self.rundir)) as f_gains:
+                        flower_codes_str = f_gains.read().splitlines()[1]
+                        flower_codes = [int(code) for code in flower_codes_str.split()]
+                else:
+                    flower_codes = []
+
+                self.run_info = mattak.Dataset.RunInfo(
+                    station=run_info["station"],
+                    run=run_info["run"],
+                    run_start_time=run_info["run_start_time"],
+                    run_end_time=run_info["run_end_time"],
+                    sampling_rate=run_info["radiant_samplerate"],
+                    run_config=f"{self.rundir}/cfg/acq.cfg",
+                    flower_codes=flower_codes,
+                )
 
     def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
         kw = dict(entry_start = self.first, entry_stop = self.last, library='np')
@@ -304,6 +312,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self._readout_time_lt = numpy.array(self._dss['readout_time_lt'])
 
         try:
+            if self._wfs is None:
+                raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
             sampleRate = self._wfs["mattak::IWaveforms/radiant_sampling_rate"].array(**kw) / 1000
             if not self.skip_incomplete:
                 rate = numpy.unique(sampleRate)
@@ -403,6 +414,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _get_waveforms(self, kw):
         """ Helper to access uproot file """
         return self._wfs[f'radiant_data[{self.NUM_CHANNELS}][{self.NUM_WF_SAMPLES}]'].array(**kw)
+
+    def set_calibration(self, voltage_calibration : str, cache_calibration : Optional[bool] = True):
+        """
+        Function to manually set a voltage calibration after the dataset is initialised
+        """
+        if hasattr(self, 'vc'):
+            voltage_calibration_old = self.vc._VoltageCalibration__path
+            if voltage_calibration == voltage_calibration_old:
+                return
+            else:
+                logging.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
+                del self.vc
+        if isinstance(voltage_calibration, str):
+            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
+        else:
+            raise ValueError("This function only accepts path to voltage calibration")
 
     def wfs(self, calibrated : bool = False, channels : Optional[Union[int, List[int]]] = None, override_skip_incomplete : Optional[bool] = None) -> Optional[numpy.ndarray]:
         """
