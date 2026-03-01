@@ -25,6 +25,8 @@ namespace mattak
 
       std::vector<float> glitching_test_statitic;
 
+      std::vector<std::vector<float>> block_offset;
+
       ClassDef(EventSummary, 1);
   };
 
@@ -55,6 +57,9 @@ namespace mattak
       std::vector<std::vector<float>> avg_spectrum_lt;
       std::vector<std::vector<float>> avg_spectrum_rf0;
       std::vector<std::vector<float>> avg_spectrum_rf1;
+
+      std::vector<uint32_t> glitch_counts;
+      std::vector<std::vector<float>> avg_block_offset;
 
     ClassDef(RunSummary, 1);
   };
