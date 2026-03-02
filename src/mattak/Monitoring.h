@@ -22,7 +22,6 @@ namespace mattak
       std::vector<float> rms; // root mean square per channel
 
       std::vector<float> max_abs_amplitude;
-
       std::vector<float> glitching_test_statitic;
 
       std::vector<std::vector<float>> block_offset;
@@ -57,9 +56,6 @@ namespace mattak
       std::vector<std::vector<float>> avg_spectrum_lt;
       std::vector<std::vector<float>> avg_spectrum_rf0;
       std::vector<std::vector<float>> avg_spectrum_rf1;
-
-      std::vector<uint32_t> glitch_counts;
-      std::vector<std::vector<float>> avg_block_offset;
 
     ClassDef(RunSummary, 1);
   };
