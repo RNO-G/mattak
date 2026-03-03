@@ -27,6 +27,8 @@
 
 #pragma link C++ class std::map<std::string, float>+;
 #pragma link C++ class std::map<std::string, std::vector<float>>+;
+#pragma link C++ class std::vector<float>+;
+#pragma link C++ class std::vector<std::vector<float>>+;
 
 #pragma link C++ class mattak::RunInfo+;
 #pragma link C++ class mattak::FirmwareVersion+;

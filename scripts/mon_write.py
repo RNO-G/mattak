@@ -1,3 +1,13 @@
+"""
+This script computes monitoring information RNO-G run data. It extracts event-level and run-level information
+and stores them in a dedicated monitoring.root file format.
+
+To run the script, provide the path to the run directory containing a waveforms.root and headers.root as an argument:
+    python mon_write.py <run_directory>
+
+To read the monitoring.root file, use the following provided python script:
+    python mon_read.py <monitoring_file_path>
+"""
 import ROOT
 
 import mattak.Dataset
@@ -10,56 +20,19 @@ import pathlib
 import os
 
 from NuRadioReco.modules.RNO_G.channelBlockOffsetFitter import fit_block_offsets
+from NuRadioReco.modules.RNO_G.channelGlitchDetector import diff_sq, unscramble
 
-SAMPLING_BLOCK_SIZE = 64
-READOUT_SIZE = 2048
-OFFSET_BLOCK_SIZE = int(2*SAMPLING_BLOCK_SIZE)
-OFFSET_BLOCK_COUNT = int(READOUT_SIZE/OFFSET_BLOCK_SIZE)
+from NuRadioReco.utilities import logging as nu_logging
+nu_logging.set_general_log_level(nu_logging.ERROR)  # suppress warnings from NuRadio
 
-## glitch detection methods lifted from NuRadioMC glitchDetector class to remove reader dependency
-## https://github.com/nu-radio/NuRadioMC/blob/develop/NuRadioReco/modules/RNO_G/channelGlitchDetector.py
-def diff_sq(eventdata, lab4d_sampling_blocksize=SAMPLING_BLOCK_SIZE):
-    """
-    Returns sum of squared differences of samples across seams of 128-sample chunks.
 
-    `eventdata`: channel waveform
-    """
-    block_size = lab4d_sampling_blocksize
-    twice_block_size = 2 * block_size
+OFFSET_BLOCK_SIZE = 128
 
-    runsum = 0.0
-    for chunk in range(len(eventdata) // twice_block_size - 1):
-        runsum += (eventdata[chunk * twice_block_size + block_size - 1] - eventdata[chunk * twice_block_size + block_size]) ** 2
-    return np.sum(runsum)
+def calculate_glitch_test_statistic(wf):
+    """ Calculate a test statistic for glitch detection based on the second derivative of the waveform """
+    wf_us = unscramble(wf)
+    return (diff_sq(wf_us) - diff_sq(wf_us)) / np.var(wf_us)
 
-def unscramble(trace, lab4d_readout_size=READOUT_SIZE, lab4d_sampling_blocksize=SAMPLING_BLOCK_SIZE):
-    """
-    Applies an unscrambling operation to the passed `trace`.
-    Note: the first and last sampling block are unusable and hence replaced by zeros in the returned waveform.
-
-    Parameters
-    ----------
-    `trace`: channel waveform
-    """
-
-    readout_size = lab4d_readout_size
-    block_size = lab4d_sampling_blocksize
-    twice_block_size = 2 * block_size
-
-    new_trace = np.zeros_like(trace)
-
-    for i_section in range(len(trace) // block_size):
-        section_start = i_section * block_size
-        section_end = i_section * block_size + block_size
-        if i_section % 2 == 0:
-            new_trace[(section_start + twice_block_size) % readout_size :\
-                        (section_end + twice_block_size) % readout_size] = trace[section_start:section_end]
-        elif i_section > 1:
-            new_trace[(section_start - twice_block_size) % readout_size :\
-                        (section_end - twice_block_size) % readout_size] = trace[section_start:section_end]
-            new_trace[0:block_size] = 0
-
-    return new_trace
 
 def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
     """ Assigns a 1D numpy array to a ROOT std::vector """
@@ -71,46 +44,51 @@ def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
     for val in np_array:
         cpp_vector.push_back(val)
 
+
 def get_run_summary(dataset):
     """ Create and return RunSummary object with run/station number and number of events"""
     run_summary = ROOT.mattak.RunSummary()
-    run_summary.frun_number = dataset.run
-    run_summary.fstation_number = dataset.station
-    run_summary.fevent_count = dataset.N()
+    run_summary.run_number = dataset.run
+    run_summary.station_number = dataset.station
+    run_summary.n_events = dataset.N()
     return run_summary
 
+
 def write_event_summary(event_summary, event_info, wfs):
+    """ Fill the EventSummary object with information from the header (event_info) and waveforms """
+    event_summary.event_number = event_info.eventNumber
+    event_summary.block_offset.clear()
 
     rms = np.std(wfs, axis=1).astype(np.float32)
     assign_numpy_array_to_cpp_vector(event_summary.rms, rms)
 
     amax = np.max(np.abs(wfs), axis=1).astype(np.float32)
     assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
-    
+
     glitching_test_statitic = []
     block_offsets = []
+
     for wf in wfs:
-        
-        wf_us = unscramble(wf)
-        glitch_ts = (diff_sq(wf_us) - diff_sq(wf_us)) / np.var(wf_us)
-        glitching_test_statitic.append(glitch_ts)
+
+        glitching_test_statitic.append(calculate_glitch_test_statistic(wf))
 
         offsets = fit_block_offsets(
-            wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=3.2*units.GHz,
+            wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
             max_frequency=50*units.MHz, mode='auto', return_trace=False,
             maxiter=5, tol=1e-6)
         block_offsets.append(offsets)
-        
+
         offset_vec = ROOT.std.vector("float")()
         assign_numpy_array_to_cpp_vector(offset_vec, offsets)
         event_summary.block_offset.push_back(offset_vec)
 
     glitching_test_statitic = np.asarray(glitching_test_statitic, dtype=np.float32)
     assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
-    
-    
-    event_summary.event_number = event_info.eventNumber
 
+
+if len(sys.argv) != 2:
+    print("Usage: python mon_write.py <run_directory>")
+    sys.exit(1)
 
 run_dir = pathlib.Path(sys.argv[1])
 
@@ -130,7 +108,7 @@ monitoring_file_path = run_dir / "monitoring.root"
 
 dataset = mattak.Dataset.Dataset(data_path=sys.argv[1], backend='pyroot')
 
-f = ROOT.TFile(str(monitoring_file_path), "RECREATE")
+f = ROOT.TFile(str(monitoring_file_path), "CREATE")
 t = ROOT.TTree("events", "Event Summarty Tree")
 
 event_summary = ROOT.mattak.EventSummary()
@@ -173,12 +151,12 @@ fill_spectra(run_summary.avg_spectrum_rf1, "RADIANT1")
 fill_spectra(run_summary.avg_spectrum_lt, "LT")
 
 run_summary.n_events = event_counts.get("total", 0)
-run_summary.n_force_triggers = event_counts.get("FORCE", 0)
+run_summary.n_forced_triggers = event_counts.get("FORCE", 0)
 run_summary.n_rf0_triggers = event_counts.get("RADIANT0", 0)
 run_summary.n_rf1_triggers = event_counts.get("RADIANT1", 0)
 run_summary.n_lt_triggers = event_counts.get("LT", 0)
 
-f.WriteObject(run_summary, "run")
+f.WriteObject(run_summary, "RunSummary")
 
 f.Write()
 f.Close()

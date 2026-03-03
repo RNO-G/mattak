@@ -18,12 +18,13 @@ namespace mattak
       // destructor
       ~EventSummary() = default;
 
+      // Basic identifying information
       uint32_t event_number = 0;
-      std::vector<float> rms; // root mean square per channel
 
+      // Per-channel information
+      std::vector<float> rms; // root mean square per channel
       std::vector<float> max_abs_amplitude;
       std::vector<float> glitching_test_statitic;
-
       std::vector<std::vector<float>> block_offset;
 
       ClassDef(EventSummary, 1);
@@ -50,6 +51,7 @@ namespace mattak
       uint32_t n_rf0_triggers = 0;
       uint32_t n_rf1_triggers = 0;
 
+      // Per-channel average spectrum information
       std::vector<float> frequencies; // frequencies of the FFT bins
       std::vector<std::vector<float>> avg_spectrum; // average spectrum per channel (e.g. average FFT amplitude per frequency bin)
       std::vector<std::vector<float>> avg_spectrum_force;
