@@ -18,10 +18,10 @@ def convert_rdf_to_numpy(rdf):
     # Filter out columns that are not part of the EventSummary struct or are ROOT internal fields
     # We also remove the "EventSummary." prefix and any array size annotations like "[24]"
     # for cleaner keys in the resulting dictionary
-    print(rdf.GetColumnNames())
+
     column_names = [
         key for key in rdf.GetColumnNames()
-        if key.startswith("EventSummary.") and key.split(".")[-1] not in ["fBits", "TObject", "fUniqueID"]
+        if key.startswith("EventSummary.") and key.split(".")[-1] not in ["fBits", "TObject", "fUniqueID", "block_offset"]
     ]
 
     data = rf.AsNumpy(column_names)
@@ -43,6 +43,10 @@ for entry in event_tree:
 
     event_id = event_summary.event_number
     rms = np.array(event_summary.rms, dtype=np.float32)
+    block_offset = np.array([
+        np.array(offset_vec, dtype=np.float32)
+        for offset_vec in event_summary.block_offset])
+
 
 # Access option 2: via ROOT's RDataFrame
 rf = ROOT.RDataFrame(event_tree)
