@@ -2,9 +2,11 @@
 
 INDIR=${1-.}
 OUTDIR=${2-$INDIR/root}
-FORCE=${3-0}
-STATION_OVERRIDE=${4--1}
-RUN_OVERRIDE=${5--1}
+STATION=${3--1}
+#station argument is required by the volatge calibration python file
+FORCE=${4-0}
+STATION_OVERRIDE=${5--1}
+RUN_OVERRIDE=${6--1}
 
 if [ "${INDIR}" = "${OUTDIR}" ];
 then
@@ -14,7 +16,7 @@ fi
 
 echo "input dir is ${INDIR}"
 echo "output dir is ${OUTDIR}"
-
+echo "station is ${STATION}"
 NEED_TO_UPDATE=1
 
 if [ ${FORCE} -eq 0 ]
@@ -48,10 +50,16 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && echo "Copying aux and cfg"  \
   && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
   && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
-  && cp $tmpfile ${OUTDIR}/rootified-list.txt
-
-#&& if [ -f ${INDIR}/bias_scan.dat.gz ]; then python3 /home/rno-g/soft/mattak/scripts/convert_bias_scan_to_calibration.py ${INDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR}; fi \
-
+  && cp $tmpfile ${OUTDIR}/rootified-list.txt \
+  && echo "Doing Voltage calibration" \
+  && { [ -f ${INDIR}/bias_scan.dat.gz ] \
+  && cp ${INDIR}/bias_scan.dat.gz ${OUTDIR} \
+  && python3 /home/rno-g/soft/mattak/scripts/convert_bias_scan_to_calibration.py \
+          ${OUTDIR}/bias_scan.dat.gz ${STATION} --destination_folder ${OUTDIR} \
+          &>> ${OUTDIR}/voltage_calibration.log \
+  && rm ${OUTDIR}/bias_scan.dat.gz \
+  || true; }
+  # Voltage calibration expects a bias_scan.dat.gz file in same dir as root files, so it is copied over and then deleted after conversion
   rm -f $tmpfile
 
   exit 1
