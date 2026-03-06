@@ -1,12 +1,13 @@
 #! /bin/bash
+ROOT_DATA_DIR="/data"
 
-INGRESS=/data/ingress/
-ARCHIVED=/data/archived/
-ROOTIFIED=/data/rootified/
-OUTBOX=/data/outbox
-STAGING=/data/staging
-TRASH=/data/staging/trash
-EVENTLISTS=/data/eventlists
+INGRESS="${ROOT_DATA_DIR}/ingress/"
+ARCHIVED="${ROOT_DATA_DIR}/archived/"
+ROOTIFIED="${ROOT_DATA_DIR}/rootified/"
+OUTBOX="${ROOT_DATA_DIR}/outbox"
+STAGING="${ROOT_DATA_DIR}/staging"
+TRASH="${ROOT_DATA_DIR}/staging/trash"
+EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
 
 FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
@@ -49,7 +50,7 @@ for st in ${STATIONS} ; do
         echo "RUN EXISTS IN OUTBOX, TRASHING"
         mkdir -p ${TRASH}
         mv $outdir ${TRASH}
-        rm -rf ${TRASH}/$brun
+        rm -rf "${TRASH:?}/$brun"
       fi
 
       # Create staging directory and copy additional data which will be send south
