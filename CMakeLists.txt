@@ -92,6 +92,7 @@ if (NOT DEFINED ROOTLESS)
       scripts/rno-g-convert-station
       scripts/rno-g-make-eventlists
       scripts/convert_bias_scan_to_calibration.py
+      scripts/mon_write.py
     )
 
     add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)
