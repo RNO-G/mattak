@@ -35,10 +35,10 @@ set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
 if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
-  
+
   # Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
   find_package(ROOT COMPONENTS Matrix Minuit)
-  
+
   if(ROOT_FOUND)
     message(STATUS "Found ROOT from: ${ROOT_INCLUDE_DIRS}")
     set(libname mattak)
@@ -89,6 +89,7 @@ if (NOT DEFINED ROOTLESS)
       scripts/rno-g-convert-run
       scripts/rno-g-convert-station
       scripts/rno-g-make-eventlists
+      scripts/convert_bias_scan_to_calibration.py
     )
 
     add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)
@@ -120,9 +121,9 @@ if (NOT DEFINED ROOTLESS)
       message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/install/lib/")
 
       find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/ ${LIBRNO_G_PATH}/build)
-      
+
       message(STATUS "Found librno-g: ${RNO_G_LIB}")
-      
+
       find_package(ZLIB REQUIRED)
       include_directories(${UTIL_INC_DIR})
       include_directories(${LIBRNO_G_PATH}/src)
@@ -145,11 +146,11 @@ if (NOT DEFINED ROOTLESS)
 
   if (LIBRNO_G_SUPPORT)
     add_program(rno-g-convert)
-    add_program(rno-g-test-voltage-calibration) 
+    add_program(rno-g-test-voltage-calibration)
     add_program(rno-g-readout-elapsed)
     endif( )
     add_program(rno-g-combine)
-    add_program(rno-g-test-apply-voltage-calibration) 
+    add_program(rno-g-test-apply-voltage-calibration)
     add_program(rno-g-make-eventlist)
     add_program(rno-g-count-events)
     add_program(rno-g-summary-tree)

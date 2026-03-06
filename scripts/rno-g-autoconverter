@@ -1,12 +1,13 @@
 #! /bin/bash
+ROOT_DATA_DIR="/data"
 
-INGRESS=/data/ingress/
-ARCHIVED=/data/archived/
-ROOTIFIED=/data/rootified/
-OUTBOX=/data/outbox
-STAGING=/data/staging
-TRASH=/data/staging/trash
-EVENTLISTS=/data/eventlists
+INGRESS="${ROOT_DATA_DIR}/ingress/"
+ARCHIVED="${ROOT_DATA_DIR}/archived/"
+ROOTIFIED="${ROOT_DATA_DIR}/rootified/"
+OUTBOX="${ROOT_DATA_DIR}/outbox"
+STAGING="${ROOT_DATA_DIR}/staging"
+TRASH="${ROOT_DATA_DIR}/staging/trash"
+EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
 
 FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
@@ -16,6 +17,7 @@ if [ $# -gt 0 ]; then
   STATIONS="$*"
 fi
 
+# Source an environment
 if [ -f /rno-g/etc/autoconverter.env ]
 then
   source /rno-g/etc/autoconverter.env
@@ -35,8 +37,10 @@ for st in ${STATIONS} ; do
     echo "Station $st: $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
+
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
+
     if [ $updated -eq 1 ] ; then
       echo "RUN UPDATED! -- COPYING TO STAGING"
       outdir=${OUTBOX}/station${st}/$brun
@@ -46,35 +50,37 @@ for st in ${STATIONS} ; do
         echo "RUN EXISTS IN OUTBOX, TRASHING"
         mkdir -p ${TRASH}
         mv $outdir ${TRASH}
-        rm -rf ${TRASH}/$brun
+        rm -rf "${TRASH:?}/$brun"
       fi
 
+      # Create staging directory and copy additional data which will be send south
+      # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)!
+      # They are copied directly from INGRESS to desy!
       stagedir=${STAGING}/station${st}/$brun
       mkdir -p $stagedir
       cp -p $rootdir/headers.root $stagedir
       cp -p $rootdir/daqstatus.root $stagedir
       cp -p $rootdir/pedestal.root $stagedir
       cp -p $rootdir/runinfo.root $stagedir
+      # copy exactly one calibration file if available
+      calibration_file=("${rootdir}"/volCalConsts*)
+      if [ ${#calibration_file[@]} -eq 1 ]; then
+        cp -p "${calibration_file[0]}" $stagedir
+      fi
 
-      # voltage calibration files are currenlty not procuced. Hence, this line produces an error message
-      #cp -p $rootdir/volCalConsts_pol9_*.root $stagedir
-
-      # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)! They are copied directly from INGRESS to desy!
-      #cp -p -r $rootdir/aux $stagedir
-      #cp -p -r $rootdir/cfg $stagedir
       echo "RUN rno-g-combine"
-      rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
+      rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root \
+        $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
+
       mkdir -p $EVENTLISTS/station${st}
       rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
       echo "MOVE $brun to OUTBOX"
       mv $stagedir $outdir
+
     fi
   done
 done
 
 # synchronize ingress with archived
 rsync -a --exclude=".*" $INGRESS $ARCHIVED
-
-
-#eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations
