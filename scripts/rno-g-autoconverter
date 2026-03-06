@@ -15,6 +15,10 @@ STATIONS="23 11 22 12 21 13 24 14"
 if [ $# -gt 0 ]; then
   STATIONS="$*"
 fi
+
+# Source an environment
+if [ -f /rno-g/etc/autoconverter.env ]
+then
   source /rno-g/etc/autoconverter.env
 fi
 
@@ -32,7 +36,7 @@ for st in ${STATIONS} ; do
     echo "Station $st: $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
-    rno-g-convert-run $run $rootdir $st &>> log/$st/$brun/convert.log
+    rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
     if [ $updated -eq 1 ] ; then
       echo "RUN UPDATED! -- COPYING TO STAGING"
@@ -75,4 +79,3 @@ rsync -a --exclude=".*" $INGRESS $ARCHIVED
 
 
 #eventually we'll delete stuff in ingress  but let's worry about that later when we have the "real" copy scrpit on the stations
-

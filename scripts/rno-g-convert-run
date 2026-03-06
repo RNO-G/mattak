@@ -2,11 +2,9 @@
 
 INDIR=${1-.}
 OUTDIR=${2-$INDIR/root}
-STATION=${3--1}
-#station argument is required by the volatge calibration python file
-FORCE=${4-0}
-STATION_OVERRIDE=${5--1}
-RUN_OVERRIDE=${6--1}
+FORCE=${3-0}
+STATION_OVERRIDE=${4--1}
+RUN_OVERRIDE=${5--1}
 
 if [ "${INDIR}" = "${OUTDIR}" ];
 then
@@ -14,18 +12,18 @@ then
   exit 1
 fi
 
-echo "input dir is ${INDIR}"
-echo "output dir is ${OUTDIR}"
-echo "station is ${STATION}"
+echo "input directory is ${INDIR}"
+echo "output directory is ${OUTDIR}"
 NEED_TO_UPDATE=1
 
+# This checks whether an existing, and maybe only partially converted run, needs to be updated
 if [ ${FORCE} -eq 0 ]
 then
   if  [ -f ${OUTDIR}/rootified-list.txt -a -f ${OUTDIR}/aux/acq-file-list.txt ]  ;
   then
     diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort )
     NEED_TO_UPDATE=$?
-    echo "output dir found, need to update = $NEED_TO_UPDATE"
+    echo "output directory found, need to update = $NEED_TO_UPDATE"
   fi;
 fi
 
@@ -33,7 +31,9 @@ mkdir -p ${OUTDIR}
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
 
+  # Create a temporary file and clean up at EXIT
   tmpfile=$(mktemp)
+  trap 'rm -f "$tmpfile"' EXIT
 
   echo "Making rootified list" \
   && find ${INDIR} | sort -o $tmpfile \
@@ -55,12 +55,12 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   && { [ -f ${INDIR}/bias_scan.dat.gz ] \
   && cp ${INDIR}/bias_scan.dat.gz ${OUTDIR} \
   && python3 /home/rno-g/soft/mattak/scripts/convert_bias_scan_to_calibration.py \
-          ${OUTDIR}/bias_scan.dat.gz ${STATION} --destination_folder ${OUTDIR} \
+          ${OUTDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR} \
           &>> ${OUTDIR}/voltage_calibration.log \
   && rm ${OUTDIR}/bias_scan.dat.gz \
   || true; }
   # Voltage calibration expects a bias_scan.dat.gz file in same dir as root files, so it is copied over and then deleted after conversion
-  rm -f $tmpfile
+
 
   exit 1
 
