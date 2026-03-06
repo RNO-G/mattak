@@ -1,9 +1,9 @@
-# This Makefile is just a cmake wrapper 
+# This Makefile is just a cmake wrapper
 
 .PHONY: all configure clean cleaner install cmake-build cmake-clean cmake-install cmake-rootless-build cmake-rootless-clean cmake-rootless-configure
 
 CMAKE?=cmake
-CCMAKE?=ccmake 
+CCMAKE?=ccmake
 builddir=build
 rootlessdir=build-noroot
 
@@ -11,47 +11,46 @@ rootlessdir=build-noroot
 all: cmake-build #cmake-rootless-build
 rootless: cmake-rootless-build
 clean: cmake-clean cmake-rootless-clean
-install: cmake-install 
+install: cmake-install
 
 clean: cmake-clean
-install: cmake-install 
+install: cmake-install
 
 
 
-cmake-build: $(builddir)/Makefile 
+cmake-build: $(builddir)/Makefile
 	@+make -C  ./$(builddir)
 
-cmake-rootless-build: $(rootlessdir)/Makefile 
-	@+make -C  ./$(rootlessdir) 
+cmake-rootless-build: $(rootlessdir)/Makefile
+	@+make -C  ./$(rootlessdir)
 
 
-configure: $(builddir)/Makefile 
-	@$(CCMAKE) . $(builddir) 
+configure: $(builddir)/Makefile
+	@$(CCMAKE) . $(builddir)
 
-rootless-configure: $(rootlessdir)/Makefile 
-	@$(CCMAKE) . $(rootlessdir) 
+rootless-configure: $(rootlessdir)/Makefile
+	@$(CCMAKE) . $(rootlessdir)
 
-cmake-install: 
-	@make -C ./$(builddir) install 
+cmake-install:
+	@make -C ./$(builddir) install
 
-$(rootlessdir)/Makefile: 
+$(rootlessdir)/Makefile:
 	@echo "Setting up rootless cmake build."
 	@mkdir -p $(rootlessdir)
-	@cd $(rootlessdir) && $(CMAKE) -DROOTLESS=yes ../ 
+	@cd $(rootlessdir) && $(CMAKE) -DROOTLESS=yes ../
 
 
-$(builddir)/Makefile: 
+$(builddir)/Makefile:
 	@echo "Setting up cmake build."
-	@mkdir -p $(builddir) 
-	@cd $(builddir) && $(CMAKE) ../ 
+	@mkdir -p $(builddir)
+	@cd $(builddir) && $(CMAKE) ../
 
-distclean: 
-	@echo "Removing cmake directory" 
+distclean:
+	@echo "Removing cmake directory"
 	@rm -rf $(builddir) $(rootlessdir)
 
-cmake-clean: build/Makefile 
-	@make -C ./$(builddir) clean 
+cmake-clean: build/Makefile
+	@make -C ./$(builddir) clean
 
-cmake-rootless-clean: build-noroot/Makefile 
-	@make -C ./$(rootlessdir) clean 
-
+cmake-rootless-clean: build-noroot/Makefile
+	@make -C ./$(rootlessdir) clean

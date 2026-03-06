@@ -41,13 +41,13 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   echo "Making rootified list" \
     && find "${INDIR}" | sort -o "$tmpfile" \
     && echo "Converting waveforms"  \
-    && rno-g-convert wf "${OUTDIR}/waveforms.root" "${INDIR}/waveforms/*" \
+    && rno-g-convert wf "${OUTDIR}/waveforms.root" "${INDIR}"/waveforms/* \
     && echo "Converting headers"  \
-    && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}/header/*" \
+    && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
     && echo "Converting daqstatus" \
-    && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}/daqstatus/*" \
+    && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}"/daqstatus/* \
     && echo "Converting pedestals" \
-    && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}/pedestals.dat*" \
+    && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}"/pedestals.dat* \
     && echo "Converting runinfo" \
     && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE}" \
     && echo "Copying aux and cfg"  \
@@ -57,7 +57,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && echo "Doing Voltage calibration" \
     && { [ -f "${INDIR}/bias_scan.dat.gz" ] \
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
-            "${OUTDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
+            "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
     || true; }
 
