@@ -103,6 +103,7 @@ namespace mattak
       double getFitChisq(int channel, int samp) const { return fit_chisq[channel][samp]; }
       double getFitMaxErr(int channel, int samp) const { return fit_maxerr[channel][samp]; }
       int getStationNumber() const { return station_number; }
+      int getRun() const { return run; }
       uint32_t getStartTime() const { return start_time; }
       uint32_t getEndTime() const { return end_time; }
       int scanSize() const { return vbias[0].size() ; }
@@ -130,8 +131,9 @@ namespace mattak
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isBad_sampChisqPerDOF;
       std::array<std::array<bool, 4>, mattak::k::num_radiant_channels> isResidOutOfBoxFrame;
       std::array<std::array<bool, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels> isSampleBroken;
-      int fit_order = 9 ;
-      int station_number = 0 ;
+      int fit_order = 9;
+      int station_number = 0;
+      int run = 0;
       double fit_vref = 1.5;
       double fit_min = 0.2;
       double fit_max = 2.2;

@@ -61,7 +61,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
     || true; } \
     && echo "Create Monitoring data" \
-    && python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring_data.log" \
+    && python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
     && echo "Conversion complete!"
 
   exit 1
