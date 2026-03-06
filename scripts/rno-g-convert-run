@@ -6,6 +6,8 @@ FORCE=${3-0}
 STATION_OVERRIDE=${4--1}
 RUN_OVERRIDE=${5--1}
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ "${INDIR}" = "${OUTDIR}" ];
 then
   echo "Cannot put ROOT files into input directory"
@@ -19,15 +21,16 @@ NEED_TO_UPDATE=1
 # This checks whether an existing, and maybe only partially converted run, needs to be updated
 if [ ${FORCE} -eq 0 ]
 then
-  if  [ -f ${OUTDIR}/rootified-list.txt -a -f ${OUTDIR}/aux/acq-file-list.txt ]  ;
+  if  [ -f "${OUTDIR}/rootified-list.txt" ] && [ -f "${OUTDIR}/aux/acq-file-list.txt" ]  ;
   then
-    diff ${INDIR}/aux/acq-file-list.txt ${OUTDIR}/aux/acq-file-list.txt  &&  diff  ${OUTDIR}/rootified-list.txt <( find ${INDIR} | sort )
+    diff "${INDIR}/aux/acq-file-list.txt" "${OUTDIR}/aux/acq-file-list.txt"  && \
+      diff  "${OUTDIR}/rootified-list.txt" <( find "${INDIR}" | sort )
     NEED_TO_UPDATE=$?
     echo "output directory found, need to update = $NEED_TO_UPDATE"
   fi;
 fi
 
-mkdir -p ${OUTDIR}
+mkdir -p "${OUTDIR}"
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
 
@@ -36,35 +39,30 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   trap 'rm -f "$tmpfile"' EXIT
 
   echo "Making rootified list" \
-  && find ${INDIR} | sort -o $tmpfile \
-  && echo "Converting waveforms"  \
-  && rno-g-convert wf ${OUTDIR}/waveforms.root ${INDIR}/waveforms/* \
-  && echo "Converting headers"  \
-  && rno-g-convert hd ${OUTDIR}/headers.root ${INDIR}/header/* \
-  && echo "Converting daqstatus" \
-  && rno-g-convert ds ${OUTDIR}/daqstatus.root ${INDIR}/daqstatus/* \
-  && echo "Converting pedestals" \
-  && rno-g-convert ped ${OUTDIR}/pedestal.root ${INDIR}/pedestals.dat* \
-  && echo "Converting runinfo" \
-  && rno-g-convert runinfo ${OUTDIR}/runinfo.root ${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE} \
-  && echo "Copying aux and cfg"  \
-  && cp -p -r ${INDIR}/aux  ${OUTDIR}/ \
-  && cp -p -r ${INDIR}/cfg  ${OUTDIR}/ \
-  && cp $tmpfile ${OUTDIR}/rootified-list.txt \
-  && echo "Doing Voltage calibration" \
-  && { [ -f ${INDIR}/bias_scan.dat.gz ] \
-  && cp ${INDIR}/bias_scan.dat.gz ${OUTDIR} \
-  && python3 /home/rno-g/soft/mattak/scripts/convert_bias_scan_to_calibration.py \
-          ${OUTDIR}/bias_scan.dat.gz --destination_folder ${OUTDIR} \
-          &>> ${OUTDIR}/voltage_calibration.log \
-  && rm ${OUTDIR}/bias_scan.dat.gz \
-  || true; }
-  # Voltage calibration expects a bias_scan.dat.gz file in same dir as root files, so it is copied over and then deleted after conversion
-
+    && find "${INDIR}" | sort -o "$tmpfile" \
+    && echo "Converting waveforms"  \
+    && rno-g-convert wf "${OUTDIR}/waveforms.root" "${INDIR}/waveforms/*" \
+    && echo "Converting headers"  \
+    && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}/header/*" \
+    && echo "Converting daqstatus" \
+    && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}/daqstatus/*" \
+    && echo "Converting pedestals" \
+    && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}/pedestals.dat*" \
+    && echo "Converting runinfo" \
+    && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE}" \
+    && echo "Copying aux and cfg"  \
+    && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
+    && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
+    && cp "$tmpfile" "${OUTDIR}/rootified-list.txt" \
+    && echo "Doing Voltage calibration" \
+    && { [ -f "${INDIR}/bias_scan.dat.gz" ] \
+    && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
+            "${OUTDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
+            --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
+    || true; }
 
   exit 1
 
 fi
-
 
 exit 0

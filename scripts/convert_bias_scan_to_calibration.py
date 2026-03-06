@@ -50,11 +50,15 @@ if __name__ == '__main__':
                                     description = "Script to convert bias scans (in root format) to voltage calibration constants,\
                                                    using PYROOT")
     parser.add_argument("bias_scan", type=str, help="Path to bias scan file")
+
     parser.add_argument("--station_id", default=None, help="station id")
     parser.add_argument("--destination_folder", required = False,
                         default = None,
                         help = "Optional path to folder where to store the resulting volCalConst file \
                                 default path is in the same run folder of the given bias scan")
+
+    parser.add_argument("--pedestal_file", required = False, default=None, type=str,
+                        help="Path to a pedestal(s).root file to estimate bias voltage")
     parser.add_argument("--vref", required = False,
                         type = float,
                         default = None,
@@ -71,6 +75,8 @@ if __name__ == '__main__':
         if (os.path.exists(f"{bias_scan_directory}/pedestal.root") or
             os.path.exists(f"{bias_scan_directory}/pedestals.root")):
             vref = get_vref(bias_scan_directory)
+        elif args.pedestal_file is not None and os.path.exists(args.pedestal_file):
+            vref = get_vref(os.path.dirname(args.pedestal_file))
         elif (args.station_id is not None and
               os.path.exists(f"{os.environ['RNO_G_DATA']}/station{args.station_id}/{run_folder}")):
             logging.warning("Looking for pedestal in data folders")
