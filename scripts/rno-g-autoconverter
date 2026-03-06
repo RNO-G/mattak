@@ -1,6 +1,5 @@
 #! /bin/bash
-ROOT_DATA_DIR="/data"
-
+ROOT_DATA_DIR="/home/rno-g/volatge_calib_test_dir/data_test"
 INGRESS="${ROOT_DATA_DIR}/ingress/"
 ARCHIVED="${ROOT_DATA_DIR}/archived/"
 ROOTIFIED="${ROOT_DATA_DIR}/rootified/"
@@ -8,7 +7,6 @@ OUTBOX="${ROOT_DATA_DIR}/outbox"
 STAGING="${ROOT_DATA_DIR}/staging"
 TRASH="${ROOT_DATA_DIR}/staging/trash"
 EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
-
 FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
 
@@ -26,33 +24,36 @@ fi
 echo "Stations to process: $STATIONS"
 echo "Fraction: $FRAC"
 
-#TODO, make this work in parallel
+# Export all vars
+export ROOT_DATA_DIR INGRESS ARCHIVED ROOTIFIED OUTBOX STAGING TRASH EVENTLISTS FRAC
 
-# don't expand globs to themselves if no match
-shopt -s nullglob
+# Trap Ctrl+C and kill all child processes when dying
+trap 'kill 0; exit 1' INT TERM
 
-for st in ${STATIONS} ; do
+# Each station gets its own process
+process_station() {
+  local st=$1
+  # local station_failed=0 (not used yet, but could be used to track if any runs failed for this station)
+  # don't expand globs to themselves if no match
+  shopt -s nullglob
+
   for run in $INGRESS/station${st}/run* ; do
     brun=$(basename $run)
     echo "Station $st: $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
-
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
-
     if [ $updated -eq 1 ] ; then
-      echo "RUN UPDATED! -- COPYING TO STAGING"
+      echo "Station $st: RUN UPDATED! -- COPYING TO STAGING"
       outdir=${OUTBOX}/station${st}/$brun
-
       #if the outdir already exists, move out of the outbox, and delete it
       if [ -d $outdir ] ; then
-        echo "RUN EXISTS IN OUTBOX, TRASHING"
+        echo "Station $st: RUN EXISTS IN OUTBOX, TRASHING"
         mkdir -p ${TRASH}
         mv $outdir ${TRASH}
         rm -rf "${TRASH:?}/$brun"
       fi
-
       # Create staging directory and copy additional data which will be send south
       # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)!
       # They are copied directly from INGRESS to desy!
@@ -62,25 +63,35 @@ for st in ${STATIONS} ; do
       cp -p $rootdir/daqstatus.root $stagedir
       cp -p $rootdir/pedestal.root $stagedir
       cp -p $rootdir/runinfo.root $stagedir
+      cp -p $rootdir/monitoring.root $stagedir
       # copy exactly one calibration file if available
       calibration_file=("${rootdir}"/volCalConsts*)
       if [ ${#calibration_file[@]} -eq 1 ]; then
         cp -p "${calibration_file[0]}" $stagedir
       fi
-
-      echo "RUN rno-g-combine"
+      echo "Station $st: RUN rno-g-combine"
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root \
         $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
-
       mkdir -p $EVENTLISTS/station${st}
       rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
-      echo "MOVE $brun to OUTBOX"
+      echo "Station $st: MOVE $brun to OUTBOX"
       mv $stagedir $outdir
-
+      if [ $? -ne 0 ]; then
+        echo "Station $st: mv to outbox FAILED for $brun"
+        # station_failed=1 (not used yet, but could be set here to indicate this station had a failure)
+      fi
     fi
   done
+}
+
+export -f process_station
+
+# Launch one process per station in parallel, then wait
+for st in ${STATIONS} ; do
+  process_station "$st" &
 done
+wait  # All processes accounted for before we rsync
 
 # synchronize ingress with archived
 rsync -a --exclude=".*" $INGRESS $ARCHIVED
