@@ -25,8 +25,10 @@ from NuRadioReco.modules.RNO_G.channelGlitchDetector import diff_sq, unscramble
 from NuRadioReco.utilities import logging as nu_logging
 nu_logging.set_general_log_level(nu_logging.ERROR)  # suppress warnings from NuRadio
 
-
+NR_CHANNELS = 24
+NR_SAMPESRATES = 2048
 OFFSET_BLOCK_SIZE = 128
+
 
 def calculate_glitch_test_statistic(wf):
     """ Calculate a test statistic for glitch detection based on the second derivative of the waveform """
@@ -50,7 +52,6 @@ def get_run_summary(dataset):
     run_summary = ROOT.mattak.RunSummary()
     run_summary.run_number = dataset.run
     run_summary.station_number = dataset.station
-    run_summary.n_events = dataset.N()
     return run_summary
 
 
@@ -96,8 +97,8 @@ if not run_dir.is_dir():
     print(f"Error: {run_dir} is not a valid directory.")
     sys.exit(1)
 
-if not (run_dir / "waveforms.root").is_file():
-    print(f"Error: {run_dir} does not contain waveforms.root.")
+if not (run_dir / "waveforms.root").is_file() and not (run_dir / "combined.root").is_file():
+    print(f"Error: {run_dir} does not contain the required root files.")
     sys.exit(1)
 
 if not os.access(run_dir, os.W_OK):
@@ -108,19 +109,48 @@ monitoring_file_path = run_dir / "monitoring.root"
 
 dataset = mattak.Dataset.Dataset(data_path=sys.argv[1], backend='pyroot')
 
-f = ROOT.TFile(str(monitoring_file_path), "CREATE")
-t = ROOT.TTree("events", "Event Summarty Tree")
+# We allow to update an existing monitoring file. This is needed
+# as the rno-g-autoconverter script may be run multiple times on the
+# same run directory as new data arrives, and we want to avoid losing
+# previously computed monitoring information.
+if monitoring_file_path.exists():
+    f = ROOT.TFile(str(monitoring_file_path), "UPDATE")
+    t = f.Get("events")
+    run_summary = f.Get("RunSummary")
+    print(f"Monitoring file for run {run_summary.run_number} already exists "
+        f"containing {run_summary.n_events} events, will update with new "
+        "events if needed.")
 
-event_summary = ROOT.mattak.EventSummary()
-run_summary = get_run_summary(dataset)
+    event_summary = ROOT.mattak.EventSummary()
+    t.SetBranchAddress("EventSummary", event_summary)
 
-t.Branch("EventSummary", event_summary)
+    event_ids = ROOT.RDataFrame(t).AsNumpy(["event_number"])["event_number"]
+    update_file = True
+else:
+    f = ROOT.TFile(str(monitoring_file_path), "CREATE")
+    t = ROOT.TTree("events", "Event Summarty Tree")
+
+    run_summary = get_run_summary(dataset)
+    event_summary = ROOT.mattak.EventSummary()
+    t.Branch("EventSummary", event_summary)
+
+    update_file = False
+
+
 
 event_counts = defaultdict(int)
-avg_spectra = defaultdict(lambda: np.zeros((24, 1025), dtype=np.float32))
+avg_spectra = defaultdict(lambda:
+    np.zeros((NR_CHANNELS, NR_SAMPESRATES // 2 + 1), dtype=np.float32))
 
+update_needed = False
 rms = []
 for ev, wfs in dataset.iterate():
+
+    # Event already exists in file
+    if update_file and ev.eventNumber in event_ids:
+        continue
+
+    update_needed = True
 
     write_event_summary(event_summary, ev, wfs)
     t.Fill()
@@ -133,30 +163,53 @@ for ev, wfs in dataset.iterate():
     avg_spectra["total"] += specs
     avg_spectra[ev.triggerType] += specs
 
+
+if not update_needed:
+    print("No new events to add to monitoring file, exiting.")
+    f.Close()
+    sys.exit(0)
+
 for trigger_type in avg_spectra:
     avg_spectra[trigger_type] /= event_counts.get(trigger_type, 1)
 
 assign_numpy_array_to_cpp_vector(run_summary.frequencies, frequencies)
 
-def fill_spectra(run_summary_obj, trigger_type):
-    for i in range(24):
+def fill_spectra(run_summary_obj, trigger_type, prev_event_number):
+    """
+    Helper function to write 2d numpy array spectra to the corresponding
+    field in the run summary, taking into account existing data if the file
+    is being updated.
+    """
+    for i in range(NR_CHANNELS):
+        if update_file and event_counts.get(trigger_type, 0):
+            w1 = prev_event_number / (prev_event_number + event_counts[trigger_type])
+            w2 = event_counts[trigger_type] / (prev_event_number + event_counts[trigger_type])
+
+            avg_spectra[trigger_type][i] = (
+                avg_spectra[trigger_type][i] * w2 + np.array(run_summary_obj[i]) * w1)
+
         vec = ROOT.std.vector("float")()
         assign_numpy_array_to_cpp_vector(vec, avg_spectra[trigger_type][i])
-        run_summary_obj.push_back(vec)
 
-fill_spectra(run_summary.avg_spectrum, "total")
-fill_spectra(run_summary.avg_spectrum_force, "FORCE")
-fill_spectra(run_summary.avg_spectrum_rf0, "RADIANT0")
-fill_spectra(run_summary.avg_spectrum_rf1, "RADIANT1")
-fill_spectra(run_summary.avg_spectrum_lt, "LT")
+        if not update_file:
+            run_summary_obj.push_back(vec)
+        else:
+            run_summary_obj[i] = vec
 
-run_summary.n_events = event_counts.get("total", 0)
-run_summary.n_forced_triggers = event_counts.get("FORCE", 0)
-run_summary.n_rf0_triggers = event_counts.get("RADIANT0", 0)
-run_summary.n_rf1_triggers = event_counts.get("RADIANT1", 0)
-run_summary.n_lt_triggers = event_counts.get("LT", 0)
+fill_spectra(run_summary.avg_spectrum, "total", run_summary.n_events)
+fill_spectra(run_summary.avg_spectrum_force, "FORCE", run_summary.n_forced_triggers)
+fill_spectra(run_summary.avg_spectrum_rf0, "RADIANT0", run_summary.n_rf0_triggers)
+fill_spectra(run_summary.avg_spectrum_rf1, "RADIANT1", run_summary.n_rf1_triggers)
+fill_spectra(run_summary.avg_spectrum_lt, "LT", run_summary.n_lt_triggers)
 
-f.WriteObject(run_summary, "RunSummary")
+# Adding event counts to run summary
+run_summary.n_events += event_counts.get("total", 0)
+run_summary.n_forced_triggers += event_counts.get("FORCE", 0)
+run_summary.n_rf0_triggers += event_counts.get("RADIANT0", 0)
+run_summary.n_rf1_triggers += event_counts.get("RADIANT1", 0)
+run_summary.n_lt_triggers += event_counts.get("LT", 0)
 
-f.Write()
+t.Write("", ROOT.TObject.kOverwrite)
+run_summary.Write("RunSummary", ROOT.TObject.kOverwrite)
+
 f.Close()
