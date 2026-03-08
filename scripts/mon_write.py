@@ -117,6 +117,15 @@ if monitoring_file_path.exists():
     f = ROOT.TFile(str(monitoring_file_path), "UPDATE")
     t = f.Get("events")
     run_summary = f.Get("RunSummary")
+
+    if (run_summary.run_number != dataset.run or
+        run_summary.station_number != dataset.station):
+        print(f"Error: Existing monitoring file has run number {run_summary.run_number} "
+              f"and station number {run_summary.station_number}, which do not match "
+              f"the current dataset with run number {dataset.run} and station number "
+              f"{dataset.station}.")
+        sys.exit(1)
+
     print(f"Monitoring file for run {run_summary.run_number} already exists "
         f"containing {run_summary.n_events} events, will update with new "
         "events if needed.")
