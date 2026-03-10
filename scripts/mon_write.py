@@ -1,11 +1,16 @@
-"""
-This script computes monitoring information RNO-G run data. It extracts event-level and run-level information
-and stores them in a dedicated monitoring.root file format.
+"""Build or update ``monitoring.root`` for a single RNO-G run directory.
 
-To run the script, provide the path to the run directory containing a waveforms.root and headers.root as an argument:
+The script reads event data via ``mattak.Dataset`` and writes:
+- one event-level entry per event in the ``events`` tree (``EventSummary`` branch),
+- one run-level ``RunSummary`` object with counters and average power spectra.
+
+If ``monitoring.root`` already exists, the script opens it in update mode,
+skips event IDs that are already present, and updates run-level aggregates.
+
+Usage:
     python mon_write.py <run_directory>
 
-To read the monitoring.root file, use the following provided python script:
+Read-back utility:
     python mon_read.py <monitoring_file_path>
 """
 import ROOT
@@ -31,13 +36,27 @@ OFFSET_BLOCK_SIZE = 128
 
 
 def calculate_glitch_test_statistic(wf):
-    """ Calculate a test statistic for glitch detection based on the second derivative of the waveform """
+    """Return the per-channel glitch test statistic for one waveform trace.
+
+    Parameters
+    ----------
+    wf : numpy.ndarray
+        One channel waveform in ADC units.
+
+    Returns
+    -------
+    float
+        Dimensionless test statistic derived from ``NuRadioReco`` glitch helpers.
+    """
     wf_us = unscramble(wf)
     return (diff_sq(wf_us) - diff_sq(wf_us)) / np.var(wf_us)
 
 
 def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
-    """ Assigns a 1D numpy array to a ROOT std::vector """
+    """Copy a 1D NumPy array into an existing ROOT ``std::vector``.
+
+    The target vector is cleared and refilled in-place.
+    """
     if np_array.ndim != 1:
         raise ValueError("Only 1D numpy arrays are supported.")
 
@@ -48,7 +67,7 @@ def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
 
 
 def get_run_summary(dataset):
-    """ Create and return RunSummary object with run/station number and number of events"""
+    """Create a new ``RunSummary`` initialized with run and station metadata."""
     run_summary = ROOT.mattak.RunSummary()
     run_summary.run_number = dataset.run
     run_summary.station_number = dataset.station
@@ -56,7 +75,11 @@ def get_run_summary(dataset):
 
 
 def write_event_summary(event_summary, event_info, wfs):
-    """ Fill the EventSummary object with information from the header (event_info) and waveforms """
+    """Populate one ``EventSummary`` from header metadata and waveform data.
+
+    For each channel, this computes RMS, max absolute amplitude, a glitch score,
+    and a scalar block-offset summary, then writes these into the ROOT object.
+    """
     event_summary.event_number = event_info.eventNumber
     event_summary.block_offset.clear()
 
@@ -180,10 +203,10 @@ for trigger_type in avg_spectra:
 assign_numpy_array_to_cpp_vector(run_summary.frequencies, frequencies)
 
 def fill_spectra(run_summary_obj, trigger_type, prev_event_number):
-    """
-    Helper function to write 2d numpy array spectra to the corresponding
-    field in the run summary, taking into account existing data if the file
-    is being updated.
+    """Write channel spectra into a run-summary field, with update-aware averaging.
+
+    When appending to an existing file, previously stored averages are combined
+    with newly accumulated spectra using event-count weighted means.
     """
     for i in range(NR_CHANNELS):
         if update_file and event_counts.get(trigger_type, 0):

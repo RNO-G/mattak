@@ -21,7 +21,7 @@ def convert_rdf_to_numpy(rdf):
 
     column_names = [
         key for key in rdf.GetColumnNames()
-        if key.startswith("EventSummary.") and key.split(".")[-1] not in ["fBits", "TObject", "fUniqueID", "block_offset"]
+        if key.startswith("EventSummary.") and key.split(".")[-1] not in ["fBits", "TObject", "fUniqueID"]
     ]
 
     data = rf.AsNumpy(column_names)
@@ -43,9 +43,6 @@ for entry in event_tree:
 
     event_id = event_summary.event_number
     rms = np.array(event_summary.rms, dtype=np.float32)
-    block_offset = np.array([
-        np.array(offset_vec, dtype=np.float32)
-        for offset_vec in event_summary.block_offset])
 
 
 # Access option 2: via ROOT's RDataFrame
