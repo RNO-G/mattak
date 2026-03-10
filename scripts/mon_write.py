@@ -66,25 +66,21 @@ def write_event_summary(event_summary, event_info, wfs):
     amax = np.max(np.abs(wfs), axis=1).astype(np.float32)
     assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
 
-    glitching_test_statitic = []
-    block_offsets = []
+    glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
+    block_offsets = np.zeros(len(wfs), dtype=np.float32)
 
-    for wf in wfs:
+    for i, wf in enumerate(wfs):
 
-        glitching_test_statitic.append(calculate_glitch_test_statistic(wf))
+        glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
 
         offsets = fit_block_offsets(
             wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
             max_frequency=50*units.MHz, mode='auto', return_trace=False,
             maxiter=5, tol=1e-6)
-        block_offsets.append(offsets)
+        block_offsets[i] = np.abs(offsets).max()  # take the max. abs. offset as a summary statistic for the event
 
-        offset_vec = ROOT.std.vector("float")()
-        assign_numpy_array_to_cpp_vector(offset_vec, offsets)
-        event_summary.block_offset.push_back(offset_vec)
-
-    glitching_test_statitic = np.asarray(glitching_test_statitic, dtype=np.float32)
     assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
+    assign_numpy_array_to_cpp_vector(event_summary.block_offset, block_offsets)
 
 
 if len(sys.argv) != 2:
