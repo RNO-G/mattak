@@ -41,8 +41,20 @@ for st in ${STATIONS} ; do
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
 
-    if [ $updated -eq 1 ] ; then
-      echo "RUN UPDATED! -- COPYING TO STAGING"
+    if [ "$updated" -eq 1 ]; then
+      echo "RUN UPDATED! -- CHECKING IF FINISHED"
+    fi
+
+    # Check if the run is finished by looking for the RUN-END-TIME in the runinfo.txt
+    if grep -q "^RUN-END-TIME" "${INGRESS}/station${st}/run${brun}/aux/runinfo.txt"; then
+      run_finished=true
+    else
+      run_finished=false
+      echo "RUN NOT FINISHED! -- SKIPPING"
+    fi
+
+    if [ "$updated" -eq 1 ] && [ "$run_finished" = true ] ; then
+      echo "Run finished, processing run $brun for station $st"
       outdir=${OUTBOX}/station${st}/$brun
 
       #if the outdir already exists, move out of the outbox, and delete it
