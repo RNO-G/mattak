@@ -38,6 +38,10 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   tmpfile=$(mktemp)
   trap 'rm -f "$tmpfile"' EXIT
 
+  # Look for the voltage calibration file already
+  # existing in the output directory
+  calibration_file=("${OUTDIR}"/volCalConsts*)
+
   echo "Making rootified list" \
     && find "${INDIR}" | sort -o "$tmpfile" \
     && echo "Converting waveforms"  \
@@ -55,7 +59,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
     && cp "$tmpfile" "${OUTDIR}/rootified-list.txt" \
     && echo "Doing Voltage calibration" \
-    && { [ -f "${INDIR}/bias_scan.dat.gz" ] \
+    && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ]\
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
             "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
