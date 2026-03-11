@@ -34,7 +34,6 @@ NR_CHANNELS = 24
 NR_SAMPESRATES = 2048
 OFFSET_BLOCK_SIZE = 128
 
-
 def calculate_glitch_test_statistic(wf):
     """Return the per-channel glitch test statistic for one waveform trace.
 
@@ -49,7 +48,7 @@ def calculate_glitch_test_statistic(wf):
         Dimensionless test statistic derived from ``NuRadioReco`` glitch helpers.
     """
     wf_us = unscramble(wf)
-    return (diff_sq(wf_us) - diff_sq(wf_us)) / np.var(wf_us)
+    return (diff_sq(wf) - diff_sq(wf_us)) / np.var(wf)
 
 
 def assign_numpy_array_to_cpp_vector(cpp_vector, np_array):
@@ -97,7 +96,6 @@ def write_event_summary(event_summary, event_info, wfs):
     for i, wf in enumerate(wfs):
 
         glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
-
         offsets = fit_block_offsets(
             wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
             max_frequency=50*units.MHz, mode='auto', return_trace=False,
