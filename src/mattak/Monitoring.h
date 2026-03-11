@@ -23,10 +23,10 @@ namespace mattak
 
       // Per-channel information
       std::vector<float> rms; // root mean square per channel
-      std::vector<float> max_abs_amplitude;
+      std::vector<uint16_t> max_abs_amplitude;
       std::vector<float> glitching_test_statitic;
       // we decided to only store the max. abs. block offset per waveform/channel to save space
-      std::vector<float> block_offset;
+      std::vector<uint16_t> block_offset;
 
       ClassDef(EventSummary, 1);
   };
