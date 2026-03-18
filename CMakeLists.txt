@@ -65,6 +65,7 @@ if (NOT DEFINED ROOTLESS)
       mattak/Version.h
       mattak/VoltageCalibration.h
       mattak/Dataset.h
+      mattak/Monitoring.h
     )
 
     configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY)
@@ -82,6 +83,7 @@ if (NOT DEFINED ROOTLESS)
       src/RunInfo.cc
       src/VoltageCalibration.cc
       src/Dataset.cc
+      src/Monitoring.cc
       ${CMAKE_CURRENT_BINARY_DIR}/Version.cc
       )
 
@@ -90,6 +92,7 @@ if (NOT DEFINED ROOTLESS)
       scripts/rno-g-convert-station
       scripts/rno-g-make-eventlists
       scripts/convert_bias_scan_to_calibration.py
+      scripts/mon_write.py
     )
 
     add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)

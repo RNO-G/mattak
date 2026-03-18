@@ -4,9 +4,9 @@
 #pragma link off all namespaces;
 
 
-#pragma link C++ namespace mattak+; 
-#pragma link C++ namespace mattak::k+; 
-#pragma link C++ namespace mattak::convert+; 
+#pragma link C++ namespace mattak+;
+#pragma link C++ namespace mattak::k+;
+#pragma link C++ namespace mattak::convert+;
 
 #pragma link C++ class mattak::Header+;
 #pragma link C++ class mattak::IWaveforms+;
@@ -22,6 +22,15 @@
 #pragma link C++ class mattak::LTEStats+;
 #pragma link C++ class mattak::GNSS+;
 
+#pragma link C++ class mattak::RunSummary+;
+#pragma link C++ class mattak::EventSummary+;
+
+#pragma link C++ class std::map<std::string, float>+;
+#pragma link C++ class std::map<std::string, std::vector<float>>+;
+#pragma link C++ class std::vector<float>+;
+#pragma link C++ class std::vector<uint16_t>+;
+#pragma link C++ class std::vector<std::vector<float>>+;
+
 #pragma link C++ class mattak::RunInfo+;
 #pragma link C++ class mattak::FirmwareVersion+;
 #pragma link C++ class mattak::FlowerGainCode+;
@@ -31,8 +40,8 @@
 #pragma link C++ class mattak::LTScalerGroup+;
 #pragma link C++ class mattak::CalpulserInfo+;
 #pragma link C++ class mattak::RadiantVoltages+;
-#pragma link C++ enum mattak::CalpulserOutput; 
-#pragma link C++ enum mattak::CalpulserMode; 
+#pragma link C++ enum mattak::CalpulserOutput;
+#pragma link C++ enum mattak::CalpulserMode;
 
 
 #pragma link C++ class mattak::Dataset+;

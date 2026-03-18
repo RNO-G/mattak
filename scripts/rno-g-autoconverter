@@ -62,6 +62,7 @@ for st in ${STATIONS} ; do
       cp -p $rootdir/daqstatus.root $stagedir
       cp -p $rootdir/pedestal.root $stagedir
       cp -p $rootdir/runinfo.root $stagedir
+      cp -p $rootdir/monitoring.root $stagedir
       # copy exactly one calibration file if available
       calibration_file=("${rootdir}"/volCalConsts*)
       if [ ${#calibration_file[@]} -eq 1 ]; then

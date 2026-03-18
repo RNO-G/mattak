@@ -1,7 +1,7 @@
 #include "mattak/Dataset.h"
 #include "TSystem.h"
 #include "TROOT.h"
-#include "TPluginManager.h" 
+#include "TPluginManager.h"
 #include <iostream>
 
 
@@ -370,7 +370,7 @@ int mattak::Dataset::loadDir(const char * dir)
   }
 
   setupRadiantMeta();
- 
+
   //now load the header files
   if (opt.verbose) std::cout << "about to load headers " << std::endl;
   if (setup(&hd, Form("%s/%s.root", dir, (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file), header_tree_names, nullptr, opt.verbose))
@@ -421,7 +421,7 @@ int mattak::Dataset::loadDir(const char * dir)
   {
     if (opt.verbose) std::cout << " success" << std::endl;
   }
-  
+
   return 0;
 }
 
@@ -454,7 +454,7 @@ mattak::Header* mattak::Dataset::header(bool force)
   return hd.ptr;
 }
 
-template <typename T> 
+template <typename T>
 static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force = false, mattak::Dataset::tree_field<mattak::Waveforms> * index_field = nullptr)
 {
   if (force || field->loaded_entry != d->currentEntry())
@@ -469,7 +469,7 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
     else
     {
       int entry= -1;
-      if (index_field) 
+      if (index_field)
       {
         entry = index_field->tree ? index_field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
       }
@@ -478,15 +478,15 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
         entry = field->tree ? field->tree->GetEntryNumberWithIndex(d->header(force)->event_number) : -1;
       }
 
-      field->loaded_entry = d->currentEntry(); 
+      field->loaded_entry = d->currentEntry();
 
-      if (entry < 0) 
+      if (entry < 0)
       {
         field->missing_entry = true;
       }
       else
       {
-        field->missing_entry = false; 
+        field->missing_entry = false;
         if (field->branch) field->branch->GetEntry(entry);
         else field->tree->GetEntry(entry);
       }
@@ -497,8 +497,10 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 
 float mattak::Dataset::radiantSampleRate(bool force)
 {
-  if (wf_meta.ptr == nullptr) return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
-  findIncompleteEntry(&wf_meta,this, force, &wf);
+  if (wf_meta.ptr == nullptr) {
+    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+  }
+  findIncompleteEntry(&wf_meta, this, force, &wf);
   if (wf_meta.missing_entry)
   {
     return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
@@ -506,24 +508,35 @@ float mattak::Dataset::radiantSampleRate(bool force)
   return wf_meta.ptr->radiant_sampling_rate;
 }
 
-static float zeros[mattak::k::num_radiant_channels]; 
+static float zeros[mattak::k::num_radiant_channels];
 
 const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 {
-  if (wf_meta.ptr == nullptr) 
+  if (wf_meta.ptr == nullptr)
   {
-    return (const float*) zeros; 
+    return (const float*) zeros;
   }
-  findIncompleteEntry(&wf_meta,this, force, &wf);
-  return (const float*)  (  wf_meta.missing_entry ? zeros : wf_meta.ptr->digitizer_readout_delay_ns );
+  findIncompleteEntry(&wf_meta, this, force, &wf);
+  return (const float*)  (
+    wf_meta.missing_entry ? zeros : wf_meta.ptr->digitizer_readout_delay_ns
+  );
 }
 
 
 mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
-  if (wf.tree == nullptr) return nullptr; 
+  if (wf.tree == nullptr)
+    return nullptr;
+
   findIncompleteEntry(&wf, this, force);
-  return wf.missing_entry ? nullptr: wf.ptr;
+
+  if (wf.missing_entry)
+    return nullptr;
+
+  if (wf.ptr->event_number != header(force)->event_number)
+    return nullptr;
+
+  return wf.ptr;
 }
 
 
@@ -536,7 +549,7 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
     {
       double readout_time = header(force)->readout_time;
       int ds_entry = ds.tree->GetEntryNumberWithBestIndex(readout_time, 1e9 * (readout_time - int(readout_time)));
-      if (ds_entry < 0) ds_entry = 0;  // this should only happen if it's the first one?  
+      if (ds_entry < 0) ds_entry = 0;  // this should only happen if it's the first one?
       ds.branch->GetEntry(ds_entry);
       ds.missing_entry = false;
 
@@ -603,15 +616,15 @@ mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 }
 
 
-//HACK HACK HACK 
-//davix  seems to choke here for some reason, at least for me. 
-//check for an environmental variable called "MATTAK_SUPPRESS_DAVIX" 
+//HACK HACK HACK
+//davix  seems to choke here for some reason, at least for me.
+//check for an environmental variable called "MATTAK_SUPPRESS_DAVIX"
 __attribute__((constructor))
-static void maybe_kill_davix() 
+static void maybe_kill_davix()
 {
-  char * suppress = getenv("MATTAK_SUPPRESS_DAVIX"); 
+  char * suppress = getenv("MATTAK_SUPPRESS_DAVIX");
 
-  if (!suppress || !strcmp(suppress,"0")) return;  
+  if (!suppress || !strcmp(suppress,"0")) return;
 
  // tell ROOT to load all of its plugin handlers, otherwise the first time you open a file this will happen again and override what you are about to do after this
  gPluginMgr->LoadHandlersFromPluginDirs();

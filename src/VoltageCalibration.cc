@@ -209,7 +209,8 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     if (!scanSize())
     {
       start_time = ped.when;
-      station_number= ped.station;
+      station_number = ped.station;
+      run = ped.run;
     }
     else
     {
@@ -938,9 +939,17 @@ TGraphErrors * mattak::VoltageCalibration::getAveResidGraph(int chan) const
 
 void mattak::VoltageCalibration::saveFitCoeffsInFile()
 {
+  const char* residSuffix = fit_isUsingResid ? "" : "_noResid";
+
   TString outFileName;
-  if (fit_isUsingResid) outFileName = TString::Format("volCalConsts_pol%d_s%d_%d-%d.root", getFitOrder(), getStationNumber(), getStartTime(), getEndTime());
-  else outFileName = TString::Format("volCalConsts_pol%d_noResid_s%d_%d-%d.root", getFitOrder(), getStationNumber(), getStartTime(), getEndTime());
+  if (getRun() > 0) {
+    outFileName = TString::Format("volCalConsts_pol%d%s_s%d_r%d.root",
+                                   getFitOrder(), residSuffix, getStationNumber(), getRun());
+  } else {
+    outFileName = TString::Format("volCalConsts_pol%d%s_s%d_%d-%d.root",
+                                   getFitOrder(), residSuffix, getStationNumber(), getStartTime(), getEndTime());
+  }
+
   TFile f(outFileName, "RECREATE", "", ROOT::RCompressionSetting::EDefaults::kUseSmallest);
 
   TTree *general_tree = new TTree("general_tree", "general_tree");

@@ -63,7 +63,10 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
             "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
-    || true; }
+    || true; } \
+    && echo "Create Monitoring data" \
+    && python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
+    && echo "Conversion complete!"
 
   exit 1
 
