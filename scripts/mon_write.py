@@ -175,6 +175,9 @@ if __name__ == "__main__":
         rms = []
         for ev, wfs in dataset.iterate(calibrated=False):
 
+            if wfs is None:
+                continue  # skip events without waveforms
+
             # Event already exists in file
             if update_file and ev.eventNumber in event_ids:
                 continue
