@@ -1,0 +1,15 @@
+[Unit]
+Description=RNO-G Autoconverter for station %i
+PartOf=rno-g-autoconverter.target
+
+[Service]
+Type=simple
+User=rno-g
+ExecStart=/home/rno-g/volatge_calib_test_dir/rno-g-autoconverter %i
+Restart=always
+RestartSec=10
+Environment="PATH=/home/rno-g/soft/mattak/install/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="LD_LIBRARY_PATH=/home/rno-g/soft/mattak/install/lib:/home/rno-g/soft/librno-g/install/lib"
+
+[Install]
+WantedBy=rno-g-autoconverter.target
