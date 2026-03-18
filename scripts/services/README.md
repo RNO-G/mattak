@@ -1,4 +1,7 @@
 These file must be placed in /etc/systemd/system/
+- `rno-g-autoconverter@.service`
+- `rno-g-autoconverter.target` 
+
 use `tmux_follow_services.sh`to follow the logs of all stations together in a tmux session.
 
 Install 
