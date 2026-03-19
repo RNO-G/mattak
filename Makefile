@@ -6,7 +6,9 @@ CMAKE?=cmake
 CCMAKE?=ccmake
 builddir=build
 rootlessdir=build-noroot
-
+SYSTEMD_DIR=/etc/systemd/system
+SERVICE_FILE=scripts/services/rno-g-autoconverter@.service
+TARGET_FILE=scripts/services/rno-g-autoconverter.target
 
 all: cmake-build #cmake-rootless-build
 rootless: cmake-rootless-build
@@ -54,3 +56,11 @@ cmake-clean: build/Makefile
 
 cmake-rootless-clean: build-noroot/Makefile
 	@make -C ./$(rootlessdir) clean
+
+# Install systemd service and target files
+install-systemd:
+	@echo "Installing systemd service and target files..."
+	@cp $(SERVICE_FILE) $(SYSTEMD_DIR)/$(SERVICE_FILE)
+	@cp $(TARGET_FILE) $(SYSTEMD_DIR)/$(TARGET_FILE)
+	@systemctl daemon-reload
+	@echo "Done. Start with: systemctl start rno-g-autoconverter.target"
