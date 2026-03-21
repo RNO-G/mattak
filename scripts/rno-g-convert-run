@@ -1,4 +1,6 @@
 #! /bin/bash
+
+# don't expand globs to themselves if no match
 shopt -s nullglob
 
 INDIR=${1-.}
