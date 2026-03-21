@@ -38,6 +38,5 @@ done
 
 
 tmux set-hook -t $SESSION pane-died "kill-session -t $SESSION"
-tmux bind-key -T root C-c kill-session
 
 tmux attach -t $SESSION
