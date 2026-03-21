@@ -1,4 +1,5 @@
 #! /bin/bash
+shopt -s nullglob
 
 INDIR=${1-.}
 OUTDIR=${2-$INDIR/root}
@@ -58,8 +59,8 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
     && cp "$tmpfile" "${OUTDIR}/rootified-list.txt" \
+    && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
     && echo "Doing Voltage calibration" \
-    && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ]\
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
             "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
