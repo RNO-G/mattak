@@ -1,6 +1,4 @@
 #! /bin/bash
-shopt -s nullglob
-
 ROOT_DATA_DIR="/data"
 
 INGRESS="${ROOT_DATA_DIR}/ingress/"
