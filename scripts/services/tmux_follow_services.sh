@@ -20,7 +20,7 @@ tmux new-session -d -s $SESSION
 
 # Show pane titles as borders
 tmux set-option -t $SESSION pane-border-status top
-tmux set-option -t $SESSION pane-border-format " Station #{pane_title} "
+tmux set-option -t $SESSION pane-border-format "#{pane_title} "
 
 i=0
 for st in $STATIONS; do
