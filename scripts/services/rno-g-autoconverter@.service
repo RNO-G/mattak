@@ -5,11 +5,13 @@ PartOf=rno-g-autoconverter.target
 [Service]
 Type=simple
 User=rno-g
-ExecStart=/home/rno-g/volatge_calib_test_dir/rno-g-autoconverter %i
+WorkingDirectory=/home/rno-g/soft/mattak
+ExecStart=/home/rno-g/soft/mattak/scripts/rno-g-autoconverter %i
 Restart=always
-RestartSec=10
-Environment="PATH=/home/rno-g/soft/mattak/install/bin:/usr/local/bin:/usr/bin:/bin"
+RestartSec=300
+Environment="PATH=/home/rno-g/.local/bin:/home/rno-g/bin:/usr/share/Modules/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/dell/srvadmin/bin:/home/rno-g/soft/mattak/install/bin/"
 Environment="LD_LIBRARY_PATH=/home/rno-g/soft/mattak/install/lib:/home/rno-g/soft/librno-g/install/lib"
+Environment="PYTHONPATH=/home/rno-g/soft/mattak/py:/home/rno-g/soft/NuRadioMC"
 
 [Install]
 WantedBy=rno-g-autoconverter.target
