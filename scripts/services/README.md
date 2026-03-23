@@ -1,8 +1,13 @@
-These file must be placed in /etc/systemd/system/
-- `rno-g-autoconverter@.service`
-- `rno-g-autoconverter.target` 
+These file must be installed, everything is set up in the Makefile
+
+`sudo make install-systemd`
+
+then do
+`sudo systemctl restart rno-g-autoconverter.target`
 
 use `tmux_follow_services.sh`to follow the logs of all stations together in a tmux session.
+
+Usefull commands:
 
 Install 
 `sudo systemctl daemon-reload`
