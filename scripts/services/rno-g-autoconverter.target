@@ -1,0 +1,10 @@
+[Unit]
+Description=RNO-G Autoconverter for all stations
+Wants=rno-g-autoconverter@11.service
+Wants=rno-g-autoconverter@12.service
+Wants=rno-g-autoconverter@13.service
+Wants=rno-g-autoconverter@14.service
+Wants=rno-g-autoconverter@21.service
+Wants=rno-g-autoconverter@22.service
+Wants=rno-g-autoconverter@23.service
+Wants=rno-g-autoconverter@24.service
