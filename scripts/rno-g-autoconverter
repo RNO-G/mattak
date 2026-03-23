@@ -66,7 +66,11 @@ for st in ${STATIONS} ; do
       # copy exactly one calibration file if available
       calibration_file=("${rootdir}"/volCalConsts*)
       if [ ${#calibration_file[@]} -eq 1 ]; then
-        cp -p "${calibration_file[0]}" $stagedir
+        # Rename the calibration file to a new standard name (including run number rather than time stamps)
+        # With an update of the daq software this will become obsolete, as the calibration file will be named
+        # correctly from the start. Until then, we need to rename it here.
+        mv "${calibration_file[0]}" "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root"
+        cp -p "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root" "${stagedir}/volCalConsts_pol9_s${st}_${brun}.root"
       fi
 
       echo "RUN rno-g-combine"
