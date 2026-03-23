@@ -63,4 +63,4 @@ install-systemd:
 	@cp $(SERVICE_FILE) $(SYSTEMD_DIR)/rno-g-autoconverter@.service
 	@cp $(TARGET_FILE) $(SYSTEMD_DIR)/rno-g-autoconverter.target
 	@systemctl daemon-reload
-	@echo "Done. Start with: systemctl start rno-g-autoconverter.target"
+	@echo "Done. (re)Start with: systemctl restart rno-g-autoconverter.target"
