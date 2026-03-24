@@ -424,6 +424,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     Returns None if no file was found
     The order of the search is:
         * run directory
+        * nearest run directory
         * under RNO_G_DATA/calibration/stationX
         * under RNO_G_CAL/stationX        
     
@@ -456,6 +457,35 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
             raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
                                   this should not be possible is something wrong with the rootify process?")
         return rundir + "/" + vc_list[0]
+
+
+
+    # try finding a calibration file in the nearest run folder
+    # we arbitrarily pick 4 full run days -> 48 runs
+    # in theory there should be a calibration available every 13 runs
+    max_runs_to_check = 48
+    # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 20 consecutive runs
+    run_time = read_run_time(rundir)
+    max_time = max_runs_to_check * 2 * 60 * 60
+
+    run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [i, -i]]
+    for run_nr_to_check in run_nrs_to_check:    
+        rundir_to_check = os.path.join(os.path.dirname(rundir), "run" + str(run_nr_to_check))
+
+        try:
+            vc_list = [vc for vc in os.listdir(str(rundir_to_check)) if vc.startswith("volCalConst")]
+        except:
+            vc_list = None
+        if vc_list:
+            if len(vc_list) > 1:
+                raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
+                                    this should not be possible is something wrong with the rootify process?")
+            vc_file = rundir_to_check + "/" + vc_list[0]
+            run_to_check_time = read_run_time(rundir_to_check)
+            if abs(run_to_check_time - run_time) < max_time:
+                logging.debug("FOUND VC FILE " + vc_file)
+                return vc_file
+
 
     vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
 
@@ -519,3 +549,16 @@ def find_all_volcal_runs_station(station):
                 pass
     vc_run_nrs = [int(vc_run.split("run")[1]) for vc_run in vc_run_list]
     return vc_dir, vc_run_list, vc_run_nrs
+
+
+
+def read_run_time(rundir):
+    runinfo_path = os.path.join(rundir, "aux", "runinfo.txt")
+    with open(runinfo_path, "r") as runinfo_file:
+        time = runinfo_file.readlines()[2]
+    time = time.split(" =  ")[-1][:-1]
+    # this loses some accuracy because time is longer than 64 bits
+    # but for the purposes of checking times on the hour scale this does
+    # not matter
+    time = float(time)
+    return time
