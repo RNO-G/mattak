@@ -1,6 +1,5 @@
 #! /bin/bash
 ROOT_DATA_DIR="/data"
-
 INGRESS="${ROOT_DATA_DIR}/ingress/"
 ARCHIVED="${ROOT_DATA_DIR}/archived/"
 ROOTIFIED="${ROOT_DATA_DIR}/rootified/"
@@ -8,84 +7,92 @@ OUTBOX="${ROOT_DATA_DIR}/outbox"
 STAGING="${ROOT_DATA_DIR}/staging"
 TRASH="${ROOT_DATA_DIR}/staging/trash"
 EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
-
 FRAC=0.0125
 STATIONS="23 11 22 12 21 13 24 14"
-
 # Override STATIONS with command line arguments if provided
 if [ $# -gt 0 ]; then
   STATIONS="$*"
 fi
-
 # Source an environment
 if [ -f /rno-g/etc/autoconverter.env ]
 then
   source /rno-g/etc/autoconverter.env
 fi
 
-echo "Stations to process: $STATIONS"
-echo "Fraction: $FRAC"
+# -----------------------------------------------
+# log_info  : sends a message (stdout, INFO level)
+# log_error : fires an error (stderr, ERROR level) — systemd picks these up
+# run_cmd   : runs a command and logs failures as ERROR
+# -----------------------------------------------
+log_info()  { echo "INFO:  $*"; }
+log_error() { echo "ERROR: $*" >&2; }
+run_cmd() {
+  "$@"
+  local exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then
+    log_error "Command failed (exit $exit_code): $*"
+  fi
+  return "$exit_code"
+}
+
+log_info "Stations: $STATIONS | Fraction: $FRAC"
 
 #TODO, make this work in parallel
-
 # don't expand globs to themselves if no match
 shopt -s nullglob
-
 for st in ${STATIONS} ; do
   for run in $INGRESS/station${st}/run* ; do
     brun=$(basename $run)
-    echo "Station $st: $brun"
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
-
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
-
+    [ $updated -ne 0 ] && [ $updated -ne 1 ] && \
+      log_error "Station $st $brun: rno-g-convert-run failed (exit $updated); see log/$st/$brun/convert.log"
     if [ $updated -eq 1 ] ; then
-      echo "RUN UPDATED! -- COPYING TO STAGING"
+      log_info "Station $st: $brun"
+      log_info "RUN UPDATED! -- COPYING TO STAGING"
       outdir=${OUTBOX}/station${st}/$brun
-
       #if the outdir already exists, move out of the outbox, and delete it
       if [ -d $outdir ] ; then
-        echo "RUN EXISTS IN OUTBOX, TRASHING"
+        log_info "RUN EXISTS IN OUTBOX, TRASHING"
         mkdir -p ${TRASH}
-        mv $outdir ${TRASH}
-        rm -rf "${TRASH:?}/$brun"
+        run_cmd mv $outdir ${TRASH}
+        run_cmd rm -rf "${TRASH:?}/$brun"
       fi
-
       # Create staging directory and copy additional data which will be send south
       # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)!
       # They are copied directly from INGRESS to desy!
       stagedir=${STAGING}/station${st}/$brun
       mkdir -p $stagedir
-      cp -p $rootdir/headers.root $stagedir
-      cp -p $rootdir/daqstatus.root $stagedir
-      cp -p $rootdir/pedestal.root $stagedir
-      cp -p $rootdir/runinfo.root $stagedir
-      cp -p $rootdir/monitoring.root $stagedir
+      run_cmd cp -p $rootdir/headers.root $stagedir
+      run_cmd cp -p $rootdir/daqstatus.root $stagedir
+      run_cmd cp -p $rootdir/pedestal.root $stagedir
+      run_cmd cp -p $rootdir/runinfo.root $stagedir
+      run_cmd cp -p $rootdir/monitoring.root $stagedir
       # copy exactly one calibration file if available
       calibration_file=("${rootdir}"/volCalConsts*)
       if [ ${#calibration_file[@]} -eq 1 ]; then
         # Rename the calibration file to a new standard name (including run number rather than time stamps)
         # With an update of the daq software this will become obsolete, as the calibration file will be named
         # correctly from the start. Until then, we need to rename it here.
-        mv "${calibration_file[0]}" "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root"
-        cp -p "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root" "${stagedir}/volCalConsts_pol9_s${st}_${brun}.root"
+        run_cmd mv "${calibration_file[0]}" "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root"
+        run_cmd cp -p "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root" "${stagedir}/volCalConsts_pol9_s${st}_${brun}.root"
       fi
-
-      echo "RUN rno-g-combine"
+      log_info "RUN rno-g-combine"
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root \
         $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
-
+      [ $? -ne 0 ] && log_error "Station $st $brun: rno-g-combine failed, see log/$st/$brun/combine.log"
       mkdir -p $EVENTLISTS/station${st}
+      log_info "RUN rno-g-make-eventlist"
       rno-g-make-eventlist $stagedir/combined.root > ${EVENTLISTS}/station${st}/run${brun}.list
       chmod -R 0777 $stagedir
-      echo "MOVE $brun to OUTBOX"
-      mv $stagedir $outdir
-
+      log_info "MOVE $brun to OUTBOX"
+      run_cmd mv $stagedir $outdir
+      log_info "SUCCESS: $brun of station$st converted; moved to outbox"
     fi
   done
 done
-
 # synchronize ingress with archived
-rsync -a --exclude=".*" $INGRESS $ARCHIVED
+run_cmd rsync -a --exclude=".*" $INGRESS $ARCHIVED
+log_info "DONE: Runs processed, ingress --> archive synced"
