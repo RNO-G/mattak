@@ -89,10 +89,10 @@ for st in ${STATIONS} ; do
       chmod -R 0777 $stagedir
       log_info "MOVE $brun to OUTBOX"
       run_cmd mv $stagedir $outdir
-      log_info "SUCCESS: $brun of station$st converted; moved to outbox"
+      log_info "SUCCESS: $brun of station$st"
     fi
   done
 done
 # synchronize ingress with archived
 run_cmd rsync -a --exclude=".*" $INGRESS $ARCHIVED
-log_info "DONE: Runs processed, ingress --> archive synced"
+log_info "DONE, ingress --> archive synced"
