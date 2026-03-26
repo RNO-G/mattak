@@ -93,7 +93,7 @@ for st in ${STATIONS} ; do
     fi
   done
   # synchronize ingress with archived
-  run_cmd rsync -a --exclude=".*" "$INGRESS/station${st}" "$ARCHIVED/station${st}"
+  run_cmd rsync -a --exclude=".*" "$INGRESS/station${st}/" "$ARCHIVED/station${st}/"
   log_info "DONE, ingress --> archive synced"
 done
 
