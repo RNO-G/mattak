@@ -1,3 +1,4 @@
+import logging
 import mattak.Dataset
 import time
 import numpy
@@ -15,7 +16,13 @@ if __name__ == "__main__":
         '--no-skip-incomplete', action='store_true',
         help='If True, test the `skip_incomplete=False` option which tries to read (header)data also for events for which no waveforms are present.' )
     argparser.add_argument('--benchmark', type=str, default=None, help="If provided, store benchmark results in this file.")
+    argparser.add_argument("--debug", action="store_true")
     args = argparser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     calibrated = args.calibrate
     skip_incomplete = not args.no_skip_incomplete
