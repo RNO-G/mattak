@@ -464,13 +464,14 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     # we arbitrarily pick 4 full run days -> 48 runs
     # in theory there should be a calibration available every 13 runs
     max_runs_to_check = 48
-    # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 20 consecutive runs
+    # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 3 days
+    max_days_to_deviate = 3
     run_time = read_run_time(rundir)
-    max_time = max_runs_to_check * 2 * 60 * 60
+    max_time = max_days_to_deviate * 24 * 60 * 60
 
     run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [i, -i]]
     for run_nr_to_check in run_nrs_to_check:    
-        rundir_to_check = os.path.join(os.path.dirname(rundir), "run" + str(run_nr_to_check))
+        rundir_to_check = f"{os.path.dirname(rundir)}/run{run_nr_to_check}"
 
         try:
             vc_list = [vc for vc in os.listdir(str(rundir_to_check)) if vc.startswith("volCalConst")]
@@ -482,6 +483,8 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
                                     this should not be possible is something wrong with the rootify process?")
             vc_file = rundir_to_check + "/" + vc_list[0]
             run_to_check_time = read_run_time(rundir_to_check)
+            if run_to_check_time is None:
+                continue
             if abs(run_to_check_time - run_time) < max_time:
                 logging.debug("FOUND VC FILE " + vc_file)
                 return vc_file
@@ -553,12 +556,20 @@ def find_all_volcal_runs_station(station):
 
 
 def read_run_time(rundir):
-    runinfo_path = os.path.join(rundir, "aux", "runinfo.txt")
-    with open(runinfo_path, "r") as runinfo_file:
-        time = runinfo_file.readlines()[2]
-    time = time.split(" =  ")[-1][:-1]
-    # this loses some accuracy because time is longer than 64 bits
-    # but for the purposes of checking times on the hour scale this does
-    # not matter
-    time = float(time)
-    return time
+    """
+    Helper function to read in run start time from runinfo.txt
+    """
+    try:
+        runinfo_path = os.path.join(rundir, "aux", "runinfo.txt")
+        with open(runinfo_path, "r") as runinfo_file:
+            time = runinfo_file.readlines()[2]
+        time = time.split(" =  ")[-1][:-1]
+        # this loses some accuracy because time is longer than 64 bits
+        # but for the purposes of checking times on the hour scale this does
+        # not matter
+        time = float(time)
+    
+        return time
+    except:
+        logging.warning(f"Unable to find run start time in {rundir}")
+        return None
