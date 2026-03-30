@@ -22,7 +22,7 @@ if __name__ == "__main__":
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.CRITICAL)
+        logging.basicConfig(level=logging.INFO)
 
     calibrated = args.calibrate
     skip_incomplete = not args.no_skip_incomplete
