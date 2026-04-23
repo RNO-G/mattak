@@ -18,10 +18,9 @@
 #   --no-remove          Skip automatic removal of identical directories (default: will remove after confirmation)
 #
 # Workflow:
-#   1. Connects to remote host s<station_id> and lists directories in /data/daq
-#   2. Lists directories in local /data/ingress/station<station_id>/
-#   3. Compares each remote directory with its local counterpart using rsync
-#   4. Categorizes directories as IDENTICAL or DIFFERENT
+#   1. Connects to remote host s<station_id> and lists directories in /data/daq (skipping those smaller than size limit)
+#   3. Compares each remote directory with its local counterpart under /data/ingress/station<station_id>/ using rsync
+#   4. Categorizes directories as IDENTICAL or DIFFERENT or MISSING LOCALLY
 #   5. Displays summary with counts and total sizes
 #   6. If --no-remove is not set, prompts user to remove identical directories from remote
 #
@@ -64,21 +63,14 @@ HOST="s${STATION_ID}"
 
 # Get remote directory sizes into associative array
 echo "Connecting to $HOST and analyzing /data/daq..."
-declare -A REMOTE_DIRS
+declare -A REMOTE_DIR_SIZES
+declare -a REMOTE_DIRS  # to have sorted list of directories with size > limit
 while IFS=$'\t' read -r size dir; do
     if (( size > SIZE_LIMIT_KB )); then
-        REMOTE_DIRS["$dir"]=$size
+        REMOTE_DIR_SIZES["$dir"]=$size
+        REMOTE_DIRS+=("$dir")
     fi
-done < <(ssh -q "$HOST" "cd /data/daq && du -sk * 2>/dev/null | sort -k2" )
-
-# Get local directory sizes into associative array
-echo "Analyzing local $LOCAL_DIR ..."
-declare -A LOCAL_DIRS
-while IFS=$'\t' read -r size dir; do
-    if (( size > SIZE_LIMIT_KB )); then
-        LOCAL_DIRS["$dir"]=$size
-    fi
-done < <(cd "$LOCAL_DIR" && du -sk * 2>/dev/null | sort -k2)
+done < <(ssh -q "$HOST" "cd /data/daq && du -sk * 2>/dev/null" | sort -k2)
 
 # Compare directories
 echo ""
@@ -92,10 +84,10 @@ identical_size=0
 different_size=0
 
 # Compare each remote directory with local using rsync
-for dir in "${!REMOTE_DIRS[@]}"; do
+for dir in "${REMOTE_DIRS[@]}"; do
     remote_path="${HOST}:/data/daq/${dir}/"
     local_path="${LOCAL_DIR}/${dir}/"
-    dir_size=${REMOTE_DIRS["$dir"]}
+    dir_size=${REMOTE_DIR_SIZES["$dir"]}
 
     # Check if local directory exists
     if [[ ! -d "$local_path" ]]; then
