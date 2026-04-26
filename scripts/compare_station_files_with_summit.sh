@@ -94,7 +94,48 @@ different_dirs=()
 identical_size=0
 different_size=0
 
-# Compare each remote directory with local using rsync
+# Create temporary file with list of directories to sync (only those above size limit)
+rsync_includes=$(mktemp)
+trap "rm -f '$rsync_includes'" EXIT
+printf '%s\n' "${REMOTE_DIRS[@]}" > "$rsync_includes"
+
+# Use single rsync call to compare only directories above size limit (much faster)
+echo "Running rsync comparison on directories with size > ${SIZE_LIMIT_KB} KB..."
+rsync_output=$(rsync -anr --itemize-changes --files-from="$rsync_includes" -e "ssh -q" "${HOST}:/data/daq/" "${LOCAL_DIR}/" 2>&1)
+rsync_exit_code=$?
+
+# Check if rsync failed
+if [[ $rsync_exit_code -ne 0 ]]; then
+    echo "Error: rsync command failed with exit code $rsync_exit_code. Aborting."
+    exit 1
+fi
+
+# Check if rsync output is empty
+if [[ -z "$rsync_output" ]]; then
+    echo "Error: rsync output is empty. Aborting."
+    exit 1
+fi
+
+# Parse rsync output to identify which directories have differences
+declare -A dir_has_differences
+echo "Comparing rsync output..."
+# Extract directories with changes from rsync output
+while IFS= read -r line; do
+    # Skip empty lines and metadata lines (sent, received, total)
+    if [[ -z "$line" || "$line" =~ ^(sent|received|total) ]]; then
+        continue
+    fi
+
+    # rsync format: "changeinfo path" - extract the path part
+    if [[ $line =~ ^[^[:space:]]+[[:space:]]+(.+)$ ]]; then
+        filepath="${BASH_REMATCH[1]}"
+        # Get top-level directory (run folder)
+        top_dir=$(echo "$filepath" | cut -d'/' -f1)
+        [[ -n "$top_dir" ]] && dir_has_differences["$top_dir"]=true
+    fi
+done <<< "$rsync_output"
+
+# Categorize directories based on rsync findings
 for dir in "${REMOTE_DIRS[@]}"; do
     # Skip the run specified by skip_run if it matches the directory name
     if [[ -n "$skip_run" ]]; then
@@ -104,27 +145,23 @@ for dir in "${REMOTE_DIRS[@]}"; do
             continue
         fi
     fi
+
     dir_size=${REMOTE_DIR_SIZES["$dir"]}
+    local_path="${LOCAL_DIR}/${dir}/"
 
     # Check if local directory exists
     if [[ ! -d "$local_path" ]]; then
         echo "MISSING LOCALLY: $dir"
         different_dirs+=("$dir")
         ((different_size += dir_size))
-        continue
-    fi
-
-    # Use rsync with dry-run to compare
-    # rsync -van --itemize-changes "$remote_path" "$local_path"
-    diff_output=$(rsync -an --itemize-changes -e "ssh -q" "$remote_path" "$local_path" 2>&1)
-    if [[ -z "$diff_output" ]]; then
-        echo "IDENTICAL: $dir"
-        identical_dirs+=("$dir")
-        ((identical_size += dir_size))
-    else
+    elif [[ "${dir_has_differences[$dir]}" == "true" ]]; then
         echo "DIFFERENT: $dir"
         different_dirs+=("$dir")
         ((different_size += dir_size))
+    else
+        echo "IDENTICAL: $dir"
+        identical_dirs+=("$dir")
+        ((identical_size += dir_size))
     fi
 done
 
