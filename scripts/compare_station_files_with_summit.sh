@@ -61,6 +61,17 @@ fi
 
 HOST="s${STATION_ID}"
 
+# Query the current run from the station and subtract 1 to get the run to skip
+echo "Querying current run from $HOST..."
+next_run=$(ssh -q "$HOST" "cat /rno-g/var/runfile" 2>/dev/null | tr -d '[:space:]')
+if [[ -z "$next_run" ]]; then
+    echo "Warning: Could not read /rno-g/var/runfile from $HOST"
+    skip_run=""
+else
+    skip_run=$((next_run - 1))
+    echo "Current run: $skip_run, will skip ..."
+fi
+
 # Get remote directory sizes into associative array
 echo "Connecting to $HOST and analyzing /data/daq..."
 declare -A REMOTE_DIR_SIZES
@@ -85,8 +96,14 @@ different_size=0
 
 # Compare each remote directory with local using rsync
 for dir in "${REMOTE_DIRS[@]}"; do
-    remote_path="${HOST}:/data/daq/${dir}/"
-    local_path="${LOCAL_DIR}/${dir}/"
+    # Skip the run specified by skip_run if it matches the directory name
+    if [[ -n "$skip_run" ]]; then
+        dir_num="${dir#run}"  # Extract numeric part by removing "run" prefix
+        if [[ "$dir_num" == "$skip_run" ]]; then
+            echo "Skip current run: $dir"
+            continue
+        fi
+    fi
     dir_size=${REMOTE_DIR_SIZES["$dir"]}
 
     # Check if local directory exists
