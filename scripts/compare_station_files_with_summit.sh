@@ -178,15 +178,15 @@ echo "=========================================="
 # Handle removal of identical directories if requested
 if [[ "$REMOVE_FLAG" == true && ${#identical_dirs[@]} -gt 0 ]]; then
     echo ""
-    echo "The following directories will be removed from $HOST:/data/daq:"
-    echo "Command:ssh $HOST rm -rf $(printf '/data/daq/%s ' "${identical_dirs[@]}")"
+    echo "The following command will be executed to remove directories from $HOST:/data/daq:"
+    echo "Command: ssh $HOST rm -rf $(printf '/data/daq/%s ' "${identical_dirs[@]}")"
     read -p "Are you sure you want to remove these directories? (yes/no): " confirm
 
     if [[ "$confirm" == "yes" ]]; then
         echo "Removing identical directories from remote..."
 
         # Execute single SSH command with all directories at once
-        ssh "$HOST" "rm -rf $(printf '/data/daq/%s ' "${identical_dirs[@]}")" 2>&1
+        ssh -q "$HOST" "rm -rf $(printf '/data/daq/%s ' "${identical_dirs[@]}")" 2>&1
         if [[ $? -eq 0 ]]; then
             echo "  ✓ Successfully removed all identical directories"
         else
