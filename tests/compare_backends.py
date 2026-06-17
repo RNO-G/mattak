@@ -62,4 +62,18 @@ if __name__ == "__main__":
     for ev_py, ev_up in zip(eventInfos_pyroot, eventInfos_uproot):
         assert compare_event_info(ev_py, ev_up), "Backends return different event infos"
 
+
+    dset_pyroot.setEntries((0, 5))
+    dset_uproot.setEntries((0, 5))
+
+    wfs_py = []
+    wfs_up = []
+    for (_, wf_py), (_, wf_up) in zip(dset_pyroot.iterate(), dset_uproot.iterate()):
+        assert numpy.all(wf_py == wf_up), "Backends return different waveforms during iterate"
+        wfs_py.append(wf_py)
+        wfs_up.append(wf_up)
+
+    assert numpy.allclose(wfs_py, wfs_up), "Backends return different waveforms after iterate"
+    assert not numpy.allclose(wfs_py[0], wfs_py[1]), "Waveforms returned by pyroot backend are identical"
+
     print("Successful")
