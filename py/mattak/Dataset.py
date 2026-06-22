@@ -61,34 +61,36 @@ class RunInfo:
     def set_run_config(self, run_config):
         self.run_config = run_config
 
-    @property
-    def calibration_channel(self) -> Optional[str]:
-        """ In-situ cal-pulser channel ("coax", "fiber0", "fiber1") or None if not available/disabled. """
-        return self._calib_field("channel")
+    def get_config(self, *keys : str, default=None):
+        """ Get any property from the (libconfig-read) run config.
 
-    @property
-    def calibration_type(self) -> Optional[str]:
-        """ In-situ cal-pulser type ("pulser", "vco", "vco2") or None if not available/disabled. """
-        return self._calib_field("type")
+        Traverses the nested run config following `keys`. For example,
+        ``run_info.get_config("calib", "channel")`` returns
+        ``run_config["calib"]["channel"]``. A single dot-separated string is
+        also accepted as a convenience, i.e. ``run_info.get_config("calib.channel")``.
 
-    def _calib_field(self, field : str) -> Optional[str]:
-        if self.run_config is None or "calib" not in self.run_config:
-            return None
-        calib = self.run_config["calib"]
-        if not calib.get("enable_cal"):
-            return None
-        value = calib.get(field)
-        if value in (None, "none"):
-            return None
+        Parameters
+        ----------
+        *keys : str
+            Sequence of (nested) keys describing the path to the property.
+        default : optional
+            Value to return if the run config is not available or any key
+            along the path is missing (Default: None).
+
+        Returns
+        -------
+        The requested property, or `default` if it could not be found.
+        """
+        if len(keys) == 1 and isinstance(keys[0], str):
+            keys = keys[0].split(".")
+
+        value = self.run_config
+        for key in keys:
+            if not isinstance(value, dict) or key not in value:
+                return default
+            value = value[key]
+
         return value
-
-    def calibration_label(self) -> Optional[str]:
-        """ Human-readable cal-pulser label, e.g. "coax/pulser", or None if not a cal run. """
-        channel = self.calibration_channel
-        type_ = self.calibration_type
-        if channel is None and type_ is None:
-            return None
-        return "/".join(v for v in (channel, type_) if v is not None)
 
 
 class AbstractDataset(ABC):
@@ -180,6 +182,18 @@ class AbstractDataset(ABC):
 
         return float(last_event.triggerTime - first_event.triggerTime)
 
+    def get_config(self, *keys : str, default=None):
+        """ Get any property from the (libconfig-read) run config.
+
+        Convenience pass-through to `RunInfo.get_config`. Returns `default`
+        if the run info / run config is not available. For example,
+        ``dataset.get_config("calib", "channel")`` returns
+        ``run_config["calib"]["channel"]``.
+        """
+        if self.run_info is None:
+            return default
+        return self.run_info.get_config(*keys, default=default)
+
     def is_calibration_run(self) -> bool:
         """ Returns True if the run is a calibration run  """
 
@@ -189,10 +203,7 @@ class AbstractDataset(ABC):
         if self.run_info.run_config is None:
             raise ValueError("Run config is not available")
 
-        if "calib" not in self.run_info.run_config:
-            return False
-
-        return self.run_info.run_config["calib"]["enable_cal"]
+        return bool(self.get_config("calib", "enable_cal", default=False))
 
     def trigger_rate(self, trigger : Union[None, str] = None) -> float:
         """ Return the trigger rate in Hz.

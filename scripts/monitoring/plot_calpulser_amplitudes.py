@@ -41,6 +41,15 @@ DEEP_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 21, 22, 23]
 ADC_MAX_CODE = 4095
 
 
+def run_cal_label(dataset):
+    """ Cal-pulser "channel/type" label from the run config, or None if not a cal run. """
+    if not dataset.get_config("calib", "enable_cal"):
+        return None
+    parts = [dataset.get_config("calib", key) for key in ("channel", "type")]
+    parts = [p for p in parts if p not in (None, "none")]
+    return "/".join(parts) if parts else None
+
+
 def read_monitoring_summary(path):
     """
     Return (amplitudes, rms): two {event_number: np.ndarray[24]} dicts from a
@@ -91,7 +100,7 @@ def calpulser_event_numbers(rundir, threshold):
     cal-pulser channel/type label (e.g. "coax/pulser", or None if not a cal run).
     """
     dataset = mattak.Dataset.Dataset(
-        station=0, run=0, data_path=rundir,
+        station=0, run=0, data_path=rundir, backend="pyroot",
         skip_incomplete=False, voltage_calibration=None)
 
     # warn if the run config did not enable the cal pulser (enable_cal=0)
@@ -118,7 +127,7 @@ def calpulser_event_numbers(rundir, threshold):
 
     cal_evs = set(event_number[dt < threshold].tolist())
     force_evs = set(event_number[trigger_type == "FORCE"].tolist())
-    cal_label = dataset.run_info.calibration_label() if dataset.run_info is not None else None
+    cal_label = run_cal_label(dataset)
     return (cal_evs, force_evs,
             int(dataset.station), int(dataset.run), dataset.duration(), cal_label)
 

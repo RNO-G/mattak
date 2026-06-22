@@ -30,6 +30,15 @@ import mattak.Dataset
 CANDIDATE_THRESHOLDS = [1e-6, 2e-6, 3e-6, 5e-6, 1e-5, 2e-5]
 
 
+def run_cal_label(dataset):
+    """ Cal-pulser "channel/type" label from the run config, or None if not a cal run. """
+    if not dataset.get_config("calib", "enable_cal"):
+        return None
+    parts = [dataset.get_config("calib", key) for key in ("channel", "type")]
+    parts = [p for p in parts if p not in (None, "none")]
+    return "/".join(parts) if parts else None
+
+
 def event_dt(rundir):
     """
     Return (dt, station, run, cal_label): dt = time since last PPS (seconds) for every
@@ -49,8 +58,7 @@ def event_dt(rundir):
     f = (pps0 - pps1) % (2 ** 32)
     # time since the last PPS (handle uint32 wrap-around)
     dt = ((sysclk - pps0) % (2 ** 32)) / f
-    cal_label = dataset.run_info.calibration_label() if dataset.run_info is not None else None
-    return dt, int(dataset.station), int(dataset.run), cal_label
+    return dt, int(dataset.station), int(dataset.run), run_cal_label(dataset)
 
 
 def resolve_rundir(path):
