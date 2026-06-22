@@ -132,7 +132,7 @@ def plot_dt(dt_all, runs, output, zoom_us, bins, threshold, station_title=None):
 
     tag = ", ".join(f"s{s}r{r}" for s, r in runs)
     suptitle = f"dt distribution ({dt_all.size} events; {tag})"
-    if station_title:
+    if station_title and len(station_title) < 100:
         suptitle += f"\n{station_title}"
     fig.suptitle(suptitle)
     fig.tight_layout()
