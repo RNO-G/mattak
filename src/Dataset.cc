@@ -85,6 +85,8 @@ static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
 template <typename D>
 static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = false)
 {
+  // Returns 0 on success (found a valid tree + branch pair).
+  // Returns -1 on failure (file couldn't open, or no matching tree/branch).
   clear(field);
   if (verbose) std::cout << "Trying to open " << filename << std::endl;
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
@@ -135,6 +137,9 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
 template <typename D>
 static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool verbose = true)
 {
+  // Returns -1 if the file couldn't be opened.
+  // Returns 1 (true) if the object was found.
+  // Returns 0 if the file opened but the object wasn't there.
   clear(field);
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
   if (!field->file) return -1;
@@ -413,13 +418,31 @@ int mattak::Dataset::loadDir(const char * dir)
 
   //and try the runinfo file
   if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
-  if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose))
+  if (full_dataset)
   {
-     std::cerr << "Failed to read runinfo ... " << std::endl;
+    if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose))
+    {
+      std::cerr << "Failed to read runinfo ... " << std::endl;
+    }
+    else
+    {
+      if (opt.verbose) std::cout << " success" << std::endl;
+    }
   }
   else
   {
-    if (opt.verbose) std::cout << " success" << std::endl;
+    // For a partial/combined run the runinfo is stored as the "info"/"runinfo"
+    // object inside the combined file itself, so read it from there (same as
+    // loadCombinedFile).
+    const char * combined = Form("%s/%s.root", dir, partial_file);
+    if (setup(&runinfo, combined, "info") == 1 || setup(&runinfo, combined, "runinfo") == 1)
+    {
+      if (opt.verbose) std::cout << " success" << std::endl;
+    }
+    else
+    {
+      std::cerr << "Failed to read runinfo ... " << std::endl;
+    }
   }
 
   return 0;

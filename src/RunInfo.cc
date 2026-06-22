@@ -1,13 +1,12 @@
 #include "mattak/RunInfo.h"
-#include <fstream>
 #include "mattak/Version.h"
+
 #include <stdlib.h>
-#include "TString.h"
 #include <iostream>
+#include <fstream>
+#include "TString.h"
 
 ClassImp(mattak::RunInfo);
-
-
 
 
 void trim(std::string & s)
@@ -15,48 +14,38 @@ void trim(std::string & s)
   const char * ws = " \t";
   s.erase(s.find_last_not_of(ws)+1);
   s.erase(0, s.find_first_not_of(ws));
-
-
 }
 
 mattak::RunInfo::RunInfo(const char * auxdir)
 {
   mattak_version = mattak::version();
-
-  //TODO: use fmt?
-  std::ifstream fruninfo(Form("%s/runinfo.txt",auxdir));
+  std::ifstream fruninfo(Form("%s/runinfo.txt", auxdir));
 
   if (fruninfo.good())
   {
     std::string line;
 
-
-    //First fill the kvp
+    // First read file into kvp
     while (std::getline(fruninfo,line))
     {
 
       std::string key;
       std::string value;
-      //find =
-
       size_t where = line.find("=");
 
-      //Skip lines without
+      // Skip lines without "=" sign
       if (where == std::string::npos)
-      {
         continue;
-      }
 
-      key = line.substr(0,where);
+      key = line.substr(0, where);
       value = line.substr(where+1);
 
-      //trim leading and trailing whitespace
+      // trim leading and trailing whitespace
       trim(key);
       trim(value);
-      std::cout <<key << ":" << value << std::endl;
+      std::cout << key << ":" << value << std::endl;
       kvp[key] = value;
     }
-
 
     //now let's fill in things we can find
     librnog_version = lookup("LIB-RNO-G-GIT-HASH");
@@ -78,7 +67,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     std::cerr << "Could not open runinfo.txt" << std::endl;
   }
 
-  //now look for flower gain codes
+  // now look for flower gain codes
 
   int iflower = 0;
   while(true)
@@ -88,13 +77,13 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     FlowerGainCode code;
     std::string line;
 
-    std::getline(ifs,line);
+    std::getline(ifs, line);
     sscanf(line.c_str(),"# Flower gain codes, station=%d, run=%d,  time=%d", &code.station, &code.run, &code.when);
 
-    std::getline(ifs,line);
+    std::getline(ifs, line);
     sscanf(line.c_str(),"%hhu %hhu %hhu %hhu", &code.codes[0],&code.codes[1], &code.codes[2], &code.codes[3]);
 
-    if(std::getline(ifs,line)) 
+    if(std::getline(ifs, line))
       sscanf(line.c_str(),"%f %f %f %f", &code.rms[0],&code.rms[1], &code.rms[2], &code.rms[3]);
 
     flower_codes.push_back(code);
@@ -196,7 +185,7 @@ float mattak::FlowerGainCode::gain(unsigned chan)
 {
   if (chan >= k::num_lt_channels) return -1;
 
-  const float table[] = { 1, 1.25, 2, 2.5, 4, 5, 8, 10,12.5, 16,20,25,32,50};
+  const float table[] = { 1, 1.25, 2, 2.5, 4, 5, 8, 10, 12.5, 16, 20, 25, 32, 50};
 
   if (codes[chan] >= sizeof(table)/sizeof(*table)) return 50;
   return table[codes[chan]];
