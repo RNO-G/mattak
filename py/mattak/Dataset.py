@@ -447,6 +447,25 @@ def find_voltage_calibration_for_dataset(dataset, i=0):
     return find_voltage_calibration(dataset.rundir, dataset.station, dataset.run)
 
 
+def _volcal_in_dir(directory):
+    """ Return the single volCalConst* file in `directory`, or None if there is none
+        (or the directory does not exist). Raises FileExistsError if more than one is found. """
+    try:
+        matches = [vc for vc in os.listdir(str(directory)) if vc.startswith("volCalConst")]
+    except OSError:
+        return None
+
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        raise FileExistsError(
+            f"More than one voltage calibration file found in {directory}, this should not be "
+            "possible. Is something wrong with the rootify process?")
+
+    return os.path.join(str(directory), matches[0])
+
+
 def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     """
     Function to find the calibration file that lays closest to given run number.
@@ -480,12 +499,9 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         if no calibration file was found
     """
     # try finding a calibration file in same run directory
-    vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
-    if vc_list:
-        if len(vc_list) > 1:
-            raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
-                                  this should not be possible is something wrong with the rootify process?")
-        return rundir + "/" + vc_list[0]
+    vc_file = _volcal_in_dir(rundir)
+    if vc_file is not None:
+        return vc_file
 
     # try finding a calibration file in neigboring run directory
     max_runs_to_check = 48 # we arbitrarily pick 4 full run days -> 48 runs
@@ -496,24 +512,17 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     for run_nr_to_check in run_nrs_to_check:
         rundir_to_check = f"{os.path.dirname(rundir)}/run{run_nr_to_check}"
 
-        try:
-            vc_list = [vc for vc in os.listdir(str(rundir_to_check)) if vc.startswith("volCalConst")]
-        except:
-            vc_list = None
+        vc_file = _volcal_in_dir(rundir_to_check)
+        if vc_file is None:
+            continue
 
-        if vc_list:
-            if len(vc_list) > 1:
-                raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
-                                    this should not be possible is something wrong with the rootify process?")
+        run_to_check_time = read_run_time(rundir_to_check)
+        if run_to_check_time is None:
+            continue
 
-            vc_file = rundir_to_check + "/" + vc_list[0]
-            run_to_check_time = read_run_time(rundir_to_check)
-            if run_to_check_time is None:
-                continue
-
-            if abs(run_to_check_time - run_time) < max_time:
-                logging.debug("FOUND VC FILE " + vc_file)
-                return vc_file
+        if abs(run_to_check_time - run_time) < max_time:
+            logging.debug("FOUND VC FILE " + vc_file)
+            return vc_file
 
     # look for calibration with environment variables
     vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
@@ -539,12 +548,21 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         return None
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
-    if vc_run_nrs[closest_idx] - run_nr > 100:
+    if abs(vc_run_nrs[closest_idx] - run_nr) > 100:
         logging.error(f"Skipping voltage calibration, \
                       closest volCal found was run {vc_run_list[closest_idx]}, \
                       which is more than 100 runs away from the data")
         return None
-    vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
+
+    vc_rundir = os.path.join(vc_dir, vc_run_list[closest_idx])
+    vc_file = _volcal_in_dir(vc_rundir)
+    if vc_file is None:
+        msg = f"No volCalConst file found in {vc_rundir}"
+        if log_error:
+            logging.error(msg)
+        else:
+            logging.debug(msg)
+        return None
 
     logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
     return vc_file
@@ -564,9 +582,14 @@ def read_run_config(path : str) -> dict:
 # store for one station
 @lru_cache(maxsize=64)
 def find_all_volcal_runs_station(station):
+    """ Searching for run voltage calibration files using environmental variables.
+
+    Returns `None, [], []` if it could find anything
+
+    """
     vc_dir = None
     vc_run_list = []
-    # look in VC constants directory
+
     for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
         if env_var in os.environ:
             try:
@@ -574,15 +597,17 @@ def find_all_volcal_runs_station(station):
                     vc_dir = f"{os.environ[env_var]}/station{station}"
                 else:
                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
+
                 vc_run_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("run")]
                 if len(vc_run_list) == 0:
                     continue
-                break
+
+                break  # stop with the first list of directories
             except FileNotFoundError:
                 pass
+
     vc_run_nrs = [int(vc_run.split("run")[1]) for vc_run in vc_run_list]
     return vc_dir, vc_run_list, vc_run_nrs
-
 
 
 def read_run_time(rundir):

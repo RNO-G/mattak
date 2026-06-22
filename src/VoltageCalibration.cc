@@ -943,7 +943,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
 
   TString outFileName;
   if (getRun() > 0) {
-    outFileName = TString::Format("volCalConsts_pol%d%s_s%d_r%d.root",
+    outFileName = TString::Format("volCalConsts_pol%d%s_s%d_run%d.root",
                                    getFitOrder(), residSuffix, getStationNumber(), getRun());
   } else {
     outFileName = TString::Format("volCalConsts_pol%d%s_s%d_%d-%d.root",
