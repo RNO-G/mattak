@@ -37,6 +37,22 @@ import mattak.Dataset
 # Deep (in-ice) channels: the three power-string deep channels live in 0-11 and 21-23.
 DEEP_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 21, 22, 23]
 
+# A cal-pulser fiber sits next to three deep channels on its own string; those
+# co-located channels see the direct pulse rather than the in-ice signal of
+# interest, so they are excluded from the histogram for that fiber.
+FIBER_DEEP_EXCLUDED = {
+    "fiber0": {21, 22, 23},
+    "fiber1": {9, 10, 11},
+}
+
+
+def deep_channels_for_cal(cal_channel):
+    """Deep channels to histogram for a given cal-pulser channel (e.g. "fiber0"),
+    dropping the channels co-located with the firing fiber. Unknown/None channels
+    keep the full deep-channel set."""
+    excluded = FIBER_DEEP_EXCLUDED.get(cal_channel, set())
+    return [ch for ch in DEEP_CHANNELS if ch not in excluded]
+
 # 12-bit ADC: codes 0..4095 span the 2.5 V dynamic range.
 ADC_MAX_CODE = 4095
 
@@ -95,9 +111,10 @@ def calpulser_event_numbers(rundir, threshold):
     (skip_incomplete=False). Cal-pulser events are those triggering within ``threshold``
     seconds of the last PPS.
 
-    Returns (cal_evs, force_evs, station, run, duration, cal_label): the cal-pulser and
-    force-trigger event-number sets, the station, run, run duration (seconds) and the
-    cal-pulser channel/type label (e.g. "coax/pulser", or None if not a cal run).
+    Returns (cal_evs, force_evs, station, run, duration, cal_label, cal_channel): the
+    cal-pulser and force-trigger event-number sets, the station, run, run duration
+    (seconds), the cal-pulser channel/type label (e.g. "coax/pulser", or None if not a
+    cal run) and the bare cal-pulser channel (e.g. "fiber0", used to pick deep channels).
     """
     dataset = mattak.Dataset.Dataset(
         station=0, run=0, data_path=rundir, backend="pyroot",
@@ -128,28 +145,30 @@ def calpulser_event_numbers(rundir, threshold):
     cal_evs = set(event_number[dt < threshold].tolist())
     force_evs = set(event_number[trigger_type == "FORCE"].tolist())
     cal_label = run_cal_label(dataset)
+    cal_channel = dataset.get_config("calib", "channel")
     return (cal_evs, force_evs,
-            int(dataset.station), int(dataset.run), dataset.duration(), cal_label)
+            int(dataset.station), int(dataset.run), dataset.duration(), cal_label,
+            cal_channel)
 
 
-def saturation_limits_for_run(rundir, override, margin):
+def saturation_limits_for_run(rundir, override, margin, channels):
     """
     Per-channel max_abs_amplitude limit (ADC counts) above which a channel saturates.
 
     With ``override`` the same value is used for every channel. Otherwise each channel's
     limit is its own pedestal near-rail distance (from pedestal.root) reduced by
     ``margin`` to allow for per-sample pedestal spread. Returns (limits, source) where
-    ``limits`` is a dict {channel: adc} over the deep channels, or (None, reason) if
+    ``limits`` is a dict {channel: adc} over ``channels``, or (None, reason) if
     unavailable.
     """
     if override is not None:
-        return {ch: float(override) for ch in DEEP_CHANNELS}, "user-specified"
+        return {ch: float(override) for ch in channels}, "user-specified"
 
     near_rail = pedestal_near_rail(rundir)
     if near_rail is None:
         return None, "pedestal.root not found"
 
-    limits = {ch: (1.0 - margin) * float(near_rail[ch]) for ch in DEEP_CHANNELS}
+    limits = {ch: (1.0 - margin) * float(near_rail[ch]) for ch in channels}
     return limits, f"pedestal-derived (per-channel near-rail x {1 - margin:.2f})"
 
 
@@ -158,7 +177,8 @@ def combine_limits(per_run_limits):
     valid = [lim for lim in per_run_limits if lim is not None]
     if not valid:
         return None
-    return {ch: min(lim[ch] for lim in valid) for ch in DEEP_CHANNELS}
+    channels = {ch for lim in valid for ch in lim}
+    return {ch: min(lim[ch] for lim in valid if ch in lim) for ch in channels}
 
 
 def collect_calpulser_amplitudes(monitoring_files, rundirs, threshold,
@@ -178,15 +198,19 @@ def collect_calpulser_amplitudes(monitoring_files, rundirs, threshold,
     cal_labels = {}  # station -> set of cal-pulser channel/type labels seen
     for mon_path, rundir in zip(monitoring_files, rundirs):
         amplitudes, rms = read_monitoring_summary(mon_path)
-        cal_evs, force_evs, station, run, duration, cal_label = calpulser_event_numbers(rundir, threshold)
+        cal_evs, force_evs, station, run, duration, cal_label, cal_channel = \
+            calpulser_event_numbers(rundir, threshold)
         runs.append((station, run))
         cal_labels.setdefault(station, set()).add(cal_label)
+
+        # deep channels to keep for this run's cal-pulser fiber (drops co-located channels)
+        channels = deep_channels_for_cal(cal_channel)
 
         # force-trigger vrms (noise level), matched to the monitoring file
         force_matched = force_evs & rms.keys()
         for ev in force_matched:
             r = rms[ev]
-            for ch in DEEP_CHANNELS:
+            for ch in channels:
                 force_rms[ch].append(r[ch])
 
         matched = cal_evs & amplitudes.keys()
@@ -205,18 +229,19 @@ def collect_calpulser_amplitudes(monitoring_files, rundirs, threshold,
             logging.warning("    could not determine run duration; skipping efficiency")
 
         # collect per-channel amplitudes for this run (for histogram + saturation check)
-        run_amps = {ch: np.array([amplitudes[ev][ch] for ev in matched]) for ch in DEEP_CHANNELS}
-        for ch in DEEP_CHANNELS:
+        run_amps = {ch: np.array([amplitudes[ev][ch] for ev in matched]) for ch in channels}
+        for ch in channels:
             amps[ch].extend(run_amps[ch].tolist())
 
-        limits, source = saturation_limits_for_run(rundir, saturation_override, saturation_margin)
+        limits, source = saturation_limits_for_run(rundir, saturation_override,
+                                                   saturation_margin, channels)
         per_run_limits.append(limits)
         warn_saturation(run_amps, limits, source)
 
     print(f"Total cal-pulser events selected: {n_cal_total}")
 
     # mean force-trigger vrms per channel (noise floor), pooled over all runs
-    vrms_levels = {ch: float(np.mean(force_rms[ch])) for ch in DEEP_CHANNELS if force_rms[ch]}
+    vrms_levels = {ch: float(np.mean(v)) for ch, v in force_rms.items() if v}
 
     return ({ch: np.array(v) for ch, v in amps.items()}, runs,
             combine_limits(per_run_limits), vrms_levels or None,
@@ -241,8 +266,7 @@ def warn_saturation(run_amps, limits, source):
         return
 
     flagged = {}
-    for ch in DEEP_CHANNELS:
-        data = run_amps[ch]
+    for ch, data in run_amps.items():
         if data.size:
             n = int(np.sum(data >= limits[ch]))
             if n:
@@ -264,18 +288,25 @@ def plot_histograms(amps, output, bins=50, sat_limits=None, vrms_levels=None, ti
     each channel's mean force-trigger vrms (noise floor) is drawn as a green line.
     If ``title`` is given, it is used as the figure suptitle (station + cal-pulser type).
     """
-    n = len(DEEP_CHANNELS)
-    ncols = 5
+    channels = [ch for ch in DEEP_CHANNELS if ch in amps]
+    n = len(channels)
+    ncols = 4
     nrows = int(np.ceil(n / ncols))
+
+    # fixed bin edges shared by every panel, spanning the pooled amplitude range,
+    # so the histograms are directly comparable across channels
+    all_data = np.concatenate([amps[ch] for ch in channels if amps[ch].size]) \
+        if any(amps[ch].size for ch in channels) else np.array([0.0, 1.0])
+    bin_edges = np.linspace(all_data.min(), all_data.max(), bins + 1)
 
     fig, axs = plt.subplots(nrows, ncols, figsize=(3 * ncols, 2 * nrows),
                             sharex=True, sharey=True, squeeze=False)
 
-    for idx, ch in enumerate(DEEP_CHANNELS):
+    for idx, ch in enumerate(channels):
         ax = axs[idx // ncols][idx % ncols]
         data = amps.get(ch, np.array([]))
         if data.size:
-            ax.hist(data, bins=bins)
+            ax.hist(data, bins=bin_edges)
         if vrms_levels is not None and ch in vrms_levels:
             ax.axvline(vrms_levels[ch], color="g", ls=":", lw=1,
                        label=f"$V_{{rms}}$ = {vrms_levels[ch]:.1f} ADC")
