@@ -206,7 +206,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
             lowphasedTrigThrs=lowphasedTrigThrs,
-            hasWaveforms= self.ds.rawAvailable(),
+            hasWaveforms=self.ds.rawAvailable(),
             readoutDelay=readout_delay)
 
 
