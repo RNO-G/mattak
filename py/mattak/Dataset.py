@@ -61,6 +61,35 @@ class RunInfo:
     def set_run_config(self, run_config):
         self.run_config = run_config
 
+    @property
+    def calibration_channel(self) -> Optional[str]:
+        """ In-situ cal-pulser channel ("coax", "fiber0", "fiber1") or None if not available/disabled. """
+        return self._calib_field("channel")
+
+    @property
+    def calibration_type(self) -> Optional[str]:
+        """ In-situ cal-pulser type ("pulser", "vco", "vco2") or None if not available/disabled. """
+        return self._calib_field("type")
+
+    def _calib_field(self, field : str) -> Optional[str]:
+        if self.run_config is None or "calib" not in self.run_config:
+            return None
+        calib = self.run_config["calib"]
+        if not calib.get("enable_cal"):
+            return None
+        value = calib.get(field)
+        if value in (None, "none"):
+            return None
+        return value
+
+    def calibration_label(self) -> Optional[str]:
+        """ Human-readable cal-pulser label, e.g. "coax/pulser", or None if not a cal run. """
+        channel = self.calibration_channel
+        type_ = self.calibration_type
+        if channel is None and type_ is None:
+            return None
+        return "/".join(v for v in (channel, type_) if v is not None)
+
 
 class AbstractDataset(ABC):
     """
@@ -472,7 +501,11 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         return None
 
     if not vc_run_list:
-        logging.error("Could not find any calibration run files")
+        msg = f"Could not find any calibration run files in {vc_dir}"
+        if log_error:
+            logging.error(msg)
+        else:
+            logging.debug(msg)
         return None
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
