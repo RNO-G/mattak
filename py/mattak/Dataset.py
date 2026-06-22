@@ -479,7 +479,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     None
         if no calibration file was found
     """
-    # try finding a calibration file in the data's run directory
+    # try finding a calibration file in same run directory
     vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
     if vc_list:
         if len(vc_list) > 1:
@@ -489,16 +489,13 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
 
 
 
-    # try finding a calibration file in the nearest run folder
-    # we arbitrarily pick 4 full run days -> 48 runs
-    # in theory there should be a calibration available every 13 runs
-    max_runs_to_check = 48
-    # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 3 days
-    max_days_to_deviate = 3
-    run_time = read_run_time(rundir)
-    max_time = max_days_to_deviate * 24 * 60 * 60
+    # try finding a calibration file in neigboring run directory
 
-    run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [i, -i]]
+    max_runs_to_check = 48 # we arbitrarily pick 4 full run days -> 48 runs
+    run_time = read_run_time(rundir)
+    max_time = 3 * 24 * 60 * 60  # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 3 days
+
+    run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [-i, i]]
     for run_nr_to_check in run_nrs_to_check:
         rundir_to_check = f"{os.path.dirname(rundir)}/run{run_nr_to_check}"
 
@@ -506,19 +503,22 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
             vc_list = [vc for vc in os.listdir(str(rundir_to_check)) if vc.startswith("volCalConst")]
         except:
             vc_list = None
+
         if vc_list:
             if len(vc_list) > 1:
                 raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
                                     this should not be possible is something wrong with the rootify process?")
+
             vc_file = rundir_to_check + "/" + vc_list[0]
             run_to_check_time = read_run_time(rundir_to_check)
             if run_to_check_time is None:
                 continue
+
             if abs(run_to_check_time - run_time) < max_time:
                 logging.debug("FOUND VC FILE " + vc_file)
                 return vc_file
 
-
+    # look for calibration with environment variables
     vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
 
     if vc_dir is None:
