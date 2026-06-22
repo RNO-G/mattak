@@ -11,7 +11,7 @@ marked **(installed)** below. The rest are run in place from the source tree
 ## `daq/`
 
 Scripts driving the data-acquisition conversion pipeline (raw station data →
-ROOT files). These are the production scripts used by the DAQ.
+ROOT files). These are the production scripts used by the DAQ at the summit server.
 
 - `rno-g-autoconverter` — long-running converter loop, run per station by the
   systemd service in [`services/`](services). Watches the ingress directory and
@@ -19,9 +19,11 @@ ROOT files). These are the production scripts used by the DAQ.
 - `rno-g-convert-run` **(installed)** — convert a single raw run directory into
   the per-run ROOT files (`waveforms.root`, `headers.root`, `daqstatus.root`,
   `pedestal.root`, `runinfo.root`) and trigger calibration/monitoring steps.
+  Used by `rno-g-autoconverter`
 - `rno-g-convert-station` **(installed)** — convert all runs of a station in
   parallel (wraps `rno-g-convert-run` via GNU `parallel`).
-- `rno-g-reconvert` — re-run the conversion for a single station/run.
+- `rno-g-reconvert` — re-run the conversion for a single station/run. Runs `rno-g-convert-run`
+  with FORCED update.
 - `rno-g-make-eventlists` **(installed)** — produce per-run event lists so files
   can be remade without reconverting everything.
 - `rno-g-check-daqstatus` — find runs missing `daqstatus.root` and convert just
@@ -75,7 +77,3 @@ systemd units and helpers for running the DAQ converter as a service.
   top-level [`Makefile`](../Makefile)).
 - `tmux_follow_services.sh` — open a tmux session tailing each station's journal.
 - `README.md` — service start/stop/log commands.
-
-## `plots/`
-
-Output directory for generated plots (PNGs) from the plotting scripts above.
