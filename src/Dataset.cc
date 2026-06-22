@@ -318,9 +318,13 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     if (opt.verbose) std::cout << "Found pedestals in" << f << std::endl;
   }
 
-  if ( !(setup(&runinfo, f, "info") || setup(&runinfo, f, "runinfo")) )
+  if ( setup(&runinfo, f, "info") == 1 || setup(&runinfo, f, "runinfo") == 1 )
   {
-    if (opt.verbose) std::cout << "Found runinfo in" << f << std::endl;
+    if (opt.verbose) std::cout << "Found runinfo in " << f << std::endl;
+  }
+  else
+  {
+    std::cerr << "Failed to read runinfo from " << f << std::endl;
   }
 
   return 0;
@@ -420,13 +424,13 @@ int mattak::Dataset::loadDir(const char * dir)
   if (opt.verbose) std::cout << "about to load runinfo " << std::endl;
   if (full_dataset)
   {
-    if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose))
+    if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose) == 1)
     {
-      std::cerr << "Failed to read runinfo ... " << std::endl;
+      if (opt.verbose) std::cout << " success" << std::endl;
     }
     else
     {
-      if (opt.verbose) std::cout << " success" << std::endl;
+      std::cerr << "Failed to read runinfo ... " << std::endl;
     }
   }
   else
