@@ -210,8 +210,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names)
 
         if station == 0 and run == 0 or self.data_path_is_file:
-            self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
-            self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
+            self.station = int(self._hds['station_number'].array(entry_start=0, entry_stop=1)[0])
+            self.run = int(self._hds['run_number'].array(entry_start=0, entry_stop=1)[0])
         else:
             self.station = station
             self.run = run
