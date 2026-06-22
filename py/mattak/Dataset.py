@@ -455,8 +455,8 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         * run directory
         * nearest run directory
         * under RNO_G_DATA/calibration/stationX
-        * under RNO_G_CAL/stationX        
-    
+        * under RNO_G_CAL/stationX
+
     Both RNO_G_DATA/calibration/ and RNO_G_CAL/ should contain all the volCalConst files under their respective run folders
     The code assumes a RUN FOLDER STRUCTURE
     An example of a volCal path is RNO_G_CAL/stationX/runY/volCalConst.. or RNO_G_DATA/calibration/stationX/runY/volCalConst..
@@ -499,7 +499,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     max_time = max_days_to_deviate * 24 * 60 * 60
 
     run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [i, -i]]
-    for run_nr_to_check in run_nrs_to_check:    
+    for run_nr_to_check in run_nrs_to_check:
         rundir_to_check = f"{os.path.dirname(rundir)}/run{run_nr_to_check}"
 
         try:
@@ -601,7 +601,7 @@ def read_run_time(rundir):
         # but for the purposes of checking times on the hour scale this does
         # not matter
         time = float(time)
-    
+
         return time
     except:
         logging.warning(f"Unable to find run start time in {rundir}")
