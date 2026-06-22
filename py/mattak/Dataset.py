@@ -487,10 +487,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
                                   this should not be possible is something wrong with the rootify process?")
         return rundir + "/" + vc_list[0]
 
-
-
     # try finding a calibration file in neigboring run directory
-
     max_runs_to_check = 48 # we arbitrarily pick 4 full run days -> 48 runs
     run_time = read_run_time(rundir)
     max_time = 3 * 24 * 60 * 60  # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 3 days
