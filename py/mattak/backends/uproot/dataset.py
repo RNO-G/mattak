@@ -377,6 +377,11 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 else:
                     lowphasedTrigThrs = self._lowphasedTrigThrs[lt_idx]
 
+            if not self.skip_incomplete and eventNumber[i] in self.events_with_waveforms.keys():
+                readoutDelay = readout_delay[self.events_with_waveforms[eventNumber[i]]]
+            else:
+                readoutDelay = None
+
             info = mattak.Dataset.EventInfo(
                 eventNumber = eventNumber[i],
                 station = station[i],
@@ -393,7 +398,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 lowTrigThrs = lowTrigThrs,
                 lowphasedTrigThrs = lowphasedTrigThrs,
                 hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True,
-                readoutDelay=readout_delay[i]
+                readoutDelay=readoutDelay
             )
 
             infos.append(info)
