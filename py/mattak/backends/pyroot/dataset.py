@@ -54,6 +54,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.ds = ROOT.mattak.Dataset()
 
         opt.partial_skip_incomplete = skip_incomplete
+        self.skip_incomplete = skip_incomplete
         opt.verbose = verbose
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
@@ -205,7 +206,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
             lowphasedTrigThrs=lowphasedTrigThrs,
-            hasWaveforms= self.ds.rawAvailable(),
+            hasWaveforms=self.ds.rawAvailable(),
             readoutDelay=readout_delay)
 
 

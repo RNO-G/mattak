@@ -1,0 +1,57 @@
+#! /bin/bash
+shopt -s nullglob
+
+ROOT_DATA_DIR="/data"
+INGRESS="${ROOT_DATA_DIR}/ingress"
+ROOTIFIED="${ROOT_DATA_DIR}/rootified"
+
+STATIONS="23 11 22 12 21 13 24 14"
+
+# Override STATIONS with command line arguments if provided.
+if [ $# -gt 0 ]; then
+    STATIONS="$*"
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "Stations to process: ${STATIONS}"
+echo "Ingress: ${INGRESS}"
+echo "Rootified: ${ROOTIFIED}"
+
+for st in ${STATIONS}; do
+    for indir in "${INGRESS}"/station"${st}"/run*; do
+        [ -d "${indir}" ] || continue
+
+        brun=$(basename "${indir}")
+        outdir="${ROOTIFIED}/station${st}/${brun}"
+        bias_scan="${indir}/bias_scan.dat.gz"
+        calibration_file=("${outdir}"/volCalConsts*)
+
+        if [ ! -f "${bias_scan}" ]; then
+            continue
+        fi
+
+        if [ ! -d "${outdir}" ]; then
+            echo "Station ${st} ${brun}: skipping (missing outdir ${outdir})"
+            continue
+        fi
+
+        if [ ${#calibration_file[@]} -ge 1 ]; then
+            echo "Station ${st} ${brun}: calibration exists, skipping"
+            continue
+        fi
+
+        echo "Station ${st} ${brun}: running voltage calibration"
+        python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
+            "${bias_scan}" \
+            --pedestal_file "${outdir}/pedestal.root" \
+            --destination_folder "${outdir}" \
+            &>> "${outdir}/voltage_calibration.log"
+
+        if [ $? -ne 0 ]; then
+            echo "Station ${st} ${brun}: calibration failed (see ${outdir}/voltage_calibration.log)"
+        else
+            echo "Station ${st} ${brun}: calibration complete"
+        fi
+    done
+done

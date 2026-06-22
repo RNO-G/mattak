@@ -1,19 +1,19 @@
 #ifndef __MATTAK_DAQ_STATUS_H__
 #define __MATTAK_DAQ_STATUS_H__
 
-#include <stdint.h> 
-#include "TObject.h" 
+#include <stdint.h>
+#include "TObject.h"
 
 #ifdef LIBRNO_G_SUPPORT
-  #include "rno-g.h" 
+  #include "rno-g.h"
 #else
-  typedef int rno_g_daqstatus_t; 
+  typedef int rno_g_daqstatus_t;
 #endif
 
 #include "mattak/Constants.h"
 
 
-namespace mattak 
+namespace mattak
 {
 
   struct LTScalerGroup
@@ -29,52 +29,52 @@ namespace mattak
     uint16_t trig_per_beam[mattak::k::num_lt_beams] = {0};
     uint16_t servo_phased = 0;
     uint16_t servo_per_beam[mattak::k::num_lt_beams] = {0};
-  }; 
+  };
 
   struct RadiantVoltages
   {
-    float V10; 
-    float V18; 
-    float V25; 
+    float V10;
+    float V18;
+    float V25;
     float VLeftMon;
-    float VRightMon; 
+    float VRightMon;
   };
 
   enum CalpulserMode
   {
       CALPULSER_NO_SIGNAL,
-      CALPULSER_PULSER, 
-      CALPULSER_VC0, 
+      CALPULSER_PULSER,
+      CALPULSER_VC0,
       CALPULSER_VCO2
   } ;
 
   enum CalpulserOutput
   {
       CALPULSER_NO_OUTPUT,
-      CALPULSER_COAX, 
-      CALPULSER_FIB0, 
-      CALPULSER_FIB1 
-  }; 
+      CALPULSER_COAX,
+      CALPULSER_FIB0,
+      CALPULSER_FIB1
+  };
 
   struct CalpulserInfo
   {
-    bool enabled; 
+    bool enabled;
     float T;
     float attenuation;
     CalpulserMode mode;
     CalpulserOutput output;
-  }; 
+  };
 
   class DAQStatus : public TObject
   {
-    public: 
-      DAQStatus() { ; } 
-      DAQStatus(const rno_g_daqstatus_t * stat); 
+    public:
+      DAQStatus() { ; }
+      DAQStatus(const rno_g_daqstatus_t * stat);
 
-      double readout_time_radiant = 0; 
-      double readout_time_lt = 0; 
-            
-      uint32_t radiant_thresholds[mattak::k::num_radiant_channels] = {0}; 
+      double readout_time_radiant = 0;
+      double readout_time_lt = 0;
+
+      uint32_t radiant_thresholds[mattak::k::num_radiant_channels] = {0};
       uint32_t radiant_scalers[mattak::k::num_radiant_channels] = {0};
       uint8_t radiant_prescalers_m1[mattak::k::num_radiant_channels] = {0};
       float radiant_scaler_period;
@@ -93,11 +93,11 @@ namespace mattak
       uint16_t lt_scaler_counter = 0;
       uint8_t station_number = 0;
 
-      RadiantVoltages radiant_voltages; 
-      CalpulserInfo calinfo; 
-    
-    ClassDef(DAQStatus, 6); 
-  }; 
+      RadiantVoltages radiant_voltages;
+      CalpulserInfo calinfo;
+
+    ClassDef(DAQStatus, 6);
+  };
 
 }
 

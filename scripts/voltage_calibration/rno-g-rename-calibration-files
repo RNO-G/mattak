@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Script to rename files with timestamp patterns to include run number instead
+# Input: file paths as command-line arguments
+# Example: station21/run260039/volCalConsts_pol9_s21_1774147959-1774149671.root
+# Output: station21/run260039/volCalConsts_pol9_s21_260039.root
+
+for filepath in "$@"; do
+    # Skip empty arguments
+    [ -z "$filepath" ] && continue
+
+    # Check if file exists
+    if [ ! -f "$filepath" ]; then
+        echo "WARNING: File not found: $filepath" >&2
+        continue
+    fi
+
+    # Extract directory and filename
+    dirname=$(dirname "$filepath")
+    filename=$(basename "$filepath")
+
+    # Extract run number from directory path (e.g., run260039 -> 260039)
+    # Pattern: run followed by digits
+    run_number=$(echo "$dirname" | grep -oE 'run[0-9]+' | sed 's/run//')
+
+    if [ -z "$run_number" ]; then
+        echo "WARNING: Could not extract run number from path: $filepath" >&2
+        continue
+    fi
+
+    # Replace timestamp pattern (digits-digits) with run number
+    # Pattern: _[0-9]+-[0-9]+. -> _<run_number>.
+    newfilename=$(echo "$filename" | sed -E "s/_[0-9]+-[0-9]+\.root/_run${run_number}.root/")
+
+    # Skip if the filename didn't have the timestamp pattern
+    if [ "$newfilename" = "$filename" ]; then
+        echo "SKIP: No timestamp pattern found in: $filename" >&2
+        continue
+    fi
+
+    newpath="${dirname}/${newfilename}"
+
+    # Check if target file already exists
+    if [ -f "$newpath" ]; then
+        echo "ERROR: Target file already exists: $newpath" >&2
+        continue
+    fi
+
+    # Rename the file
+    if mv "$filepath" "$newpath"; then
+        echo "RENAMED: $filename -> $newfilename"
+    else
+        echo "ERROR: Failed to rename $filepath to $newpath" >&2
+    fi
+done
