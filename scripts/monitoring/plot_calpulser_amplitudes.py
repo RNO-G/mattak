@@ -58,12 +58,19 @@ ADC_MAX_CODE = 4095
 
 
 def run_cal_label(dataset):
-    """ Cal-pulser "channel/type" label from the run config, or None if not a cal run. """
+    """ Cal-pulser "channel/type @ atten dB" label from the run config, or None if not a cal run. """
     if not dataset.get_config("calib", "enable_cal"):
         return None
+
     parts = [dataset.get_config("calib", key) for key in ("channel", "type")]
     parts = [p for p in parts if p not in (None, "none")]
-    return "/".join(parts) if parts else None
+    label = "/".join(parts) if parts else None
+
+    atten = dataset.get_config("calib", "atten")
+    if label and atten is not None:
+        label += f" @ {atten:g} dB"
+
+    return label
 
 
 def read_monitoring_summary(path):
