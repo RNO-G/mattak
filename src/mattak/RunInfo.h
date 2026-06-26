@@ -48,6 +48,10 @@ namespace mattak
       TTimeStamp run_start_time = 0;
       TTimeStamp run_end_time = 0;
 
+      // Acquisition window (added to runinfo.txt in 2025); 0 if not present.
+      TTimeStamp acq_start_time = 0;
+      TTimeStamp run_stop_time = 0;
+
       float radiant_sample_rate = 0;
       FirmwareVersion radiant_fpga;
       FirmwareVersion radiant_bm;
@@ -75,7 +79,7 @@ namespace mattak
 
     private:
       std::unordered_map<std::string,std::string> kvp;
-      ClassDef(RunInfo, 3);
+      ClassDef(RunInfo, 4);
   };
 }
 

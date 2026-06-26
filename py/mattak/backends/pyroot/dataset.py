@@ -92,25 +92,27 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
 
         self.data_path = data_path
+        self.full = self.ds.isFullDataset()
         self.setEntries(0)
 
         if verbose:
             print("We think we found station %d run %d" % (self.station, self.run))
-
-        self.full = self.ds.isFullDataset()
 
         self.run_info = None
         if isNully(self.ds.info()):
             self.__read_run_info = False
             warnings.warn("Could not read run info")
         elif self.__read_run_info:
+            info = self.ds.info()
             self.run_info = mattak.Dataset.RunInfo(
-                station=self.ds.info().station,
-                run=self.ds.info().run,
-                run_start_time=self.ds.info().run_start_time,
-                run_end_time=self.ds.info().run_end_time,
-                sampling_rate=self.ds.info().radiant_sample_rate,
-                run_config=f"{self.rundir}/cfg/acq.cfg"
+                station=info.station,
+                run=info.run,
+                run_start_time=info.run_start_time,
+                run_end_time=info.run_end_time,
+                sampling_rate=info.radiant_sample_rate,
+                run_config=f"{self.rundir}/cfg/acq.cfg",
+                acq_start=info.acq_start_time,
+                acq_stop=info.run_stop_time,
             )
         else:
             pass
