@@ -32,6 +32,18 @@ class EventInfo:
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
 
+def _runinfo_seconds(value):
+    """ Normalize a run-info timestamp to float seconds, or None if missing/zero.
+
+    Accepts a ROOT TTimeStamp (pyroot backend), a numeric string (uproot backend, read
+    from runinfo.txt) or None. A zero timestamp means the field was not present.
+    """
+    if value is None:
+        return None
+    value = float(value)
+    return value if value else None  # if value is 0 retrn None
+
+
 class RunInfo:
     """ Vassel for run information """
 
@@ -42,16 +54,26 @@ class RunInfo:
             sampling_rate : float = 3200,
             flower_codes : Sequence[int] = [],
             n_events : int = 0, comment : str = "",
-            run_config : Union[str, dict] = None):
+            run_config : Union[str, dict] = None,
+            acq_start : float = None, acq_stop : float = None):
 
         self.station = station
         self.run = run
         self.n_events = n_events
-        self.run_start_time = run_start_time
-        self.run_end_time = run_end_time
+
+        # Run start and end time. Include time spend on setup + pre DAQ performed
+        # calibrations (e.g., bias scans, ...)
+        self.run_start_time = _runinfo_seconds(run_start_time)
+        self.run_end_time = _runinfo_seconds(run_end_time)
+
         self.sampling_rate = sampling_rate
         self.comment = comment
         self.flower_codes = flower_codes
+
+        # ACQ-START-TIME / RUN-STOP-TIME from runinfo.txt (added in 2025); the
+        # acquisition window they span is the actual data-taking livetime.
+        self.acq_start = _runinfo_seconds(acq_start)
+        self.acq_stop = _runinfo_seconds(acq_stop)
 
         if isinstance(run_config, str):
             self.run_config = read_run_config(run_config)
@@ -145,6 +167,12 @@ class AbstractDataset(ABC):
 
     def duration(self) -> float:
         """ Return the duration of the run in seconds """
+
+        # Prefer the acquisition window (ACQ-START-TIME .. RUN-STOP-TIME) from the run
+        # info (recorded since 2025), which measures the actual data-taking livetime.
+        if self.run_info is not None \
+                and self.run_info.acq_start is not None and self.run_info.acq_stop is not None:
+            return self.run_info.acq_stop - self.run_info.acq_start
 
         if not self.full and self.skip_incomplete:
 

@@ -58,6 +58,8 @@ mattak::RunInfo::RunInfo(const char * auxdir)
     lookupFloat("FREE-SPACE-MB-RUNFILE-PARTITION", &MB_free_main_partition);
     lookupTimeStamp("RUN-START-TIME", &run_start_time);
     lookupTimeStamp("RUN-END-TIME", &run_end_time);
+    lookupTimeStamp("ACQ-START-TIME", &acq_start_time);
+    lookupTimeStamp("RUN-STOP-TIME", &run_stop_time);
     lookupFirmwareVersion("RADIANT-FWVER", "RADIANT-FWDATE", &radiant_fpga);
     lookupFirmwareVersion("RADIANT-BM-FWVER", "RADIANT-BM-FWDATE", &radiant_bm);
     lookupFirmwareVersion("FLOWER-FWVER", "FLOWER-FWDATE", &flower);

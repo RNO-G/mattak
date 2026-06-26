@@ -272,6 +272,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     sampling_rate=run_info["radiant_samplerate"],
                     run_config=f"{self.rundir}/cfg/acq.cfg",
                     flower_codes=flower_codes,
+                    # ACQ-START-TIME / RUN-STOP-TIME (added in 2025); None for older runs
+                    acq_start=run_info.get("acq_start_time", None),
+                    acq_stop=run_info.get("run_stop_time", None),
                 )
 
     def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
