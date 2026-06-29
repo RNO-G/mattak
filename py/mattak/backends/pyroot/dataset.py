@@ -39,7 +39,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+                 voltage_calibration : Optional[Union[str, bool, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
                  cache_calibration : Optional[bool] = True):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
@@ -82,12 +82,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
-        # Look for voltage calibration if None, returns None if not found
+        # Look for voltage calibration if None, returns None if not found.
+        # Pass voltage_calibration=False to skip searching/loading entirely.
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
 
         self.has_calib = False
-        if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
+        if voltage_calibration is not False and (isinstance(voltage_calibration, str) or not isNully(voltage_calibration)):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
             self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
 

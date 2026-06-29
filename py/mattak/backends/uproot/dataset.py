@@ -61,7 +61,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
+                 voltage_calibration : Optional[Union[str, bool]] = None, cache_calibration : Optional[bool] = True):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
@@ -95,8 +95,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         preferred_file: str
             Specify a prefered file name to load.
 
-        voltage_calibration : str
+        voltage_calibration : str or bool
             Path to a voltage calibration file. If None, check for file in run directory.
+            Pass False to skip loading (and searching for) any voltage calibration file.
         """
 
         self.backend = "uproot"
@@ -224,12 +225,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.__read_run_info:
             self._read_run_info()
 
-        # Look for voltage calibration if None, returns None if not found
+        # Look for voltage calibration if None, returns None if not found.
+        # Pass voltage_calibration=False to skip searching/loading entirely.
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
 
         # Set voltage calibration if found or set
-        if isinstance(voltage_calibration, str):
+        if voltage_calibration is False:
+            self.has_calib = False
+        elif isinstance(voltage_calibration, str):
             self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
             self.has_calib = True
         elif isinstance(voltage_calibration, VoltageCalibration):

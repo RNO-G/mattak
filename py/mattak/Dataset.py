@@ -341,7 +341,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
-            voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+            voltage_calibration : Optional[Union[str, bool, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
             cache_calibration : Optional[bool] = True,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
@@ -406,8 +406,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         waveforms of None type (if requested singly) or be all 0's (if requested
         via the bulk interface, as numpy doesn't support jagged ararys).
 
-    voltage_calibration : str
-        Path to a voltage calibration file. If None, check for file in run directory.
+    voltage_calibration : str or bool
+        Path to a voltage calibration file. If None (default), check for a file in
+        the run directory (and nearby, see `find_voltage_calibration`). Pass False
+        to skip loading (and searching for) any voltage calibration file entirely.
         (The pyroot backend actually allows to pass an object of type
         `ROOT.mattak.VoltageCalibration`, but this is not possible to
         implement in uproot.)
