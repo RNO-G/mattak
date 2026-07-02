@@ -76,4 +76,20 @@ if __name__ == "__main__":
     assert numpy.allclose(wfs_py, wfs_up), "Backends return different waveforms after iterate"
     assert not numpy.allclose(wfs_py[0], wfs_py[1]), "Waveforms returned by pyroot backend are identical"
 
+    # test the `copy` argument of iterate: with copy=False the pyroot backend yields references
+    # into ROOT's internal memory which are overwritten with each new event ...
+    wfs_py_ref = [wf for _, wf in dset_pyroot.iterate(copy=False)]
+    assert numpy.all(wfs_py_ref[0] == wfs_py_ref[1]), \
+        "With copy=False the pyroot backend should yield references (identical after iteration)"
+
+    # ... but are correct when consumed immediately
+    for (_, wf_ref), wf_copy in zip(dset_pyroot.iterate(copy=False), wfs_py):
+        assert numpy.all(wf_ref == wf_copy), \
+            "Waveforms from copy=False (consumed immediately) differ from copy=True"
+
+    # the uproot backend ignores copy=False and always yields independent arrays
+    wfs_up_ref = [wf for _, wf in dset_uproot.iterate(copy=False)]
+    assert not numpy.allclose(wfs_up_ref[0], wfs_up_ref[1]), \
+        "Waveforms returned by uproot backend are identical"
+
     print("Successful")

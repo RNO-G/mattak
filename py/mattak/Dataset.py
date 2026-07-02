@@ -219,19 +219,55 @@ class AbstractDataset(ABC):
     @abstractmethod
     def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
                  selectors: Optional[Union[Callable[[EventInfo], bool],
-                                           Sequence[Callable[[EventInfo], bool]]]]) \
+                                           Sequence[Callable[[EventInfo], bool]]]],
+                 copy : bool = True) \
                  -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
-        """ implementation-defined part of iterator"""
+        """ Implementation-defined part of the iterator. See `iterate` for the meaning of the arguments. """
         pass
 
     def iterate(
             self, start : int = 0, stop : Union[int, None] = None,
             calibrated: bool = False, max_entries_in_mem : int = 256,
             selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
-            override_skip_incomplete : Optional[bool] = None) \
+            override_skip_incomplete : Optional[bool] = None,
+            copy : bool = True) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
-        """ Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
-            Returns a tuple of EventInfo and the event waveforms (potentially calibrated).
+        """
+        Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
+        Yields tuples of EventInfo and the event waveforms (potentially calibrated).
+
+        Parameters
+        ----------
+        start : int (Default: 0)
+            Index of the first event to iterate over. Negative indices count from the end.
+
+        stop : int or None (Default: None)
+            Index of the first event *not* to iterate over (i.e., exclusive). If None,
+            iterate until the end of the dataset. Negative indices count from the end.
+
+        calibrated : bool (Default: False)
+            If True, yield voltage-calibrated waveforms (requires a voltage calibration).
+            Otherwise yield the raw ADC counts.
+
+        max_entries_in_mem : int (Default: 256)
+            Maximum number of events which are loaded into memory at once
+            (only relevant for the uproot backend which reads events in batches).
+
+        selectors : callable or list of callables (Default: None)
+            One or more functions which take an EventInfo and return a bool. Only events
+            for which all selectors return True are yielded.
+
+        override_skip_incomplete : bool (Default: None)
+            If not None, override the `skip_incomplete` setting of the dataset
+            (see `mattak.Dataset.Dataset`) for this iteration.
+
+        copy : bool (Default: True)
+            **PyROOT backend exclusive!** If True, yield a copy of each waveform array
+            (cast to float). If False, yield an array which references the backend's
+            internal memory: it is only valid until the next event is read, i.e., its
+            content will change while iterating. Only set this to False if you process
+            each waveform immediately and care about the (small) performance gain.
+            The uproot backend ignores this argument, it always yields independent arrays.
         """
         if start < 0:
             start += self.N()
@@ -248,7 +284,8 @@ class AbstractDataset(ABC):
         if stop < 0 or start > self.N():
             return
 
-        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors, override_skip_incomplete=override_skip_incomplete)
+        yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors,
+                                 override_skip_incomplete=override_skip_incomplete, copy=copy)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
