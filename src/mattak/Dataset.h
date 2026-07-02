@@ -56,6 +56,10 @@ namespace mattak
     public:
       Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions());
       Dataset(const DatasetOptions & opt = DatasetOptions());
+
+      // Dataset owns its TFiles and cached objects, so it must not be copied
+      Dataset(const Dataset &) = delete;
+      Dataset & operator=(const Dataset &) = delete;
       //data_dir defaults to RNO_G_ROOT_DATA
       void setVerbose(bool v) { opt.verbose = v; }
       virtual ~Dataset() { unload() ; }
@@ -160,7 +164,7 @@ namespace mattak
       int current_entry = 0;
 
 
-      bool full_dataset ;
+      bool full_dataset = false;
       DatasetOptions opt;
 
   };

@@ -20,9 +20,9 @@ static void clear(mattak::Dataset::field<D> * field)
 
 
 template <typename D>
-static void clear(mattak::Dataset::tree_field<D> * field, bool borrowed = false)
+static void clear(mattak::Dataset::tree_field<D> * field)
 {
-  if (!borrowed && field->file)
+  if (field->file)
   {
     delete field->file;
   }
@@ -60,7 +60,18 @@ void mattak::Dataset::setupRadiantMeta()
 
   //copy the file/tree so we don't double count branches
   wf_meta.file = TFile::Open(wf.file->GetName());
+  if (!wf_meta.file)
+  {
+    std::cerr << "setupRadiantMeta: could not reopen " << wf.file->GetName() << std::endl;
+    return;
+  }
   wf_meta.tree = (TTree*) wf_meta.file->Get(wf.tree->GetName());
+  if (!wf_meta.tree)
+  {
+    std::cerr << "setupRadiantMeta: could not find tree " << wf.tree->GetName() << " in " << wf.file->GetName() << std::endl;
+    clear(&wf_meta);
+    return;
+  }
   wf_meta.branch = nullptr; // we don't use this directly for this, since I'm not sure how it interacts with SetBranchStatus
   wf_meta.ptr = new mattak::Waveforms;
   wf_meta.tree->SetBranchAddress(wf.branch->GetName(), &wf_meta.ptr);
@@ -82,6 +93,9 @@ static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
   return f;
 }
 
+/** Open filename and attach the first matching tree/branch pair to the field.
+ * Returns 0 on success. Returns -1 on failure (file missing, or no listed tree
+ * has the expected branch), in which case the field is left fully cleared. */
 template <typename D>
 static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = false)
 {
@@ -129,18 +143,28 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
     return 0;
   }
   if (verbose) std::cerr << "Could not find a valid tree/branch pair in " << filename << std::endl;
+  clear(field); // don't leave a half-initialized field (open file, tree without branch/address)
   return -1;
 }
 
+/** Open filename and read the object obj_name from it into the field.
+ * Returns 0 on success. Returns -1 on failure (file missing or object not
+ * found), in which case the field is left fully cleared.
+ * Same convention as the tree_field overload above. */
 template <typename D>
-static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool verbose = true)
+static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool verbose = false)
 {
   clear(field);
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
   if (!field->file) return -1;
   field->ptr = (D*) field->file->Get(obj_name);
   gROOT->cd();
-  return field->ptr!=nullptr;
+  if (!field->ptr)
+  {
+    clear(field);
+    return -1;
+  }
+  return 0;
 }
 
 
@@ -195,9 +219,15 @@ mattak::Dataset::Dataset(const char* data_dir)
 void mattak::Dataset::setDataDir(const char * dir)
 {
   if (dir)
+  {
     opt.base_data_dir = dir;
+  }
   else
-    opt.base_data_dir = getenv("RNO_G_ROOT_DATA") ?: getenv("RNO_G_DATA") ?: ".";
+  {
+    const char * env = getenv("RNO_G_ROOT_DATA");
+    if (!env) env = getenv("RNO_G_DATA");
+    opt.base_data_dir = env ? env : ".";
+  }
 }
 
 void mattak::Dataset::setCalibration(const VoltageCalibration * c)
@@ -278,6 +308,9 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
 int mattak::Dataset::loadCombinedFile(const char * f)
 {
   if (opt.verbose) std::cout << "mattak::Dataset::loadCombinedFile ( " << f  << ") called" << std::endl;
+
+  unload();
+  current_entry = 0;
   full_dataset = false;
 
   if (!opt.partial_skip_incomplete)
@@ -313,9 +346,12 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     if (opt.verbose) std::cout << "Found pedestals in" << f << std::endl;
   }
 
-  if ( !(setup(&runinfo, f, "info") || setup(&runinfo, f, "runinfo")) )
+  if ( !setup(&runinfo, f, "info", opt.verbose) || !setup(&runinfo, f, "runinfo", opt.verbose) )
   {
-    if (opt.verbose) std::cout << "Found runinfo in" << f << std::endl;
+    if (opt.verbose) std::cout << "Found runinfo in " << f << std::endl;
+  }
+  else {
+    std::cerr << "Could not load run info for " << f << std::endl;
   }
 
   return 0;
@@ -333,7 +369,7 @@ int mattak::Dataset::loadDir(const char * dir)
   if (opt.verbose) std::cout << "Load waveforms ..." << std::endl;
 
   const char * partial_file = NULL;
-  if (opt.file_preference != "" && !setup(&wf, Form("%s,%s.root",dir,opt.file_preference.c_str()), waveform_tree_names))
+  if (opt.file_preference != "" && !setup(&wf, Form("%s/%s.root",dir,opt.file_preference.c_str()), waveform_tree_names))
   {
     full_dataset = false;
     partial_file = opt.file_preference.c_str();
@@ -342,7 +378,7 @@ int mattak::Dataset::loadDir(const char * dir)
   {
     if (opt.file_preference != "")
     {
-      std::cerr << "Warning, could not find preferred %s.root in %s. Reverting to default behavior" << std::endl;
+      std::cerr << "Warning, could not find preferred " << opt.file_preference << ".root in " << dir << ". Reverting to default behavior" << std::endl;
     }
 
     //we need to figure out if this is a full run or partial run, so check for existence of waveforms.root
@@ -605,7 +641,7 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 {
   if (! pd.tree) return nullptr;
-  if (entry < 0 || entry > pd.tree->GetEntries()) return nullptr;
+  if (entry < 0 || entry >= pd.tree->GetEntries()) return nullptr;
 
   if (force || entry != pd.loaded_entry)
   {
