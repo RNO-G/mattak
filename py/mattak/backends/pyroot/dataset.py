@@ -251,9 +251,27 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def _iterate(
             self, start : int, stop : int, calibrated : bool , max_in_mem : int,
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
-            override_skip_incomplete : Optional[bool] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+            override_skip_incomplete : Optional[bool] = None,
+            copy : bool = True) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+        """
+        PyROOT implementation of the iterator. See `mattak.Dataset.AbstractDataset.iterate`
+        for the meaning of the arguments.
+
+        If `copy` is True (default), each yielded waveform array is a copy (cast to float).
+        If False, the yielded array references the memory of the underlying ROOT object,
+        which is overwritten when the next event is read: the yielded array is only valid
+        until the next iteration step (and keeps the raw dtype, i.e., int16 for uncalibrated
+        waveforms).
+        """
 
         skip_incomplete = override_skip_incomplete or self.ds.getOpt().partial_skip_incomplete
+
+        def copy_wfs(wfs):
+            # numpy.array (unlike numpy.asarray) guarantees a copy also when
+            # the dtype already matches (i.e., for calibrated waveforms)
+            if wfs is None or not copy:
+                return wfs
+            return numpy.array(wfs, dtype=float)
 
         if selectors is not None:
             if not isinstance(selectors, (list, numpy.ndarray)):
@@ -265,10 +283,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 if skip_incomplete and wfs is None:
                     continue
                 if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
-                    yield evinfo, wfs
+                    yield evinfo, copy_wfs(wfs)
         else:
             for i in range(start, stop):
                 wfs = self._wfs(i, calibrated)
                 if skip_incomplete and wfs is None:
                     continue
-                yield self._eventInfo(i), wfs
+                yield self._eventInfo(i), copy_wfs(wfs)
