@@ -5,7 +5,7 @@
 #include "TGraph.h"
 #include "TLatex.h"
 #include "TPaveText.h"
-#include <iostream>
+#include "TError.h"
 
 
 ClassImp(mattak::Waveforms);
@@ -18,7 +18,7 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
 {
 
 #ifndef LIBRNO_G_SUPPORT
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
+  ::Error("mattak::Waveforms::Waveforms", "Not compiled with librno-g support");
   (void) wf;
 #else
   this->run_number = wf->run_number;
@@ -46,7 +46,8 @@ mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Hea
 
   if (hdr.run_number != wf.run_number && hdr.event_number != wf.run_number && hdr.station_number != wf.station_number)
   {
-    std::cerr << "WARNING: Possible event-header mismatch" << std::endl;
+    ::Warning("mattak::CalibratedWaveforms::CalibratedWaveforms", "Possible event-header mismatch (waveform run %d event %d, header run %d event %d)",
+              (int) wf.run_number, (int) wf.event_number, (int) hdr.run_number, (int) hdr.event_number);
   }
 
   for (int ch = 0; ch < mattak::k::num_radiant_channels; ch++)

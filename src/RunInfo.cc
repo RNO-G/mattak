@@ -2,9 +2,9 @@
 #include "mattak/Version.h"
 
 #include <stdlib.h>
-#include <iostream>
 #include <fstream>
 #include "TString.h"
+#include "TError.h"
 
 ClassImp(mattak::RunInfo);
 
@@ -43,7 +43,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
       // trim leading and trailing whitespace
       trim(key);
       trim(value);
-      std::cout << key << ":" << value << std::endl;
+      ::Info("mattak::RunInfo::RunInfo", "%s: %s", key.c_str(), value.c_str());
       kvp[key] = value;
     }
 
@@ -66,7 +66,7 @@ mattak::RunInfo::RunInfo(const char * auxdir)
   }
   else
   {
-    std::cerr << "Could not open runinfo.txt" << std::endl;
+    ::Warning("mattak::RunInfo::RunInfo", "Could not open %s/runinfo.txt", auxdir);
   }
 
   // now look for flower gain codes

@@ -1,6 +1,6 @@
-#include "mattak/Pedestals.h" 
-#include <iostream> 
-#include "TH1.h" 
+#include "mattak/Pedestals.h"
+#include "TError.h"
+#include "TH1.h"
 
 
 ClassImp(mattak::Pedestals); 
@@ -11,8 +11,8 @@ mattak::Pedestals::Pedestals(const rno_g_pedestal_t * peds )
 {
 
 #ifndef LIBRNO_G_SUPPORT
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
-  (void) peds; 
+  ::Error("mattak::Pedestals::Pedestals", "Not compiled with librno-g support");
+  (void) peds;
 #else
 
   doInit(peds); 
@@ -41,8 +41,8 @@ void mattak::Pedestals::doInit(const rno_g_pedestal_t * peds)
 mattak::Pedestals::Pedestals(const char * pedfile) 
 {
 #ifndef LIBRNO_G_SUPPORT
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
-  (void) pedfile; 
+  ::Error("mattak::Pedestals::Pedestals", "Not compiled with librno-g support");
+  (void) pedfile;
 #else
 
   rno_g_pedestal_t peds; 

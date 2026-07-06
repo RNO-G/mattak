@@ -90,6 +90,7 @@ static double adcToVolt(double in_adc, int npoints, const double * volt_array, c
 #include "TList.h"
 #include "TString.h"
 #include "TBox.h"
+#include "TError.h"
 
 ClassImp(mattak::VoltageCalibration);
 
@@ -152,7 +153,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     // check to see if the file opened properly
     if (!f)
     {
-      std::cerr << "Could not open apparenty ROOT file in " << bias_scan_file << std::endl;
+      ::Error("mattak::VoltageCalibration::VoltageCalibration", "Could not open apparent ROOT file %s", bias_scan_file);
       return;
     }
 
@@ -162,7 +163,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     {
       if (!readFitCoeffsFromFile(f))
       {
-        std::cerr << "File looks like it has fit coeffs, but I problem reading" << std::endl;
+        ::Error("mattak::VoltageCalibration::VoltageCalibration", "File %s looks like it has fit coeffs, but there was a problem reading it", bias_scan_file);
       }
       delete f;
       return;
@@ -172,7 +173,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
     TTree * t = (TTree*) f->Get("pedestals");
     if (!t)
     {
-      std::cerr << "Could not open tree pedestals in " << bias_scan_file << std::endl;
+      ::Error("mattak::VoltageCalibration::VoltageCalibration", "Could not open tree pedestals in %s", bias_scan_file);
       delete f;
       return;
     }
@@ -198,7 +199,7 @@ mattak::VoltageCalibration::VoltageCalibration(const char * bias_scan_file, doub
   rno_g_file_handle_t h;
   if (rno_g_init_handle(&h, bias_scan_file,"r"))
   {
-    std::cerr <<"Trouble opening "<< bias_scan_file << std::endl;
+    ::Error("mattak::VoltageCalibration::VoltageCalibration", "Trouble opening %s", bias_scan_file);
     return;
   }
 
@@ -278,11 +279,10 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
   if (!hasBiasScanData)
   {
-    std::cerr << "Cannot recalculate fits without bias scan data " << std::endl;
+    ::Error("mattak::VoltageCalibration::recalculateFits", "Cannot recalculate fits without bias scan data");
   }
 
   if (!graphs) graphs = new std::array<std::array<TGraph, mattak::k::num_lab4_samples>, mattak::k::num_radiant_channels>{};
-  gErrorIgnoreLevel = kFatal;
 
 
   fit_order = order < max_voltage_calibration_fit_order ? order : max_voltage_calibration_fit_order;
@@ -292,11 +292,11 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
   if (order < max_voltage_calibration_fit_order)
   {
-    std::cout << "\nYou are using " << order << "-degree polynomials for the fitting..." << std::endl;
-    std::cout << "SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results." << std::endl;
+    ::Info("mattak::VoltageCalibration::recalculateFits", "You are using %d-degree polynomials for the fitting...", order);
+    ::Info("mattak::VoltageCalibration::recalculateFits", "SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results.");
   }
 
-  if (!fit_isUsingResid) std::cout << "\nSUGGESTION: Extra term the residual function is NOT USED, you may turn it on to improve voltage calibration." << std::endl;
+  if (!fit_isUsingResid) ::Info("mattak::VoltageCalibration::recalculateFits", "SUGGESTION: The extra term residual function is NOT USED, you may turn it on to improve voltage calibration.");
 
   fit_min = min;
   this->turnover_threshold = turnover_threshold;
@@ -418,7 +418,11 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       else
       {
         isSampleBroken[ichan][i] = false;
+        // suppress fitter chatter, but restore afterwards so other messages still get through
+        int prev_error_level = gErrorIgnoreLevel;
+        gErrorIgnoreLevel = kFatal;
         fit.Eval();
+        gErrorIgnoreLevel = prev_error_level;
       }
 
       if (vref) fit.ReleaseParameter(0);
@@ -476,7 +480,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       }
 
     }
-    if (nbroken) printf("WARNING: Channel %d seems to have %d broken samples?\n", ichan, nbroken);
+    if (nbroken) ::Warning("mattak::VoltageCalibration::recalculateFits", "Channel %d seems to have %d broken samples?", ichan, nbroken);
   }
 
 
@@ -631,7 +635,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
     if (aveChisq[ichan] > 6.0)
     {
       isBad_channelAveChisqPerDOF[ichan] = true;
-      printf("\nBAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!", ichan, aveChisq[ichan]);
+      ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: The average chi2/DOF over all samples of CH%d is %f (> 6.0)!!!", ichan, aveChisq[ichan]);
     }
 
     if (aveChisq[ichan] <= 6.0 && channelHasBadFit)
@@ -639,7 +643,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
       for (int samp = 0; samp < badFit.size(); samp++)
       {
         int bad = badFit[samp];
-        printf("\nBAD FITTING WARNING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
+        ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: chi2/DOF of sample %d in CH%d is %f (> 30.0)!!!", bad, ichan, fit_chisq[ichan][bad]/fit_ndof[ichan][bad]);
       }
     }
 
@@ -695,13 +699,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
           {
             aboveSmallBoxY2 = true;
             isResidOutOfBoxFrame[ichan][0] = true;
-            printf("\nBAD FITTING WARNING: Some residuals in CH%d go beyond the small box upper threshold (> 25 adu)!!!", ichan);
+            ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: Some residuals in CH%d go beyond the small box upper threshold (> 25 adu)!!!", ichan);
           }
           if (hist_resid[ichan]->GetBinContent(binNumberX, smallBoxBinY1) > 1 && !belowSmallBoxY1)
           {
             belowSmallBoxY1 = true;
             isResidOutOfBoxFrame[ichan][1] = true;
-            printf("\nBAD FITTING WARNING: Some residuals in CH%d go below the small box lower threshold (< -25 adu)!!!", ichan);
+            ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: Some residuals in CH%d go below the small box lower threshold (< -25 adu)!!!", ichan);
           }
         }
 
@@ -710,13 +714,13 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
         {
           aboveBigBoxY2 = true;
           isResidOutOfBoxFrame[ichan][2] = true;
-          printf("\nBAD FITTING WARNING: Some residuals in CH%d go beyond the big box upper threshold (> 50 adu)!!!", ichan);
+          ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: Some residuals in CH%d go beyond the big box upper threshold (> 50 adu)!!!", ichan);
         }
         if (hist_resid[ichan]->GetBinContent(binNumberX, 1) > 1 && !belowBigBoxY1)
         {
           belowBigBoxY1 = true;
           isResidOutOfBoxFrame[ichan][3] = true;
-          printf("\nBAD FITTING WARNING: Some residuals in CH%d go below the big box lower threshold (< -50 adu)!!!", ichan);
+          ::Warning("mattak::VoltageCalibration::recalculateFits", "BAD FITTING: Some residuals in CH%d go below the big box lower threshold (< -50 adu)!!!", ichan);
         }
 
         if (aboveBigBoxY2 && belowBigBoxY1 && aboveSmallBoxY2 && belowSmallBoxY1) break;
@@ -734,7 +738,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
 TH2S * mattak::VoltageCalibration::makeHist(int chan) const
 {
-  if (!hasBiasScanData) { printf("\nWARNING: Need to get data from a bias scan file in order to plot histograms!\n"); return 0; }
+  if (!hasBiasScanData) { ::Warning("mattak::VoltageCalibration::makeHist", "Need to get data from a bias scan file in order to plot histograms!"); return 0; }
 
   int nV = scanSize();
   if (nV < 2) return 0; //makes no sense!
@@ -782,19 +786,19 @@ TGraph * mattak::VoltageCalibration::makeAdjustedInverseGraph(int chan, int samp
 {
   if (!graphs)
   {
-    std::cerr << "Cannot use makeAdjustedInverseGraph from  saved coefficients" << std::endl;
+    ::Error("mattak::VoltageCalibration::makeAdjustedInverseGraph", "Cannot use makeAdjustedInverseGraph from saved coefficients");
     return nullptr;
   }
 
   if (!hasBiasScanData)
   {
-    printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n");
+    ::Warning("mattak::VoltageCalibration::makeAdjustedInverseGraph", "Need to get data from a bias scan file in order to make graphs!");
     return nullptr;
   }
 
   if (!fit_isUsingResid)
   {
-    printf("\nWARNING: Plots can only be made with function 'makeAdjustedInverseGraph()' when 'fit_isUsingResid' is TRUE!\n");
+    ::Warning("mattak::VoltageCalibration::makeAdjustedInverseGraph", "Plots can only be made with function 'makeAdjustedInverseGraph()' when 'fit_isUsingResid' is TRUE!");
     return nullptr;
   }
 
@@ -837,13 +841,13 @@ TGraph * mattak::VoltageCalibration::makeSampleGraph(int chan, int samp, bool re
 
   if (!graphs)
   {
-    std::cerr << "Cannot use makeSampleGraph from  saved coefficients" << std::endl;
+    ::Error("mattak::VoltageCalibration::makeSampleGraph", "Cannot use makeSampleGraph from saved coefficients");
     return nullptr;
   }
 
   if (!hasBiasScanData)
   {
-    printf("\nWARNING: Need to get data from a bias scan file in order to make graphs!\n");
+    ::Warning("mattak::VoltageCalibration::makeSampleGraph", "Need to get data from a bias scan file in order to make graphs!");
     return nullptr;
   }
 
@@ -909,7 +913,7 @@ TH2S * mattak::VoltageCalibration::getResidHist(int chan) const
 
   if (!fit_isUsingResid)
   {
-    printf("\nWARNING: Plots can only be made with function 'getResidHist()' when 'fit_isUsingResid' is TRUE!\n");
+    ::Warning("mattak::VoltageCalibration::getResidHist", "Plots can only be made with function 'getResidHist()' when 'fit_isUsingResid' is TRUE!");
     return nullptr;
   }
   else
@@ -926,7 +930,7 @@ TGraphErrors * mattak::VoltageCalibration::getAveResidGraph(int chan) const
 
   if (!fit_isUsingResid)
   {
-    printf("\nWARNING: Plots can only be made with function 'getAveResidGraph()' when 'fit_isUsingResid' is TRUE!\n");
+    ::Warning("mattak::VoltageCalibration::getAveResidGraph", "Plots can only be made with function 'getAveResidGraph()' when 'fit_isUsingResid' is TRUE!");
     return nullptr;
   }
   else
@@ -1019,7 +1023,7 @@ void mattak::VoltageCalibration::saveFitCoeffsInFile()
   residValidation_tree.Write();
   chisqValidation_tree.Write();
 
-  std::cout << "\nAll voltage calibration constants saved in file: " << outFileName << "\n\n" << std::endl;
+  ::Info("mattak::VoltageCalibration::saveFitCoeffsInFile", "All voltage calibration constants saved in file: %s", outFileName.Data());
   f.Close();
 }
 
@@ -1033,7 +1037,7 @@ void mattak::VoltageCalibration::readFitCoeffsFromFile(const char * inFile, bool
    TFile * f  = TFile::Open(inFile);
    if (!readFitCoeffsFromFile(f, cache_tables))
    {
-     std::cerr << "Trouble reading from " << inFile;
+     ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "Trouble reading from %s", inFile);
    }
    delete f ;
 }
@@ -1064,7 +1068,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
   TTree *aveResidGraph_tree = (TTree*)inputFile->Get("aveResidGraph_tree");
   if (!aveResidGraph_tree)
   {
-    printf("\nFILE READING ERROR: You are probably using an old calibration file, please use one with the newest version of voltage calibration instead!\n");
+    ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "You are probably using an old calibration file, please use one with the newest version of voltage calibration instead!");
     return false;
   }
   TGraphErrors *p_aveResidGraph;
@@ -1088,11 +1092,11 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
   if (fit_order < max_voltage_calibration_fit_order)
   {
-    printf("\n%d-degree polynomials were used for the fitting...\n", fit_order);
-    printf("SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results.\n");
+    ::Info("mattak::VoltageCalibration::readFitCoeffsFromFile", "%d-degree polynomials were used for the fitting...", fit_order);
+    ::Info("mattak::VoltageCalibration::readFitCoeffsFromFile", "SUGGESTION: Using order 9 (default) is highly suggested for getting better calibration results.");
   }
 
-  if (!fit_isUsingResid) printf("\nNOTICE: 'fit_isUsingResid' is FALSE => The extra term residual function is not used!\n");
+  if (!fit_isUsingResid) ::Info("mattak::VoltageCalibration::readFitCoeffsFromFile", "'fit_isUsingResid' is FALSE => The extra term residual function is not used!");
 
   bool isBadFit = false;
   int nBadChannels = 0;
@@ -1110,7 +1114,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
     if (isBad_channelAveChisqPerDOF[iChan])
     {
-      printf("BAD FITTING WARNING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!\n", iChan);
+      ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: The average chi2/DOF over all samples of CH%d is greater than 6.0!!!", iChan);
       nBadChannels++;
     }
 
@@ -1127,7 +1131,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       isBad_sampChisqPerDOF[iChan][iSamp] = sampChisqPerDOF[iSamp];
       if (!isBad_channelAveChisqPerDOF[iChan] && isBad_sampChisqPerDOF[iChan][iSamp])
       {
-        printf("BAD FITTING WARNING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!\n", iSamp, iChan);
+        ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: chi2/DOF of sample %d in CH%d is greater than 30.0!!!", iSamp, iChan);
         nBadSamples++;
       }
 
@@ -1156,10 +1160,10 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       isResidOutOfBoxFrame[iChan][i] = residOutOfBoxFrame[i];
       if (isResidOutOfBoxFrame[iChan][i])
       {
-        if (i == 0) printf("BAD FITTING WARNING: Some residuals in CH%d are beyond the SMALL BOX FRAME upper threshold (25 adu)!!!\n", iChan);
-        else if (i == 1) printf("BAD FITTING WARNING: Some residuals in CH%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!\n", iChan);
-        else if (i == 2) printf("BAD FITTING WARNING: Some residuals in CH%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!\n", iChan);
-        else printf("BAD FITTING WARNING: Some residuals in CH%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!\n", iChan);
+        if (i == 0) ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: Some residuals in CH%d are beyond the SMALL BOX FRAME upper threshold (25 adu)!!!", iChan);
+        else if (i == 1) ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: Some residuals in CH%d are below the SMALL BOX FRAME lower threshold (-25 adu)!!!", iChan);
+        else if (i == 2) ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: Some residuals in CH%d are beyond the BIG BOX FRAME upper threshold (50 adu)!!!", iChan);
+        else ::Warning("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD FITTING: Some residuals in CH%d are below the BIG BOX FRAME lower threshold (-50 adu)!!!", iChan);
         nBadChannels_box++;
       }
     }
@@ -1202,7 +1206,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
 
   if (isBadFit)
   {
-    printf("BAD CALIBRATION FIT detected, refuse to use this file... ABORT...");
+    ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "BAD CALIBRATION FIT detected, refuse to use this file... ABORT...");
     return false;
   }
 

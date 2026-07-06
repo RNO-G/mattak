@@ -46,6 +46,14 @@ namespace mattak
         std::string file_preference = "";
 
 
+        /** If true, emit **debug-level** messages while loading.
+         *
+         * All Dataset messages go through ROOT's message system (TError.h):
+         * debug messages are emitted via Info, recoverable problems via Warning
+         * and load failures via Error. They can therefore be suppressed or
+         * redirected globally, e.g. gErrorIgnoreLevel = kError; (also from
+         * PyROOT: ROOT.gErrorIgnoreLevel = ROOT.kError) or SetErrorHandler().
+         * */
         bool verbose = false;
       };
 
@@ -93,20 +101,20 @@ namespace mattak
       mattak::Header * header(bool force_reload = false);
       mattak::Waveforms * raw(bool force_reload = false);
 
-      // is the raw data available for currentEntry? (mostly used by PyROOT backend) 
-      bool rawAvailable(bool force_reload = false) 
-      {  
-        return  wf.tree && 
-         ( full_dataset || opt.partial_skip_incomplete || 
-           wf.tree->GetEntryNumberWithIndex(header(force_reload)->event_number) >=0); 
+      // is the raw data available for currentEntry? (mostly used by PyROOT backend)
+      bool rawAvailable(bool force_reload = false)
+      {
+        return  wf.tree &&
+         ( full_dataset || opt.partial_skip_incomplete ||
+           wf.tree->GetEntryNumberWithIndex(header(force_reload)->event_number) >=0);
       }
 
       // these methods are useful if you want to read waveform metadata without reading the waveforms
       // if you are reading the waveforms, they are less efficient than getting what you want from raw
       float radiantSampleRate(bool force_reload = false);
       const float * radiantReadoutDelays(bool force_reload = false);  //size is mattak::k::num_radiant_channels, returning a float* since cppyyy doesn't seem to be able to deal with std::array properly
-      
-      
+
+
       mattak::CalibratedWaveforms * calibrated(bool force_reload = false); //will be nullptr if no calibration is passed
       mattak::DAQStatus * status(bool force_reload = false);
       mattak::RunInfo * info() const { return runinfo.ptr; }
