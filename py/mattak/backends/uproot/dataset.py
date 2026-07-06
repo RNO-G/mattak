@@ -539,8 +539,16 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self, start : int, stop : int, calibrated: bool,  max_in_mem : int,
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
             Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
-            override_skip_incomplete : Optional[bool] = None) \
+            override_skip_incomplete : Optional[bool] = None,
+            copy : bool = True) \
             -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+        """
+        Uproot implementation of the iterator. See `mattak.Dataset.AbstractDataset.iterate`
+        for the meaning of the arguments.
+
+        The `copy` argument is ignored (it is exclusive to the pyroot backend): this backend
+        always yields independent arrays which do not reference any internal memory.
+        """
 
         # cache current values given by setEntries(..)
         original_entry = self.getEntries()
