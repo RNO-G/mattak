@@ -88,11 +88,11 @@ if (NOT DEFINED ROOTLESS)
       )
 
     set (INSTALL_SCRIPTS
-      scripts/rno-g-convert-run
-      scripts/rno-g-convert-station
-      scripts/rno-g-make-eventlists
-      scripts/convert_bias_scan_to_calibration.py
-      scripts/mon_write.py
+      scripts/daq/rno-g-convert-run
+      scripts/daq/rno-g-convert-station
+      scripts/daq/rno-g-make-eventlists
+      scripts/voltage_calibration/convert_bias_scan_to_calibration.py
+      scripts/monitoring/mon_write.py
     )
 
     add_custom_target(version ${CMAKE_COMMAND} -P  ${CMAKE_SOURCE_DIR}/version.cmake)

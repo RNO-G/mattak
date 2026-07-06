@@ -19,6 +19,16 @@ fi
 
 echo "input directory is ${INDIR}"
 echo "output directory is ${OUTDIR}"
+
+# Only check if (any) waveform file(s) are already copied as the later conversion
+# (with no-g-convert wf) fails if no waveform file is present (regardless of whether
+# a e.g. header file is already copied).
+wf_files=("${INDIR}"/waveforms/*)
+if [ ${#wf_files[@]} -eq 0 ]; then
+  echo "No waveform files in ${INDIR}/waveforms yet, nothing to convert"
+  exit 0
+fi
+
 NEED_TO_UPDATE=1
 
 # This checks whether an existing, and maybe only partially converted run, needs to be updated
@@ -60,7 +70,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && echo "Copying aux and cfg"  \
     && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
-    && cp "$tmpfile" "${OUTDIR}/rootified-list.txt" \
+    && install -m 0644 "$tmpfile" "${OUTDIR}/rootified-list.txt" \
     && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
     && echo "Doing Voltage calibration" \
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \

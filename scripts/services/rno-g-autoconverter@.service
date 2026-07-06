@@ -6,7 +6,7 @@ PartOf=rno-g-autoconverter.target
 Type=simple
 User=rno-g
 WorkingDirectory=/home/rno-g/soft/mattak
-ExecStart=/home/rno-g/soft/mattak/scripts/rno-g-autoconverter %i
+ExecStart=/home/rno-g/soft/mattak/scripts/daq/rno-g-autoconverter %i
 Restart=always
 RestartSec=300
 Environment="PATH=/home/rno-g/soft/mattak/install/bin:/usr/local/bin:/usr/bin:/bin"

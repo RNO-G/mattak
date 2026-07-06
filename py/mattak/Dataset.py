@@ -32,6 +32,18 @@ class EventInfo:
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
 
+def _runinfo_seconds(value):
+    """ Normalize a run-info timestamp to float seconds, or None if missing/zero.
+
+    Accepts a ROOT TTimeStamp (pyroot backend), a numeric string (uproot backend, read
+    from runinfo.txt) or None. A zero timestamp means the field was not present.
+    """
+    if value is None:
+        return None
+    value = float(value)
+    return value if value else None  # if value is 0 retrn None
+
+
 class RunInfo:
     """ Vassel for run information """
 
@@ -42,16 +54,26 @@ class RunInfo:
             sampling_rate : float = 3200,
             flower_codes : Sequence[int] = [],
             n_events : int = 0, comment : str = "",
-            run_config : Union[str, dict] = None):
+            run_config : Union[str, dict] = None,
+            acq_start : float = None, acq_stop : float = None):
 
         self.station = station
         self.run = run
         self.n_events = n_events
-        self.run_start_time = run_start_time
-        self.run_end_time = run_end_time
+
+        # Run start and end time. Include time spend on setup + pre DAQ performed
+        # calibrations (e.g., bias scans, ...)
+        self.run_start_time = _runinfo_seconds(run_start_time)
+        self.run_end_time = _runinfo_seconds(run_end_time)
+
         self.sampling_rate = sampling_rate
         self.comment = comment
         self.flower_codes = flower_codes
+
+        # ACQ-START-TIME / RUN-STOP-TIME from runinfo.txt (added in 2025); the
+        # acquisition window they span is the actual data-taking livetime.
+        self.acq_start = _runinfo_seconds(acq_start)
+        self.acq_stop = _runinfo_seconds(acq_stop)
 
         if isinstance(run_config, str):
             self.run_config = read_run_config(run_config)
@@ -60,6 +82,37 @@ class RunInfo:
 
     def set_run_config(self, run_config):
         self.run_config = run_config
+
+    def get_config(self, *keys : str, default=None):
+        """ Get any property from the (libconfig-read) run config.
+
+        Traverses the nested run config following `keys`. For example,
+        ``run_info.get_config("calib", "channel")`` returns
+        ``run_config["calib"]["channel"]``. A single dot-separated string is
+        also accepted as a convenience, i.e. ``run_info.get_config("calib.channel")``.
+
+        Parameters
+        ----------
+        *keys : str
+            Sequence of (nested) keys describing the path to the property.
+        default : optional
+            Value to return if the run config is not available or any key
+            along the path is missing (Default: None).
+
+        Returns
+        -------
+        The requested property, or `default` if it could not be found.
+        """
+        if len(keys) == 1 and isinstance(keys[0], str):
+            keys = keys[0].split(".")
+
+        value = self.run_config
+        for key in keys:
+            if not isinstance(value, dict) or key not in value:
+                return default
+            value = value[key]
+
+        return value
 
 
 class AbstractDataset(ABC):
@@ -115,6 +168,12 @@ class AbstractDataset(ABC):
     def duration(self) -> float:
         """ Return the duration of the run in seconds """
 
+        # Prefer the acquisition window (ACQ-START-TIME .. RUN-STOP-TIME) from the run
+        # info (recorded since 2025), which measures the actual data-taking livetime.
+        if self.run_info is not None \
+                and self.run_info.acq_start is not None and self.run_info.acq_stop is not None:
+            return self.run_info.acq_stop - self.run_info.acq_start
+
         if not self.full and self.skip_incomplete:
 
             if self.run_info is None:
@@ -151,6 +210,18 @@ class AbstractDataset(ABC):
 
         return float(last_event.triggerTime - first_event.triggerTime)
 
+    def get_config(self, *keys : str, default=None):
+        """ Get any property from the (libconfig-read) run config.
+
+        Convenience pass-through to `RunInfo.get_config`. Returns `default`
+        if the run info / run config is not available. For example,
+        ``dataset.get_config("calib", "channel")`` returns
+        ``run_config["calib"]["channel"]``.
+        """
+        if self.run_info is None:
+            return default
+        return self.run_info.get_config(*keys, default=default)
+
     def is_calibration_run(self) -> bool:
         """ Returns True if the run is a calibration run  """
 
@@ -160,10 +231,7 @@ class AbstractDataset(ABC):
         if self.run_info.run_config is None:
             raise ValueError("Run config is not available")
 
-        if "calib" not in self.run_info.run_config:
-            return False
-
-        return self.run_info.run_config["calib"]["enable_cal"]
+        return bool(self.get_config("calib", "enable_cal", default=False))
 
     def trigger_rate(self, trigger : Union[None, str] = None) -> float:
         """ Return the trigger rate in Hz.
@@ -310,7 +378,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             verbose : bool = False, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
-            voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+            voltage_calibration : Optional[Union[str, bool, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
             cache_calibration : Optional[bool] = True,
             *, data_dir : Optional[str] = None ) -> Optional[AbstractDataset]:
     """
@@ -375,8 +443,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         waveforms of None type (if requested singly) or be all 0's (if requested
         via the bulk interface, as numpy doesn't support jagged ararys).
 
-    voltage_calibration : str
-        Path to a voltage calibration file. If None, check for file in run directory.
+    voltage_calibration : str or bool
+        Path to a voltage calibration file. If None (default), check for a file in
+        the run directory (and nearby, see `find_voltage_calibration`). Pass False
+        to skip loading (and searching for) any voltage calibration file entirely.
         (The pyroot backend actually allows to pass an object of type
         `ROOT.mattak.VoltageCalibration`, but this is not possible to
         implement in uproot.)
@@ -455,15 +525,35 @@ def find_voltage_calibration_for_dataset(dataset, i=0):
     return find_voltage_calibration(dataset.rundir, dataset.station, dataset.run)
 
 
+def _volcal_in_dir(directory):
+    """ Return the single volCalConst* file in `directory`, or None if there is none
+        (or the directory does not exist). Raises FileExistsError if more than one is found. """
+    try:
+        matches = [vc for vc in os.listdir(str(directory)) if vc.startswith("volCalConst")]
+    except OSError:
+        return None
+
+    if not matches:
+        return None
+
+    if len(matches) > 1:
+        raise FileExistsError(
+            f"More than one voltage calibration file found in {directory}, this should not be "
+            "possible. Is something wrong with the rootify process?")
+
+    return os.path.join(str(directory), matches[0])
+
+
 def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     """
     Function to find the calibration file that lays closest to given run number.
     Returns None if no file was found
     The order of the search is:
         * run directory
+        * nearest run directory
         * under RNO_G_DATA/calibration/stationX
-        * under RNO_G_CAL/stationX        
-    
+        * under RNO_G_CAL/stationX
+
     Both RNO_G_DATA/calibration/ and RNO_G_CAL/ should contain all the volCalConst files under their respective run folders
     The code assumes a RUN FOLDER STRUCTURE
     An example of a volCal path is RNO_G_CAL/stationX/runY/volCalConst.. or RNO_G_DATA/calibration/stationX/runY/volCalConst..
@@ -486,14 +576,33 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     None
         if no calibration file was found
     """
-    # try finding a calibration file in the data's run directory
-    vc_list = [vc for vc in os.listdir(str(rundir)) if vc.startswith("volCalConst")]
-    if vc_list:
-        if len(vc_list) > 1:
-            raise FileExistsError(f"More than one voltage calibration file found in {rundir}, \
-                                  this should not be possible is something wrong with the rootify process?")
-        return rundir + "/" + vc_list[0]
+    # try finding a calibration file in same run directory
+    vc_file = _volcal_in_dir(rundir)
+    if vc_file is not None:
+        return vc_file
 
+    # try finding a calibration file in neigboring run directory
+    max_runs_to_check = 48 # we arbitrarily pick 4 full run days -> 48 runs
+    run_time = read_run_time(rundir)
+    max_time = 3 * 24 * 60 * 60  # to make sure we don't skip ahead to far in time (like skipping seasons) we enforce the timing of 3 days
+
+    run_nrs_to_check = [run_nr + d for i in range(1, max_runs_to_check + 1) for d in [-i, i]]
+    for run_nr_to_check in run_nrs_to_check:
+        rundir_to_check = f"{os.path.dirname(rundir)}/run{run_nr_to_check}"
+
+        vc_file = _volcal_in_dir(rundir_to_check)
+        if vc_file is None:
+            continue
+
+        run_to_check_time = read_run_time(rundir_to_check)
+        if run_to_check_time is None:
+            continue
+
+        if abs(run_to_check_time - run_time) < max_time:
+            logging.debug("FOUND VC FILE " + vc_file)
+            return vc_file
+
+    # look for calibration with environment variables
     vc_dir, vc_run_list, vc_run_nrs = find_all_volcal_runs_station(station)
 
     if vc_dir is None:
@@ -509,16 +618,29 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
         return None
 
     if not vc_run_list:
-        logging.error("Could not find any calibration run files")
+        msg = f"Could not find any calibration run files in {vc_dir}"
+        if log_error:
+            logging.error(msg)
+        else:
+            logging.debug(msg)
         return None
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
-    if vc_run_nrs[closest_idx] - run_nr > 100:
+    if abs(vc_run_nrs[closest_idx] - run_nr) > 100:
         logging.error(f"Skipping voltage calibration, \
                       closest volCal found was run {vc_run_list[closest_idx]}, \
                       which is more than 100 runs away from the data")
         return None
-    vc_file = os.path.join(vc_dir, vc_run_list[closest_idx], f"volCalConsts_s{station}_run{vc_run_nrs[closest_idx]}.root")
+
+    vc_rundir = os.path.join(vc_dir, vc_run_list[closest_idx])
+    vc_file = _volcal_in_dir(vc_rundir)
+    if vc_file is None:
+        msg = f"No volCalConst file found in {vc_rundir}"
+        if log_error:
+            logging.error(msg)
+        else:
+            logging.debug(msg)
+        return None
 
     logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
     return vc_file
@@ -538,9 +660,14 @@ def read_run_config(path : str) -> dict:
 # store for one station
 @lru_cache(maxsize=64)
 def find_all_volcal_runs_station(station):
+    """ Searching for run voltage calibration files using environmental variables.
+
+    Returns `None, [], []` if it could find anything
+
+    """
     vc_dir = None
     vc_run_list = []
-    # look in VC constants directory
+
     for env_var in ["RNO_G_DATA", "RNO_G_ROOT_DATA", "RNO_G_CAL"]:
         if env_var in os.environ:
             try:
@@ -548,11 +675,34 @@ def find_all_volcal_runs_station(station):
                     vc_dir = f"{os.environ[env_var]}/station{station}"
                 else:
                     vc_dir = f"{os.environ[env_var]}/calibration/station{station}"
+
                 vc_run_list = [vc for vc in os.listdir(vc_dir) if vc.startswith("run")]
                 if len(vc_run_list) == 0:
                     continue
-                break
+
+                break  # stop with the first list of directories
             except FileNotFoundError:
                 pass
+
     vc_run_nrs = [int(vc_run.split("run")[1]) for vc_run in vc_run_list]
     return vc_dir, vc_run_list, vc_run_nrs
+
+
+def read_run_time(rundir):
+    """
+    Helper function to read in run start time from runinfo.txt
+    """
+    try:
+        runinfo_path = os.path.join(rundir, "aux", "runinfo.txt")
+        with open(runinfo_path, "r") as runinfo_file:
+            time = runinfo_file.readlines()[2]
+        time = time.split(" =  ")[-1][:-1]
+        # this loses some accuracy because time is longer than 64 bits
+        # but for the purposes of checking times on the hour scale this does
+        # not matter
+        time = float(time)
+
+        return time
+    except:
+        logging.warning(f"Unable to find run start time in {rundir}")
+        return None

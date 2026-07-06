@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Script to check for missing daqstatus.root files and convert if needed
+
+INGRESS=/data/ingress/
+ROOTIFIED=/data/rootified/
+STATIONS="23 11 22 12 21 13 24 14"
+
+# Override STATIONS with command line arguments if provided
+if [ $# -gt 0 ]; then
+    STATIONS="$*"
+fi
+
+echo "Checking daqstatus.root files for stations: $STATIONS"
+echo "INGRESS: $INGRESS"
+echo "ROOTIFIED: $ROOTIFIED"
+
+# don't expand globs to themselves if no match
+shopt -s nullglob
+
+for st in ${STATIONS}; do
+    echo "Checking station $st"
+
+    for run in $INGRESS/station${st}/run*; do
+        if [ -d "$run" ]; then
+            brun=$(basename $run)
+            rootdir=${ROOTIFIED}/station${st}/$brun
+            daqstatus_file="$rootdir/daqstatus.root"
+
+            echo "    Checking $brun..."
+
+            if [ ! -d "$rootdir" ]; then
+                echo "        Directory $rootdir does not exist - skipping"
+                continue
+            fi
+
+            if [ ! -f "$daqstatus_file" ]; then
+                echo "        Missing $daqstatus_file - running conversion"
+                mkdir -p log/$st/$brun
+                rno-g-convert ds $daqstatus_file ${run}/daqstatus/*
+
+            else
+                echo "        ✓ $daqstatus_file already exists"
+            fi
+        fi
+    done
+done
+
+echo "Daqstatus check complete!"
