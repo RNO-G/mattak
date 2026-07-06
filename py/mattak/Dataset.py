@@ -12,6 +12,56 @@ import libconf
 from functools import lru_cache
 
 
+logger = logging.getLogger("mattak")
+
+
+def _ensure_handler():
+    """ Attach a default handler if the application never configured logging,
+    since otherwise records below WARNING are not visible anywhere. """
+    if not logger.hasHandlers():
+        logging.basicConfig()
+
+
+def set_log_level(level : int):
+    """ Set the verbosity of both of mattak's logging systems at once.
+
+    Sets the level of the python "mattak" logger and, if ROOT is importable
+    (i.e. the pyroot backend is available), also translates the level to
+    ROOT's gErrorIgnoreLevel, which controls the messages emitted by mattak's
+    C++ classes.
+
+    Beware: gErrorIgnoreLevel is global to the whole ROOT process, so this
+    suppresses/shows messages from *all* ROOT code, not only mattak.
+
+    Datasets created afterwards without an explicit `verbose` argument will
+    enable their C++ debug messages if level <= logging.DEBUG.
+
+    Parameters
+    ----------
+    level : int
+        A level of the python logging module, e.g. logging.DEBUG,
+        logging.INFO, logging.WARNING, logging.ERROR.
+    """
+    logger.setLevel(level)
+    _ensure_handler()
+
+    try:
+        import ROOT
+    except ImportError:
+        return
+
+    if level <= logging.DEBUG:
+        ROOT.gErrorIgnoreLevel = ROOT.kPrint
+    elif level <= logging.INFO:
+        ROOT.gErrorIgnoreLevel = ROOT.kInfo
+    elif level <= logging.WARNING:
+        ROOT.gErrorIgnoreLevel = ROOT.kWarning
+    elif level <= logging.ERROR:
+        ROOT.gErrorIgnoreLevel = ROOT.kError
+    else:
+        ROOT.gErrorIgnoreLevel = ROOT.kFatal
+
+
 @dataclass
 class EventInfo:
     """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
@@ -145,7 +195,7 @@ class AbstractDataset(ABC):
                 self.last += self.N()
 
             if self.last > self.N():
-                logging.warning("You specified a range which is larger than the amount of events stored in this dataset.")
+                logger.warning("You specified a range which is larger than the amount of events stored in this dataset.")
                 self.last = self.N()
         else:
             self.multiple = False
@@ -177,7 +227,7 @@ class AbstractDataset(ABC):
         if not self.full and self.skip_incomplete:
 
             if self.run_info is None:
-                logging.warning(
+                logger.warning(
                     "'skip_incomplete == True' and Run info is not available. "
                     "Can not compute the duration, return `None`.")
                 return None
@@ -185,7 +235,7 @@ class AbstractDataset(ABC):
             run_start_time = self.run_info.run_start_time
             run_end_time = self.run_info.run_end_time
             if run_end_time == 0:
-                logging.warning(
+                logger.warning(
                     "`skip_incomplete == True` and `run_info.run_end_time == 0.` "
                     "Can not compute the duration, return `None`.")
                 return None
@@ -248,21 +298,21 @@ class AbstractDataset(ABC):
         """
         if not self.full and self.skip_incomplete:
             if trigger is not None:
-                logging.warning(
+                logger.warning(
                     "You requested the trigger rate for a specific trigger type, but "
                     "this is an incomplete dataset and `skip_incomplete == True`. "
                     "Can not compute the trigger rate, return `None`.")
                 return None
 
             if self.run_info is None:
-                logging.warning(
+                logger.warning(
                     "'skip_incomplete == True' and Run info is not available. "
                     "Can not compute the trigger rate, return `None`.")
                 return None
 
             n_events = self.run_info.n_events
             if n_events == 0:
-                logging.warning(
+                logger.warning(
                     "`skip_incomplete == True` and `run_info.n_events == 0.` "
                     "Can not compute the trigger rate, return `None`.")
                 return None
@@ -375,7 +425,7 @@ class AbstractDataset(ABC):
 
 
 def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, backend : str= "auto",
-            verbose : bool = False, skip_incomplete : bool = True,
+            verbose : Optional[bool] = None, skip_incomplete : bool = True,
             read_daq_status : bool = True, read_run_info : bool = True,
             preferred_file : Optional[str] = None,
             voltage_calibration : Optional[Union[str, bool, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
@@ -426,7 +476,10 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         to use the best one (`"pyroot"` if available, otherwise reverting to `"uproot"`).
 
     verbose : bool
-        Verbose prints out things mostly useful for debugging.
+        Verbose prints out things mostly useful for debugging. If not given,
+        defaults to whether the "mattak" logger is enabled for DEBUG (see
+        `set_log_level`). Passing True explicitly also lowers the "mattak"
+        logger to DEBUG so that the python debug messages become visible.
 
     read_daq_status : bool
         Self-explanatory. Avoiding reading them may speed things up or work around
@@ -459,6 +512,13 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         Left here for backwards compatibility
     """
 
+    # couple `verbose` to the log level of the "mattak" logger (see set_log_level)
+    if verbose is None:
+        verbose = logger.isEnabledFor(logging.DEBUG)
+    elif verbose and not logger.isEnabledFor(logging.DEBUG):
+        logger.setLevel(logging.DEBUG)
+        _ensure_handler()
+
     # handle deprecated name data_dir
     if data_dir is not None:
         warnings.warn("data_dir is deprecated, use data_path instead. This may be removed in the future, breaking your code.")
@@ -478,7 +538,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
                 break
 
         if data_path is None:
-            logging.error(
+            logger.error(
                 "Neither `data_path` nor any relevant environmental variable (e.g. RNO_G_DATA) "
                 "is defined and I don't know where else to look :(")
             return None
@@ -487,17 +547,15 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
         try:
             import ROOT
             import mattak.backends.pyroot.mattakloader
-            if verbose:
-                logging.debug('Using pyroot backend')
+            logger.debug('Using pyroot backend')
             backend = "pyroot"
         except ImportError:
             try:
                 import uproot
                 backend = "uproot"
-                if verbose:
-                    logging.debug('Using uproot backend')
+                logger.debug('Using uproot backend')
             except ImportError:
-                logging.error("No backends available")
+                logger.error("No backends available")
                 return None
 
     if backend == "uproot":
@@ -515,7 +573,7 @@ def Dataset(station : int = 0, run : int = 0, data_path : Optional[str] = None, 
             cache_calibration=cache_calibration)
 
     else:
-        print("Unknown backend (known backends are \"uproot\" and \"pyroot\")")
+        logger.error("Unknown backend \"%s\" (known backends are \"uproot\" and \"pyroot\")", backend)
         return None
 
 
@@ -599,7 +657,7 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
             continue
 
         if abs(run_to_check_time - run_time) < max_time:
-            logging.debug("FOUND VC FILE " + vc_file)
+            logger.debug("FOUND VC FILE " + vc_file)
             return vc_file
 
     # look for calibration with environment variables
@@ -611,23 +669,23 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
             "You can also set the RNO_G_CAL env variable to directly point to the calibration directory"
             )
         if log_error:
-            logging.error(msg)
+            logger.error(msg)
         else:
-            logging.debug(msg)
+            logger.debug(msg)
 
         return None
 
     if not vc_run_list:
         msg = f"Could not find any calibration run files in {vc_dir}"
         if log_error:
-            logging.error(msg)
+            logger.error(msg)
         else:
-            logging.debug(msg)
+            logger.debug(msg)
         return None
 
     closest_idx = min(enumerate(vc_run_nrs), key = lambda pair : numpy.abs(pair[1] - run_nr))[0]
     if abs(vc_run_nrs[closest_idx] - run_nr) > 100:
-        logging.error(f"Skipping voltage calibration, \
+        logger.error(f"Skipping voltage calibration, \
                       closest volCal found was run {vc_run_list[closest_idx]}, \
                       which is more than 100 runs away from the data")
         return None
@@ -637,12 +695,12 @@ def find_voltage_calibration(rundir, station, run_nr, log_error=False):
     if vc_file is None:
         msg = f"No volCalConst file found in {vc_rundir}"
         if log_error:
-            logging.error(msg)
+            logger.error(msg)
         else:
-            logging.debug(msg)
+            logger.debug(msg)
         return None
 
-    logging.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
+    logger.debug("FOUND VC RUN NR " + str(vc_run_nrs[closest_idx]))
     return vc_file
 
 
@@ -704,5 +762,5 @@ def read_run_time(rundir):
 
         return time
     except:
-        logging.warning(f"Unable to find run start time in {rundir}")
+        logger.warning(f"Unable to find run start time in {rundir}")
         return None
