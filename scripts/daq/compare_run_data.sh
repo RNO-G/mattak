@@ -21,6 +21,7 @@
 #
 # Arguments:
 #   <station_id>         The station ID
+#   -h, --help           Show usage and exit
 #   --size-limit <KB>    Minimum directory size to include in comparison (default: 24 KB)
 #   --no-remove          Skip automatic removal of identical directories (default: will remove after confirmation)
 #   --chicago-to-summit  Compare summit archive (greenland:/data/archived/station<id>)
@@ -34,6 +35,8 @@
 #   4. Categorizes directories as IDENTICAL or DIFFERENT or MISSING LOCALLY
 #   5. Displays summary with counts and total sizes
 #   6. If --no-remove is not set, prompts user to remove identical directories from remote
+#   7. In the dry-run case (--no-remove / --chicago-to-summit), writes the identical runs
+#      (station<id>/run<id>, one per line) to a text file for later manual removal
 #
 # Example:
 #   ./compare_station_files_with_summit.sh 13
@@ -41,13 +44,23 @@
 #   ./compare_station_files_with_summit.sh 13 --chicago-to-summit --run-pattern 'run*'
 #
 
-STATION_ID="$1"
-if [[ -z "$STATION_ID" ]]; then
+usage() {
     echo "Usage: $0 <station_id> [--size-limit <KB>] [--no-remove] [--chicago-to-summit] [--run-pattern <glob>]"
+    echo "  -h, --help: Show this help message and exit"
     echo "  --size-limit: Size limit in KB (default: 24)"
     echo "  --no-remove: Skip removal of identical directories on remote (needs confirmation anyway...)"
     echo "  --chicago-to-summit: Compare greenland:/data/archived/station<id> with local /data/full/raw/station<id> (implies --no-remove)"
     echo "  --run-pattern: Only consider remote directories matching this glob (default: *)"
+}
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    usage
+    exit 0
+fi
+
+STATION_ID="$1"
+if [[ -z "$STATION_ID" ]]; then
+    usage
     exit 1
 fi
 
@@ -64,6 +77,7 @@ while [[ $# -gt 0 ]]; do
         --no-remove) REMOVE_FLAG=false ;;
         --chicago-to-summit) CHICAGO_MODE=true ;;
         --run-pattern) RUN_PATTERN="$2"; shift ;;
+        -h|--help) usage; exit 0 ;;
         *) ;;
     esac
     shift
@@ -123,10 +137,7 @@ if [[ ${#REMOTE_DIRS[@]} -eq 0 ]]; then
     exit 0
 fi
 
-# Compare directories
-echo ""
-echo "Comparison of directories with size > ${SIZE_LIMIT_KB} KB:"
-echo "=========================================="
+echo "Found ${#REMOTE_DIRS[@]} remote directories matching '$RUN_PATTERN' with size > ${SIZE_LIMIT_KB} KB in $HOST:$REMOTE_DIR"
 
 # Initialize arrays for results
 identical_dirs=()
@@ -140,8 +151,8 @@ trap "rm -f '$rsync_includes'" EXIT
 printf '%s\n' "${REMOTE_DIRS[@]}" > "$rsync_includes"
 
 # Use single rsync call to compare only directories above size limit (much faster)
-echo "Running rsync comparison on directories with size > ${SIZE_LIMIT_KB} KB..."
-rsync_output=$(rsync -anr --itemize-changes --files-from="$rsync_includes" -e "ssh -q" "${HOST}:${REMOTE_DIR}/" "${LOCAL_DIR}/" 2>&1)
+echo "Running rsync comparison on ${#REMOTE_DIRS[@]} directories with size > ${SIZE_LIMIT_KB} KB..."
+rsync_output=$(rsync -anr --itemize-changes --stats --files-from="$rsync_includes" -e "ssh -q" "${HOST}:${REMOTE_DIR}/" "${LOCAL_DIR}/" 2>&1)
 rsync_exit_code=$?
 
 # Check if rsync failed
@@ -161,8 +172,8 @@ declare -A dir_has_differences
 echo "Comparing rsync output..."
 # Extract directories with changes from rsync output
 while IFS= read -r line; do
-    # Skip empty lines and metadata lines (sent, received, total)
-    if [[ -z "$line" || "$line" =~ ^(sent|received|total) ]]; then
+    # Skip empty lines, the --stats block, and the final summary (sent, received, total)
+    if [[ -z "$line" || "$line" =~ ^(sent|received|total|Number|Total|Literal|Matched|Unmatched|File) ]]; then
         continue
     fi
 
@@ -242,4 +253,20 @@ if [[ "$REMOVE_FLAG" == true && ${#identical_dirs[@]} -gt 0 ]]; then
     fi
 elif [[ "$REMOVE_FLAG" == true ]]; then
     echo "No identical directories to remove."
+elif [[ ${#identical_dirs[@]} -gt 0 ]]; then
+    # Dry run: write the identical runs to a file for later manual removal.
+    # Metadata (local host, station, date) goes into the filename
+    # so the file itself contains only paths, one per line.
+    if [[ "$CHICAGO_MODE" == true ]]; then
+        LOCAL_LABEL="uchicago"
+    else
+        LOCAL_LABEL="summit"
+    fi
+    RUNLIST_FILE="identical_runs_${LOCAL_LABEL}_station${STATION_ID}_$(date +%Y-%m-%d).txt"
+    printf "station${STATION_ID}/%s\n" "${identical_dirs[@]}" > "$RUNLIST_FILE"
+
+    echo ""
+    echo "Dry run: wrote ${#identical_dirs[@]} identical runs to $RUNLIST_FILE"
+    echo "To remove them, run on the host holding the data (from the directory containing station${STATION_ID}/):"
+    echo "  for d in \$(cat $RUNLIST_FILE); do rm -vr \"\$d\"; done"
 fi
