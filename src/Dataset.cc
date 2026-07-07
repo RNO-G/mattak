@@ -6,6 +6,8 @@
 
 
 
+/** Delete the cached object and reset a field to its empty state
+ * (as if nothing had ever been loaded into it). */
 template <typename D>
 static void clear(mattak::Dataset::field<D> * field)
 {
@@ -19,6 +21,7 @@ static void clear(mattak::Dataset::field<D> * field)
 }
 
 
+/** Close the owning TFile (which invalidates tree/branch) and clear the field. */
 template <typename D>
 static void clear(mattak::Dataset::tree_field<D> * field)
 {
@@ -31,6 +34,7 @@ static void clear(mattak::Dataset::tree_field<D> * field)
   clear((mattak::Dataset::field<D>*) field);
 }
 
+/** Close the owning TFile and clear the field. */
 template <typename D>
 static void clear(mattak::Dataset::file_field<D> * field)
 {
@@ -52,6 +56,13 @@ static void clear(mattak::Dataset::file_field<D> * field)
 #define BITBUCKET "/dev/null"
 #endif
 
+/** Open a second, independent handle onto the already-opened waveform file/tree
+ * (wf), reading only the radiant_sampling_rate and digitizer_readout_delay_ns
+ * branches into wf_meta. This lets radiantSampleRate()/radiantReadoutDelays()
+ * be read cheaply, without pulling in the (much larger) waveform samples that
+ * a shared handle on wf itself would require. Called after every successful
+ * waveform load; failures here are non-fatal (just leaves wf_meta cleared,
+ * the getters then fall back to the runinfo/default sample rate). */
 void mattak::Dataset::setupRadiantMeta()
 {
 
@@ -171,6 +182,9 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
 }
 
 
+/** Close every open file and reset every field to empty. Called at the start
+ * of every load and from the destructor, so a Dataset is always either fully
+ * loaded or fully empty, never a mix of the two. */
 void mattak::Dataset::unload()
 {
   clear(&wf);
@@ -281,6 +295,9 @@ int mattak::Dataset::loadRun(int station, int run, const DatasetOptions & opt)
   return loadRun(station, run);
 }
 
+/** Build the canonical run directory path (base_data_dir/station<S>/run<R>)
+ * and delegate to loadDir. This is the only place that path convention is
+ * encoded, so callers never need to construct it themselves. */
 int mattak::Dataset::loadRun(int station, int run)
 {
   TString dir;
@@ -311,6 +328,11 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
   return loadDir(dir);
 }
 
+/** Load every field from a single combined-style file: waveforms and headers
+ * are mandatory (failure unloads and returns -1), daqstatus/pedestals/runinfo
+ * are optional (their getters just return nullptr if absent). Because only
+ * this one file is read, there is no way to distinguish complete from
+ * incomplete events, so partial_skip_incomplete is always forced to true. */
 int mattak::Dataset::loadCombinedFile(const char * f)
 {
   if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "loadCombinedFile(%s) called", f);
@@ -369,6 +391,21 @@ int mattak::Dataset::loadCombinedFile(const char * f)
   return 0;
 }
 
+/** Load every field from a run directory. This is the workhorse behind
+ * loadRun/loadCombinedFile/the public loadDir overloads, and does three
+ * things in order:
+ *   1. Figure out where the waveforms live: opt.file_preference if set,
+ *      else waveforms.root (a "full dataset"), else combined.root (a
+ *      "partial dataset" containing only the events with waveforms).
+ *   2. Load headers and daqstatus. For a full dataset (or when the caller
+ *      wants incomplete events too, partial_skip_incomplete=false) these
+ *      come from their own standalone files; otherwise they are read out of
+ *      the same combined-style file as the waveforms, which limits
+ *      iteration to the complete events it contains.
+ *   3. Load the optional pedestal/runinfo fields, whose getters simply
+ *      return nullptr if unavailable.
+ * Waveforms/headers/daqstatus are mandatory: any failure to load them
+ * unloads the dataset and returns -1. */
 int mattak::Dataset::loadDir(const char * dir)
 {
 
@@ -528,6 +565,10 @@ int mattak::Dataset::N() const
   return hd.tree->GetEntries();
 }
 
+/** Return the header for currentEntry, reading it from the tree only if it
+ * isn't already cached (or force is set). Headers are always present for
+ * every indexed entry, so this never needs the missing-entry handling that
+ * raw()/status() require. */
 mattak::Header* mattak::Dataset::header(bool force)
 {
   if (force || hd.loaded_entry != current_entry)
@@ -540,6 +581,14 @@ mattak::Header* mattak::Dataset::header(bool force)
   return hd.ptr;
 }
 
+/** Load the entry of `field` matching the dataset's currentEntry, caching by
+ * loaded_entry the same way header() does. The difference from a plain
+ * GetEntry(current) is that field may come from a partial dataset that only
+ * has some events indexed by event_number: if the dataset is full (or the
+ * caller asked to skip incomplete events, so field is guaranteed aligned
+ * with the headers), read straight by position; otherwise look up the entry
+ * via the tree's (or index_field's) event_number index and mark
+ * field->missing_entry if this event isn't present at all. */
 template <typename T>
 static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force = false, mattak::Dataset::tree_field<mattak::Waveforms> * index_field = nullptr)
 {
@@ -581,6 +630,10 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 }
 
 
+/** RADIANT sampling rate (MHz) for currentEntry, read cheaply from wf_meta
+ * (see setupRadiantMeta) without touching the full waveform. Falls back to
+ * the runinfo rate, then to a hardcoded default, if wf_meta isn't set up or
+ * this entry has no waveform metadata. */
 float mattak::Dataset::radiantSampleRate(bool force)
 {
   if (wf_meta.ptr == nullptr) {
@@ -596,6 +649,9 @@ float mattak::Dataset::radiantSampleRate(bool force)
 
 static float zeros[mattak::k::num_radiant_channels];
 
+/** Per-channel RADIANT digitizer readout delay (ns) for currentEntry, read
+ * from wf_meta the same way as radiantSampleRate. Returns an all-zero array
+ * if unavailable (there is no runinfo fallback for this one). */
 const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 {
   if (wf_meta.ptr == nullptr)
@@ -609,6 +665,10 @@ const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 }
 
 
+/** Raw (uncalibrated) waveforms for currentEntry, or nullptr if this event
+ * has none (partial dataset with an event not present in the waveform
+ * file) or the loaded waveform entry doesn't line up with the current
+ * header's event number (a sanity check against a misaligned index). */
 mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
   if (wf.tree == nullptr)
@@ -626,6 +686,11 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 }
 
 
+/** DAQ status for currentEntry, or nullptr if no daqstatus tree was loaded.
+ * For a full dataset, daqstatus is sampled independently in time (not one
+ * entry per event), so the closest entry by readout time is looked up via
+ * the tree's time index; for a combined-style file, daqstatus is stored one
+ * entry per event and can be read straight by position. */
 mattak::DAQStatus * mattak::Dataset::status(bool force)
 {
   if (!ds.tree) return nullptr;
@@ -656,6 +721,12 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   return ds.missing_entry ? nullptr: ds.ptr;
 }
 
+/** Voltage-calibrated waveforms for currentEntry, computed on demand from
+ * raw() and header() using opt.calib. Returns nullptr if no calibration was
+ * set, or if raw()/header() are unavailable for this entry. The result is
+ * cached (and reused via placement-new into the same buffer) until
+ * currentEntry changes or force is set, so repeated calls for the same
+ * entry don't recompute the calibration. */
 mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 {
   //no calibration? we can't calibrate.
@@ -692,6 +763,10 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 }
 
 
+/** Pedestals for a given pedestal-tree entry (not a dataset event: pedestal
+ * runs are recorded separately and indexed independently, hence the explicit
+ * `entry` argument rather than using currentEntry). Returns nullptr if no
+ * pedestal tree was loaded or entry is out of range. */
 mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 {
   if (! pd.tree) return nullptr;
