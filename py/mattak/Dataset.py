@@ -41,6 +41,22 @@ def set_log_level(level : int):
     level : int
         A level of the python logging module, e.g. logging.DEBUG,
         logging.INFO, logging.WARNING, logging.ERROR.
+
+    Example
+    -------
+    ::
+
+        import logging
+        import mattak.Dataset
+
+        # show debug output from both the python wrapper and the C++ library
+        mattak.Dataset.set_log_level(logging.DEBUG)
+
+        d = mattak.Dataset.Dataset(23, 1144, "/path/to/data")
+        # ... work with the dataset, with verbose logging enabled ...
+
+        # quiet things back down again (only errors, from both systems)
+        mattak.Dataset.set_log_level(logging.ERROR)
     """
     logger.setLevel(level)
     _ensure_handler()
