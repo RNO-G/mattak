@@ -4,8 +4,9 @@
 #include <unistd.h> 
 #include <algorithm> 
 #include <vector>
-#include "TTree.h" 
-#include "TFile.h" 
+#include "TTree.h"
+#include "TFile.h"
+#include "TError.h"
 #include "mattak/Waveforms.h"
 #include "mattak/Converter.h"
 #include "mattak/Header.h"
@@ -81,10 +82,10 @@ static int convert_dir(const char * dir, const char * outfile, const char * tree
   std::vector<std::string> files; 
   std::vector<const char *> file_ptrs; 
   DIR * dirp = opendir(dir); 
-  if (!dirp) 
+  if (!dirp)
   {
-    fprintf(stderr,"Could not open dir %s\n", dir); 
-    return 0; 
+    ::Error("mattak::convert::convert_dir", "Could not open dir %s", dir);
+    return 0;
   }
 
   struct dirent * dent; 

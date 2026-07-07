@@ -1,5 +1,5 @@
-#include "mattak/DAQStatus.h" 
-#include <iostream> 
+#include "mattak/DAQStatus.h"
+#include "TError.h"
 
 
 ClassImp(mattak::DAQStatus); 
@@ -10,8 +10,8 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
 {
 
 #ifndef LIBRNO_G_SUPPORT
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
-  (void) status; 
+  ::Error("mattak::DAQStatus::DAQStatus", "Not compiled with librno-g support");
+  (void) status;
 #else
 
   this->readout_time_radiant = status->when_radiant; 

@@ -11,6 +11,9 @@ __pycache__/
 # For test data
 tests/data/
 
+# From autoconverter
+log/
+
 *.png
 *.out
 # The dot is important here!

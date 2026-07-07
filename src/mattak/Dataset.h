@@ -46,6 +46,14 @@ namespace mattak
     std::string file_preference = "";
 
 
+    /** If true, emit **debug-level** messages while loading.
+     *
+     * All Dataset messages go through ROOT's message system (TError.h):
+     * debug messages are emitted via Info, recoverable problems via Warning
+     * and load failures via Error. They can therefore be suppressed or
+     * redirected globally, e.g. gErrorIgnoreLevel = kError; (also from
+     * PyROOT: ROOT.gErrorIgnoreLevel = ROOT.kError) or SetErrorHandler().
+     * */
     bool verbose = false;
   };
 

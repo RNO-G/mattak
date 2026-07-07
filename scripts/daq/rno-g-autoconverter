@@ -45,13 +45,16 @@ for st in ${STATIONS} ; do
     brun=$(basename $run)
     rootdir=${ROOTIFIED}/station${st}/$brun
     mkdir -p log/$st/$brun
+
     rno-g-convert-run $run $rootdir &>> log/$st/$brun/convert.log
     updated=$?
     [ $updated -ne 0 ] && [ $updated -ne 1 ] && \
       log_error "Station $st $brun: rno-g-convert-run failed (exit $updated); see log/$st/$brun/convert.log"
+
     if [ $updated -eq 1 ] ; then
       log_info "Station $st: $brun"
       log_info "RUN UPDATED! -- COPYING TO STAGING"
+
       outdir=${OUTBOX}/station${st}/$brun
       #if the outdir already exists, move out of the outbox, and delete it
       if [ -d $outdir ] ; then
@@ -60,6 +63,7 @@ for st in ${STATIONS} ; do
         run_cmd mv $outdir ${TRASH}
         run_cmd rm -rf "${TRASH:?}/$brun"
       fi
+
       # Create staging directory and copy additional data which will be send south
       # DO NOT COPY aux/ and cfg/ to the $outdir (via $stagedir)!
       # They are copied directly from INGRESS to desy!
@@ -79,6 +83,7 @@ for st in ${STATIONS} ; do
         run_cmd mv "${calibration_file[0]}" "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root"
         run_cmd cp -p "${rootdir}/volCalConsts_pol9_s${st}_${brun}.root" "${stagedir}/volCalConsts_pol9_s${st}_${brun}.root"
       fi
+
       log_info "RUN rno-g-combine"
       rno-g-combine $stagedir/combined.root $rootdir/waveforms.root $rootdir/headers.root \
         $rootdir/daqstatus.root $rootdir/runinfo.root $FRAC &> log/$st/$brun/combine.log
@@ -96,5 +101,3 @@ for st in ${STATIONS} ; do
   run_cmd rsync -a --exclude=".*" "$INGRESS/station${st}/" "$ARCHIVED/station${st}/"
   log_info "DONE, ingress --> archive synced"
 done
-
-

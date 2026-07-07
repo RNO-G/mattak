@@ -5,6 +5,9 @@ from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVa
 import numpy
 import os.path
 import warnings
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import cppyy.ll
@@ -39,7 +42,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                  verbose : bool = False, skip_incomplete : bool = True,
                  read_daq_status : bool = True, read_run_info : bool = True,
                  preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[Union[str, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
+                 voltage_calibration : Optional[Union[str, bool, TypeVar('ROOT.mattak.VoltageCalibration')]] = None,
                  cache_calibration : Optional[bool] = True):
         """
         PyROOT backend for the python interface of the mattak Dataset. See further information in
@@ -54,6 +57,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.ds = ROOT.mattak.Dataset()
 
         opt.partial_skip_incomplete = skip_incomplete
+        self.skip_incomplete = skip_incomplete
         opt.verbose = verbose
         if preferred_file is not None and preferred_file != "":
             opt.file_preference = preferred_file
@@ -81,45 +85,37 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.station = self.ds.header().station_number
             self.run = self.ds.header().run_number
 
-        if isinstance(voltage_calibration, str) or not isNully(voltage_calibration):
+        # Look for voltage calibration if None, returns None if not found.
+        # Pass voltage_calibration=False to skip searching/loading entirely.
+        if voltage_calibration is None:
+            voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
+
+        self.has_calib = False
+        if voltage_calibration is not False and (isinstance(voltage_calibration, str) or not isNully(voltage_calibration)):
             # the voltage calibration has to be set as member variable. Otherwise the pointer would get deleted to early.
             self.set_calibration(voltage_calibration, cache_calibration=cache_calibration)
-        else:
-            if verbose:
-                print("Looking for a calibration file")
-
-            cal_file = mattak.Dataset.find_voltage_calibration_for_dataset(self)
-            if cal_file is not None:
-                if verbose:
-                    print(f"Found calibration file {cal_file}")
-
-                self.set_calibration(cal_file, cache_calibration=cache_calibration)
-            else:
-                if verbose:
-                    print("No calibration file found")
-
-                self.has_calib = False
 
         self.data_path = data_path
+        self.full = self.ds.isFullDataset()
         self.setEntries(0)
 
-        if verbose:
-            print("We think we found station %d run %d" % (self.station, self.run))
-
-        self.full = self.ds.isFullDataset()
+        logger.debug("We think we found station %d run %d", self.station, self.run)
 
         self.run_info = None
         if isNully(self.ds.info()):
             self.__read_run_info = False
             warnings.warn("Could not read run info")
         elif self.__read_run_info:
+            info = self.ds.info()
             self.run_info = mattak.Dataset.RunInfo(
-                station=self.ds.info().station,
-                run=self.ds.info().run,
-                run_start_time=self.ds.info().run_start_time,
-                run_end_time=self.ds.info().run_end_time,
-                sampling_rate=self.ds.info().radiant_sample_rate,
-                run_config=f"{self.rundir}/cfg/acq.cfg"
+                station=info.station,
+                run=info.run,
+                run_start_time=info.run_start_time,
+                run_end_time=info.run_end_time,
+                sampling_rate=info.radiant_sample_rate,
+                run_config=f"{self.rundir}/cfg/acq.cfg",
+                acq_start=info.acq_start_time,
+                acq_stop=info.run_stop_time,
             )
         else:
             pass
@@ -205,7 +201,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             radiantThrs=radiantThrs,
             lowTrigThrs=lowTrigThrs,
             lowphasedTrigThrs=lowphasedTrigThrs,
-            hasWaveforms= self.ds.rawAvailable(),
+            hasWaveforms=self.ds.rawAvailable(),
             readoutDelay=readout_delay)
 
 

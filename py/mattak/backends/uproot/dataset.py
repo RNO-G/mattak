@@ -9,6 +9,8 @@ import numpy
 import math
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 # Dublicated from Dataset.cc
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
@@ -61,7 +63,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
     def __init__(self, station : int, run : int, data_path : str, verbose : bool = False,
                  skip_incomplete : bool = True, read_daq_status : bool = True,
                  read_run_info : bool = True, preferred_file : Optional[str] = None,
-                 voltage_calibration : Optional[str] = None, cache_calibration : Optional[bool] = True):
+                 voltage_calibration : Optional[Union[str, bool]] = None, cache_calibration : Optional[bool] = True):
         """
         Uproot backend for the python interface of the mattak Dataset. See further information in
         `mattak.Dataset.Dataset` about the arguments `station`, `run`, `data_path` (called `data_dir` there),
@@ -95,8 +97,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         preferred_file: str
             Specify a prefered file name to load.
 
-        voltage_calibration : str
+        voltage_calibration : str or bool
             Path to a voltage calibration file. If None, check for file in run directory.
+            Pass False to skip loading (and searching for) any voltage calibration file.
         """
 
         self.backend = "uproot"
@@ -124,7 +127,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
 
         if skip_incomplete is False and self.data_path_is_file:
-            logging.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
+            logger.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
                              "Set `skip_incomplete == True`")
             skip_incomplete = True
 
@@ -149,15 +152,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if os.path.exists(f"{self.rundir}/{preferred_file}.root"):
                 self.combined_tree = uproot.open(f"{self.rundir}/{preferred_file}.root:combined")
             else:
-                logging.warning(f"Could not find prefered file {self.rundir}/{preferred_file}.root. "
+                logger.warning(f"Could not find prefered file {self.rundir}/{preferred_file}.root. "
                                 "Revert to default behaviour ...")
 
         # if we didn't load the combined_tree already, try to load full tree
         if self.combined_tree is None:
             try:
                 self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-                if self.__verbose:
-                    print ("Open waveforms.root (Found full run folder) ...")
+                logger.debug("Open waveforms.root (Found full run folder) ...")
 
                 self.full = True
 
@@ -183,8 +185,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.full:
             if self.combined_tree is None: # we didn't already load our preference
                 self.combined_tree = uproot.open(f"{self.rundir}/combined.root:combined")
-                if self.__verbose:
-                    print("Found combined file")
+                logger.debug("Found combined file")
 
             self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
 
@@ -210,8 +211,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names)
 
         if station == 0 and run == 0 or self.data_path_is_file:
-            self.station = self._hds['station_number'].array(entry_start=0, entry_stop=1)[0]
-            self.run = self._hds['run_number'].array(entry_start=0, entry_stop=1)[0]
+            self.station = int(self._hds['station_number'].array(entry_start=0, entry_stop=1)[0])
+            self.run = int(self._hds['run_number'].array(entry_start=0, entry_stop=1)[0])
         else:
             self.station = station
             self.run = run
@@ -224,22 +225,20 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.__read_run_info:
             self._read_run_info()
 
-        self.has_calib = False
+        # Look for voltage calibration if None, returns None if not found.
+        # Pass voltage_calibration=False to skip searching/loading entirely.
         if voltage_calibration is None:
             voltage_calibration = mattak.Dataset.find_voltage_calibration_for_dataset(self)
+
+        # Set voltage calibration if found or set
+        if voltage_calibration is False:
+            self.has_calib = False
         elif isinstance(voltage_calibration, str):
-            pass
+            self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
+            self.has_calib = True
         elif isinstance(voltage_calibration, VoltageCalibration):
             self.vc = voltage_calibration
             self.has_calib = True
-
-        else:
-            raise TypeError(f"Unknown type for voltage calibration in uproot backend ({voltage_calibration})")
-
-        if voltage_calibration is not None:
-            if not self.has_calib:
-                self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
-                self.has_calib = True
         else:
             self.has_calib = False
 
@@ -277,6 +276,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     sampling_rate=run_info["radiant_samplerate"],
                     run_config=f"{self.rundir}/cfg/acq.cfg",
                     flower_codes=flower_codes,
+                    # ACQ-START-TIME / RUN-STOP-TIME (added in 2025); None for older runs
+                    acq_start=run_info.get("acq_start_time", None),
+                    acq_stop=run_info.get("run_stop_time", None),
                 )
 
     def eventInfo(self, override_skip_incomplete : Optional[bool] = None) -> Union[Optional[mattak.Dataset.EventInfo], Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -377,6 +379,18 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 else:
                     lowphasedTrigThrs = self._lowphasedTrigThrs[lt_idx]
 
+            if not self.skip_incomplete and not self.full:
+                # Partial run read with skip_incomplete=False: the header arrays span
+                # all events, but readout_delay (from the waveforms tree) only covers
+                # events that have a waveform. Map via event number; events without a
+                # waveform have no digitizer readout delay.
+                if eventNumber[i] in self.events_with_waveforms:
+                    readoutDelay = readout_delay[self.events_with_waveforms[eventNumber[i]]]
+                else:
+                    readoutDelay = numpy.zeros(self.NUM_CHANNELS)
+            else:
+                readoutDelay = readout_delay[i]
+
             info = mattak.Dataset.EventInfo(
                 eventNumber = eventNumber[i],
                 station = station[i],
@@ -393,7 +407,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 lowTrigThrs = lowTrigThrs,
                 lowphasedTrigThrs = lowphasedTrigThrs,
                 hasWaveforms = eventNumber[i] in self.events_with_waveforms.keys() if not self.skip_incomplete else True,
-                readoutDelay=readout_delay[i]
+                readoutDelay=readoutDelay
             )
 
             infos.append(info)
@@ -424,7 +438,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if voltage_calibration == voltage_calibration_old:
                 return
             else:
-                logging.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
+                logger.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
                 del self.vc
         if isinstance(voltage_calibration, str):
             self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)

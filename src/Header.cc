@@ -1,5 +1,5 @@
 #include "mattak/Header.h"
-#include <iostream>
+#include "TError.h"
 #include <cmath>
 
 
@@ -82,7 +82,7 @@ mattak::Header::Header(const rno_g_header_t * head)
 
 
 #else
-  std::cerr << "Not compiled with librno-g support. "<< std::endl;
+  ::Error("mattak::Header::Header", "Not compiled with librno-g support");
   (void) head;
 #endif
 
