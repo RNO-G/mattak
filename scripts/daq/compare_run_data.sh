@@ -212,7 +212,7 @@ for dir in "${REMOTE_DIRS[@]}"; do
     if [[ -n "$skip_run" ]]; then
         dir_num="${dir#run}"  # Extract numeric part by removing "run" prefix
         if [[ "$dir_num" == "$skip_run" ]]; then
-            echo "Skip current run: $dir"
+            [[ "$VERBOSE" == true ]] && echo "Skip current run: $dir"
             continue
         fi
     fi
@@ -222,15 +222,15 @@ for dir in "${REMOTE_DIRS[@]}"; do
 
     # Check if local directory exists
     if [[ ! -d "$local_path" ]]; then
-        echo "MISSING LOCALLY: $dir"
+        [[ "$VERBOSE" == true ]] && echo "MISSING LOCALLY: $dir"
         different_dirs+=("$dir")
         ((different_size += dir_size))
     elif [[ "${dir_has_differences[$dir]}" == "true" ]]; then
-        echo "DIFFERENT: $dir"
+        [[ "$VERBOSE" == true ]] && echo "DIFFERENT: $dir"
         different_dirs+=("$dir")
         ((different_size += dir_size))
     else
-        echo "IDENTICAL: $dir"
+        [[ "$VERBOSE" == true ]] && echo "IDENTICAL: $dir"
         identical_dirs+=("$dir")
         ((identical_size += dir_size))
     fi
