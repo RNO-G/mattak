@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# compare_station_files_with_summit.sh
+# compare_run_data.sh
 #
 # Description:
 #   Compares a remote data directory with a local copy using rsync (no checksum check)
@@ -28,6 +28,7 @@
 #                        against local uchicago copy (/data/full/raw/station<id>).
 #                        Always a dry run: implies --no-remove.
 #   --run-pattern <glob> Only consider remote directories matching this glob (default: *)
+#   --verbose            Print the raw rsync output (for debugging)
 #
 # Workflow:
 #   1. Connects to the remote host and lists directories in the remote dir (skipping those smaller than size limit)
@@ -51,6 +52,7 @@ usage() {
     echo "  --no-remove: Skip removal of identical directories on remote (needs confirmation anyway...)"
     echo "  --chicago-to-summit: Compare greenland:/data/archived/station<id> with local /data/full/raw/station<id> (implies --no-remove)"
     echo "  --run-pattern: Only consider remote directories matching this glob (default: *)"
+    echo "  --verbose: Print the raw rsync output (for debugging)"
 }
 
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
@@ -68,6 +70,7 @@ SIZE_LIMIT_KB=24  # Default size limit in KB
 REMOVE_FLAG=true
 CHICAGO_MODE=false
 RUN_PATTERN="*"
+VERBOSE=false
 
 # Parse additional arguments
 shift
@@ -77,6 +80,7 @@ while [[ $# -gt 0 ]]; do
         --no-remove) REMOVE_FLAG=false ;;
         --chicago-to-summit) CHICAGO_MODE=true ;;
         --run-pattern) RUN_PATTERN="$2"; shift ;;
+        --verbose) VERBOSE=true ;;
         -h|--help) usage; exit 0 ;;
         *) ;;
     esac
@@ -151,8 +155,11 @@ trap "rm -f '$rsync_includes'" EXIT
 printf '%s\n' "${REMOTE_DIRS[@]}" > "$rsync_includes"
 
 # Use single rsync call to compare only directories above size limit (much faster)
+# --exclude drops rsync's own leftover temp files from failed prior transfers,
+# named "<original-name>.XXXXXX" with a leading dot and a 6-char random suffix
+# (e.g. .000172.wf.dat.gz.KsUBEc), so they don't cause spurious DIFFERENT results.
 echo "Running rsync comparison on ${#REMOTE_DIRS[@]} directories with size > ${SIZE_LIMIT_KB} KB..."
-rsync_output=$(rsync -anr --itemize-changes --stats --files-from="$rsync_includes" -e "ssh -q" "${HOST}:${REMOTE_DIR}/" "${LOCAL_DIR}/" 2>&1)
+rsync_output=$(rsync -anr --itemize-changes --stats --exclude='.*.??????' --files-from="$rsync_includes" -e "ssh -q" "${HOST}:${REMOTE_DIR}/" "${LOCAL_DIR}/" 2>&1)
 rsync_exit_code=$?
 
 # Check if rsync failed
@@ -167,6 +174,12 @@ if [[ -z "$rsync_output" ]]; then
     exit 1
 fi
 
+if [[ "$VERBOSE" == true ]]; then
+    echo "---- raw rsync output ----"
+    echo "$rsync_output"
+    echo "---------------------------"
+fi
+
 # Parse rsync output to identify which directories have differences
 declare -A dir_has_differences
 echo "Comparing rsync output..."
@@ -177,9 +190,16 @@ while IFS= read -r line; do
         continue
     fi
 
-    # rsync format: "changeinfo path" - extract the path part
-    if [[ $line =~ ^[^[:space:]]+[[:space:]]+(.+)$ ]]; then
-        filepath="${BASH_REMATCH[1]}"
+    # rsync format: "itemcode path" - extract the itemcode and path
+    if [[ $line =~ ^([^[:space:]]+)[[:space:]]+(.+)$ ]]; then
+        itemcode="${BASH_REMATCH[1]}"
+        filepath="${BASH_REMATCH[2]}"
+        # itemcode[1] is the file type (f=file, d=dir, L=symlink, ...). Directory
+        # entries only ever reflect attribute noise (e.g. mtime) since their
+        # content is captured by the individual file entries within them, so
+        # they don't indicate an actual data difference and would otherwise
+        # cause every run to be falsely marked DIFFERENT.
+        [[ "${itemcode:1:1}" == "d" ]] && continue
         # Get top-level directory (run folder)
         top_dir=$(echo "$filepath" | cut -d'/' -f1)
         [[ -n "$top_dir" ]] && dir_has_differences["$top_dir"]=true
