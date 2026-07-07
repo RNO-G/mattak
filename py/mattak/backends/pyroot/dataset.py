@@ -5,6 +5,9 @@ from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVa
 import numpy
 import os.path
 import warnings
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import cppyy.ll
@@ -96,8 +99,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         self.full = self.ds.isFullDataset()
         self.setEntries(0)
 
-        if verbose:
-            print("We think we found station %d run %d" % (self.station, self.run))
+        logger.debug("We think we found station %d run %d", self.station, self.run)
 
         self.run_info = None
         if isNully(self.ds.info()):

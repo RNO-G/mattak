@@ -9,6 +9,8 @@ import numpy
 import math
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 # Dublicated from Dataset.cc
 waveform_tree_names = ["waveforms", "wfs", "wf", "waveform"]
@@ -125,7 +127,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.rundir = f"{data_path}/station{station}/run{run}"
 
         if skip_incomplete is False and self.data_path_is_file:
-            logging.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
+            logger.warning("`skip_incomplete == False` is incompatible with data_dir as file. "
                              "Set `skip_incomplete == True`")
             skip_incomplete = True
 
@@ -150,15 +152,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if os.path.exists(f"{self.rundir}/{preferred_file}.root"):
                 self.combined_tree = uproot.open(f"{self.rundir}/{preferred_file}.root:combined")
             else:
-                logging.warning(f"Could not find prefered file {self.rundir}/{preferred_file}.root. "
+                logger.warning(f"Could not find prefered file {self.rundir}/{preferred_file}.root. "
                                 "Revert to default behaviour ...")
 
         # if we didn't load the combined_tree already, try to load full tree
         if self.combined_tree is None:
             try:
                 self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
-                if self.__verbose:
-                    print ("Open waveforms.root (Found full run folder) ...")
+                logger.debug("Open waveforms.root (Found full run folder) ...")
 
                 self.full = True
 
@@ -184,8 +185,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.full:
             if self.combined_tree is None: # we didn't already load our preference
                 self.combined_tree = uproot.open(f"{self.rundir}/combined.root:combined")
-                if self.__verbose:
-                    print("Found combined file")
+                logger.debug("Found combined file")
 
             self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
 
@@ -438,7 +438,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if voltage_calibration == voltage_calibration_old:
                 return
             else:
-                logging.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
+                logger.warning(f"Overwriting older calibration file {voltage_calibration_old} with new file {voltage_calibration}")
                 del self.vc
         if isinstance(voltage_calibration, str):
             self.vc = VoltageCalibration(voltage_calibration, caching=cache_calibration)
