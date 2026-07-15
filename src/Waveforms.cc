@@ -7,6 +7,7 @@
 #include "TPaveText.h"
 #include "TError.h"
 
+#include <math.h>       /* ceil */
 
 ClassImp(mattak::Waveforms);
 ClassImp(mattak::IWaveforms);
@@ -99,7 +100,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   int nplots = __builtin_popcount(opt.mask);
   if (!nplots) return nullptr;
 
-  bool use_same = opt.same && where; 
+  bool use_same = opt.same && where;
   if (!where )
   {
     where = new TCanvas(Form("c_s%d_r%d_ev%d", wf.station_number, wf.run_number, wf.event_number), Form("Station %d, Run %d, Event %d", wf.station_number, wf.run_number, wf.event_number), opt.width, opt.height);
@@ -118,13 +119,13 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   {
 
     where->Clear();
-    nrows =opt.rows ?:
+    nrows = opt.rows ?:
                 nplots < 4 ? 1:
                 nplots < 9 ? 2:
                 nplots < 12? 3:
                 4;
 
-    ncols = ceil (nplots / (float(nrows)));
+    ncols = ceil(nplots / (float(nrows)));
 
     if (!opt.share_xaxis && !opt.share_yaxis)
     {
