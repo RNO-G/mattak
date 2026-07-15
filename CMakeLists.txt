@@ -49,7 +49,7 @@ if (NOT DEFINED ROOTLESS)
 
     option(LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
 
-    set(LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)")
+    set(LIBRNO_G_PATH  "${RNO_G_INSTALL_DIR}" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)")
 
     set(H_FILES
       mattak/Header.h
@@ -121,9 +121,9 @@ if (NOT DEFINED ROOTLESS)
     if (LIBRNO_G_SUPPORT)
       add_definitions(-DLIBRNO_G_SUPPORT)
       message(STATUS "librno-g path set to: ${LIBRNO_G_PATH}")
-      message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/install/lib/")
+      message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/lib/")
 
-      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/ ${LIBRNO_G_PATH}/build)
+      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/lib/)
 
       message(STATUS "Found librno-g: ${RNO_G_LIB}")
 
