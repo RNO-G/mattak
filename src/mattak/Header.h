@@ -14,7 +14,6 @@ typedef int rno_g_header_t;
 namespace mattak
 {
 
-
   class Header : public TObject
   {
 
@@ -36,9 +35,6 @@ namespace mattak
 
       /* The number of this station */
       uint16_t station_number = 0;
-
-      /* The number of samples in the waveforms */
-      uint16_t buffer_length = 0;
 
       /* In theory, the number of samples pretrigger, but not yet filled properly. */
       uint16_t pretrigger_samples = 0;
@@ -76,12 +72,9 @@ namespace mattak
       TriggerInfo trigger_info;
 
 
-    ClassDef(Header,2);
+    ClassDef(Header, 3);
   };
 
-
-
 }
-
 
 #endif

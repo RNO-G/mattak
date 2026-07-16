@@ -16,7 +16,6 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->event_number = head->event_number;
   this->trigger_number = head->trigger_number;
   this->station_number = head->station_number;
-  this->buffer_length = head->radiant_nsamples;
   this->pretrigger_samples= head->pretrigger_windows*128;
   this->readout_time = head->readout_time_secs + 1e-9 * head->readout_time_nsecs;
   this->pps_num = head->pps_count;
@@ -77,9 +76,6 @@ mattak::Header::Header(const rno_g_header_t * head)
   this->trigger_info.lt_info.vppmode = head->lt_simple_trigger_cfg.vpp_mode;
   this->trigger_info.lt_info.channel_mask=head->lt_simple_trigger_cfg.channel_mask;
   this->trigger_info.lt_info.beam_mask=head->lt_phased_trigger_cfg.beam_mask;
-
-
-
 
 #else
   ::Error("mattak::Header::Header", "Not compiled with librno-g support");
