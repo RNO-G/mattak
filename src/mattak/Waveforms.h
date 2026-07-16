@@ -19,6 +19,11 @@ typedef int rno_g_waveform_t;
 #include "mattak/Header.h"
 #include "mattak/VoltageCalibration.h"
 
+#ifdef LIBRNO_G_SUPPORT
+static_assert(mattak::k::num_radiant_samples == RNO_G_MAX_RADIANT_NSAMPLES, "mattak::k::num_radiant_samples out of sync with librno-g");
+static_assert(mattak::k::num_didaq_samples == RNO_G_MAX_DIDAQ_NSAMPLES, "mattak::k::num_didaq_samples out of sync with librno-g");
+#endif
+
 namespace mattak
 {
   struct WaveformPlotOptions
@@ -102,9 +107,12 @@ namespace mattak
     uint32_t radiant_sampling_rate = 3200;  // MHz
     float digitizer_readout_delay_ns[mattak::k::num_radiant_channels] = {0};
 
+    // 2: samples are 12-bit RADIANT, in radiant_data. 1: samples are 8-bit DIDAQ, in didaq_data.
+    uint8_t bytes_per_sample = 2;
+
     virtual TGraph * makeGraph(int chan, bool ns = true) const = 0;
     virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const = 0;
-    ClassDef(IWaveforms, 2);
+    ClassDef(IWaveforms, 3);
   };
 
   /**
@@ -119,12 +127,16 @@ namespace mattak
       Waveforms() { ; }
       Waveforms(const rno_g_waveform_t * wf);
 
-      //These are pedestal subtracted, so signed
+      //These are pedestal subtracted, so signed. Valid when bytes_per_sample == 2.
       int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {};
+
+      //Raw, unsigned 8-bit DIDAQ samples. Valid when bytes_per_sample == 1.
+      uint8_t didaq_data[mattak::k::num_radiant_channels][mattak::k::num_didaq_samples] = {};
+
       virtual TGraph * makeGraph(int chan, bool ns = true) const;
       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const;
 
-    ClassDef(Waveforms, 3);
+    ClassDef(Waveforms, 4);
   };
 
 
