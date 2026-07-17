@@ -103,7 +103,9 @@ namespace mattak
 
     // This has to stay 3200 MHz forever. This value will be used for all data taken with the
     // board manager version < 2.18(or 19), when we did not read out the sampling rate from the
-    // radiant directly.
+    // radiant directly. NOTE: we also use it to store the sampling rate of the DiDAQ (
+    // any readout digitizer really). We keep the name because changing it is painful and the
+    // variable is anyway not user facing since the Dataset interface sits between.
     uint32_t radiant_sampling_rate = 3200;  // MHz
     float digitizer_readout_delay_ns[mattak::k::num_radiant_channels] = {0};
 
