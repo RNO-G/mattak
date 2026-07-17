@@ -1,0 +1,8 @@
+[Unit]
+Description=Clean up old rootified runs
+
+[Service]
+Type=oneshot
+User=rno-g
+WorkingDirectory=/home/rno-g/soft/mattak
+ExecStart=/home/rno-g/soft/mattak/scripts/daq/rno-g-cleanup-rootified 30

@@ -1,6 +1,6 @@
 # This Makefile is just a cmake wrapper
 
-.PHONY: all configure clean cleaner install cmake-build cmake-clean cmake-install cmake-rootless-build cmake-rootless-clean cmake-rootless-configure
+.PHONY: all configure clean cleaner install cmake-build cmake-clean cmake-install cmake-rootless-build cmake-rootless-clean cmake-rootless-configure install-systemd install-systemd-cleanup
 
 CMAKE?=cmake
 CCMAKE?=ccmake
@@ -9,6 +9,8 @@ rootlessdir=build-noroot
 SYSTEMD_DIR=/etc/systemd/system
 SERVICE_FILE=./scripts/services/rno-g-autoconverter@.service
 TARGET_FILE=./scripts/services/rno-g-autoconverter.target
+CLEANUP_SERVICE_FILE=./scripts/services/rno-g-cleanup-rootified.service
+CLEANUP_TIMER_FILE=./scripts/services/rno-g-cleanup-rootified.timer
 
 all: cmake-build #cmake-rootless-build
 rootless: cmake-rootless-build
@@ -64,3 +66,11 @@ install-systemd:
 	@cp $(TARGET_FILE) $(SYSTEMD_DIR)/rno-g-autoconverter.target
 	@systemctl daemon-reload
 	@echo "Done. (re)Start with: systemctl restart rno-g-autoconverter.target"
+
+# Install systemd service and timer for the daily rootified cleanup
+install-systemd-cleanup:
+	@echo "Installing rootified cleanup service and timer files..."
+	@cp $(CLEANUP_SERVICE_FILE) $(SYSTEMD_DIR)/rno-g-cleanup-rootified.service
+	@cp $(CLEANUP_TIMER_FILE) $(SYSTEMD_DIR)/rno-g-cleanup-rootified.timer
+	@systemctl daemon-reload
+	@echo "Done. Enable with: systemctl enable --now rno-g-cleanup-rootified.timer"
