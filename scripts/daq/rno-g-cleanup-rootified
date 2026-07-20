@@ -89,6 +89,8 @@ for rundir in "${ROOTIFIED}"/station*/run*; do
   age_days=$(( age / 86400 ))
   if [ "$DRY_RUN" = "1" ]; then
     log_info "[dry-run] would purge ${rundir} (last modified ${age_days}d ago), keeping ${TOP_KEEP[*]} (aux/: ${AUX_KEEP[*]})"
+    find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}"
+    find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}"
   else
     log_info "Purging ${rundir} (last modified ${age_days}d ago), keeping ${TOP_KEEP[*]} (aux/: ${AUX_KEEP[*]})"
     ok=1
