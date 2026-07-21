@@ -94,9 +94,9 @@ for rundir in "${ROOTIFIED}"/station*/run*; do
   else
     log_info "Purging ${rundir} (last modified ${age_days}d ago), keeping ${TOP_KEEP[*]} (aux/: ${AUX_KEEP[*]})"
     ok=1
-    find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}" -exec rm -rf -- {} + || ok=0
+    find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}" -exec rm -r -- {} + || ok=0
     if [ -d "${rundir}/aux" ]; then
-      find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}" -exec rm -rf -- {} + || ok=0
+      find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}" -exec rm -r -- {} + || ok=0
     fi
     if [ "$ok" -eq 1 ]; then
       n_purged=$((n_purged + 1))
