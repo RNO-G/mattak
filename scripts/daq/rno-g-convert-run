@@ -9,7 +9,11 @@ FORCE=${3-0}
 STATION_OVERRIDE=${4--1}
 RUN_OVERRIDE=${5--1}
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${RNO_G_INSTALL_DIR}" ]]; then
+  echo "RNO_G_INSTALL_DIR is not set. Can not locate mon_write.py, please set. Exit.."
+  exit 1
+fi
+SCRIPT_DIR="${RNO_G_INSTALL_DIR}/bin"
 
 if [ "${INDIR}" = "${OUTDIR}" ];
 then
