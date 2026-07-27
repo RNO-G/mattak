@@ -55,6 +55,15 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   # existing in the output directory
   calibration_file=("${OUTDIR}"/volCalConsts*)
 
+  if [ ! -f "${INDIR}/aux/runinfo.txt" ]; then
+    echo "Did not find runinfo.txt for input dir ${INDIR}. Exit..."
+    exit 1;
+  fi
+
+  # Check if we are DiDAQ
+  grep -iq didaq ~/station25/run26064/aux/runinfo.txt
+  ON_DIDAQ=$(( !$? ))
+
   echo "Making rootified list" \
     && find "${INDIR}" | sort -o "$tmpfile" \
     && echo "Converting waveforms"  \
@@ -63,15 +72,16 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
     && echo "Converting daqstatus" \
     && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}"/daqstatus/* \
-    && echo "Converting pedestals" \
+    && { [ $ON_DIDAQ -eq 0 ] && echo "Converting pedestals" \
     && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}"/pedestals.dat* \
+    || true; } \
     && echo "Converting runinfo" \
     && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE}" \
     && echo "Copying aux and cfg"  \
     && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
     && install -m 0644 "$tmpfile" "${OUTDIR}/rootified-list.txt" \
-    && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
+    && { [ $ON_DIDAQ -eq 0 ] && [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
     && echo "Doing Voltage calibration" \
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
             "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
