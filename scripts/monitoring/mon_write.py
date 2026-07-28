@@ -31,7 +31,6 @@ from NuRadioReco.utilities import logging as nu_logging
 nu_logging.set_general_log_level(nu_logging.ERROR)  # suppress warnings from NuRadio
 
 NR_CHANNELS = 24
-NR_SAMPESRATES = 2048
 OFFSET_BLOCK_SIZE = 128
 
 def calculate_glitch_test_statistic(wf):
@@ -75,7 +74,7 @@ def get_run_summary(dataset):
     return run_summary
 
 
-def write_event_summary(event_summary, event_info, wfs):
+def write_event_summary(event_summary, event_info, wfs, is_didaq=0):
     """Populate one ``EventSummary`` from header metadata and waveform data.
 
     For each channel, this computes RMS, max absolute amplitude, a glitch score,
@@ -90,20 +89,21 @@ def write_event_summary(event_summary, event_info, wfs):
     amax = np.max(np.abs(wfs), axis=1).astype(np.uint16)
     assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
 
-    glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
-    block_offsets = np.zeros(len(wfs), dtype=np.uint16)
+    if not is_didaq:
+        glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
+        block_offsets = np.zeros(len(wfs), dtype=np.uint16)
 
-    for i, wf in enumerate(wfs):
+        for i, wf in enumerate(wfs):
 
-        glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
-        offsets = fit_block_offsets(
-            wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
-            max_frequency=50*units.MHz, mode='auto', return_trace=False,
-            maxiter=5, tol=1e-6)
-        block_offsets[i] = np.abs(offsets).max()  # take the max. abs. offset as a summary statistic for the event
+            glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
+            offsets = fit_block_offsets(
+                wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
+                max_frequency=50*units.MHz, mode='auto', return_trace=False,
+                maxiter=5, tol=1e-6)
+            block_offsets[i] = np.abs(offsets).max()  # take the max. abs. offset as a summary statistic for the event
 
-    assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
-    assign_numpy_array_to_cpp_vector(event_summary.block_offset, block_offsets)
+        assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
+        assign_numpy_array_to_cpp_vector(event_summary.block_offset, block_offsets)
 
 if __name__ == "__main__":
 
@@ -128,9 +128,9 @@ if __name__ == "__main__":
     monitoring_file_path = run_dir / "monitoring.root"
 
     dataset = mattak.Dataset.Dataset(data_path=sys.argv[1], backend='pyroot')
+    is_didaq = dataset.digitizer == mattak.Dataset.Digitizer.DIDAQ
 
     try:
-
         # We allow to update an existing monitoring file. This is needed
         # as the rno-g-autoconverter script may be run multiple times on the
         # same run directory as new data arrives, and we want to avoid losing
@@ -168,8 +168,9 @@ if __name__ == "__main__":
             update_file = False
 
         event_counts = defaultdict(int)
-        avg_spectra = defaultdict(lambda:
-            np.zeros((NR_CHANNELS, NR_SAMPESRATES // 2 + 1), dtype=np.float32))
+        # Shape (NR_CHANNELS, n_samples // 2 + 1) is only known once we see the first
+        # waveform, since n_samples depends on the digitizer (RADIANT vs. DIDAQ).
+        avg_spectra = defaultdict(lambda: np.zeros_like(specs))
 
         update_needed = False
         rms = []
@@ -184,7 +185,7 @@ if __name__ == "__main__":
 
             update_needed = True
 
-            write_event_summary(event_summary, ev, wfs)
+            write_event_summary(event_summary, ev, wfs, is_didaq)
             t.Fill()
 
             event_counts["total"] += 1
