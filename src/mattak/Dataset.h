@@ -62,6 +62,13 @@ namespace mattak
   {
 
     public:
+      enum class digitizer
+      {
+        Unknown,
+        RADIANT,
+        DIDAQ
+      };
+
       Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions());
       Dataset(const DatasetOptions & opt = DatasetOptions());
 
@@ -125,6 +132,7 @@ namespace mattak
       TTree * wfTree() { return wf.tree; }
 
       bool isFullDataset() const { return full_dataset; }
+      digitizer getDigitizer() const { return digitizer_type; }
       void setCalibration(const VoltageCalibration * calib);
       const VoltageCalibration * getCalibration() const { return opt.calib; }
 
@@ -164,7 +172,8 @@ namespace mattak
       tree_field<Pedestals> pd;
       file_field<RunInfo> runinfo;
 
-      void setupRadiantMeta();
+      void setupDigitizerMeta();
+      void setDigitizer(uint8_t bytes_per_sample);
 
       field<CalibratedWaveforms> calib_wf;
 
@@ -173,6 +182,7 @@ namespace mattak
 
 
       bool full_dataset = false;
+      digitizer digitizer_type = digitizer::Unknown;
       DatasetOptions opt;
 
   };

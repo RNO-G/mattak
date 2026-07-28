@@ -73,6 +73,7 @@ namespace mattak
 
       double readout_time_radiant = 0;
       double readout_time_lt = 0;
+      double readout_time_didaq = 0;
 
       uint32_t radiant_thresholds[mattak::k::num_radiant_channels] = {0};
       uint32_t radiant_scalers[mattak::k::num_radiant_channels] = {0};
@@ -96,7 +97,7 @@ namespace mattak
       RadiantVoltages radiant_voltages;
       CalpulserInfo calinfo;
 
-    ClassDef(DAQStatus, 6);
+    ClassDef(DAQStatus, 7);
   };
 
 }

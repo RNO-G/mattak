@@ -52,7 +52,7 @@ static void clear(mattak::Dataset::file_field<D> * field)
 #define BITBUCKET "/dev/null"
 #endif
 
-void mattak::Dataset::setupRadiantMeta()
+void mattak::Dataset::setupDigitizerMeta()
 {
 
   // HACK: separately make the sample rate from the waveform file
@@ -62,13 +62,13 @@ void mattak::Dataset::setupRadiantMeta()
   wf_meta.file = TFile::Open(wf.file->GetName());
   if (!wf_meta.file)
   {
-    ::Warning("mattak::Dataset::setupRadiantMeta", "Could not reopen %s", wf.file->GetName());
+    ::Warning("mattak::Dataset::setupDigitizerMeta", "Could not reopen %s", wf.file->GetName());
     return;
   }
   wf_meta.tree = (TTree*) wf_meta.file->Get(wf.tree->GetName());
   if (!wf_meta.tree)
   {
-    ::Warning("mattak::Dataset::setupRadiantMeta", "Could not find tree %s in %s", wf.tree->GetName(), wf.file->GetName());
+    ::Warning("mattak::Dataset::setupDigitizerMeta", "Could not find tree %s in %s", wf.tree->GetName(), wf.file->GetName());
     clear(&wf_meta);
     return;
   }
@@ -79,6 +79,32 @@ void mattak::Dataset::setupRadiantMeta()
   UInt_t found = 0;
   wf_meta.tree->SetBranchStatus("*radiant_sampling_rate",1, &found);
   wf_meta.tree->SetBranchStatus("*digitizer_readout_delay_ns*",1, &found);
+  wf_meta.tree->SetBranchStatus("*bytes_per_sample*",1, &found);
+
+  // peek at the first event's metadata (no waveform samples are read, since
+  // those branches are disabled above) to figure out which digitizer wrote this run
+  if (wf_meta.tree->GetEntries() > 0)
+  {
+    wf_meta.tree->GetEntry(0);
+    setDigitizer(wf_meta.ptr->bytes_per_sample);
+  }
+}
+
+void mattak::Dataset::setDigitizer(uint8_t bytes_per_sample)
+{
+  switch (bytes_per_sample)
+  {
+    case 0:
+    case 2:
+      digitizer_type = digitizer::RADIANT;
+      break;
+    case 1:
+      digitizer_type = digitizer::DIDAQ;
+      break;
+    default:
+      digitizer_type = digitizer::Unknown;
+      break;
+  }
 }
 
 /** Silently check if file exists, supporting all protocols ROOT does */
@@ -330,7 +356,7 @@ int mattak::Dataset::loadCombinedFile(const char * f)
     return -1;
   }
 
-  setupRadiantMeta();
+  setupDigitizerMeta();
 
   if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found waveforms and headers in %s", f);
 
@@ -409,7 +435,7 @@ int mattak::Dataset::loadDir(const char * dir)
     }
   }
 
-  setupRadiantMeta();
+  setupDigitizerMeta();
 
   //now load the header files
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load headers");
@@ -439,18 +465,26 @@ int mattak::Dataset::loadDir(const char * dir)
 
   if (full_dataset)
   {
-    ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
+    if (digitizer_type == digitizer::RADIANT)
+      ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
+    else if (digitizer_type == digitizer::DIDAQ)
+      ds.tree->BuildIndex("int(readout_time_didaq)", "1e9*(readout_time_didaq-int(readout_time_didaq))");
+    else
+      ::Error("mattak::Dataset::loadDir", "Unkown digitizer type.");
   }
 
-  //and the pedestal files
-  if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load pedestal");
-  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names, nullptr, opt.verbose))
+  if (digitizer_type == digitizer::RADIANT)
   {
-    ::Warning("mattak::Dataset::loadDir", "Failed to find pedestal.root in %s (this is usually ok if you don't need them)", dir);
-  }
-  else
-  {
-    if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
+    //and the pedestal files
+    if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load pedestal");
+    if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names, nullptr, opt.verbose))
+    {
+      ::Warning("mattak::Dataset::loadDir", "Failed to find pedestal.root in %s (this is usually ok if you don't need them)", dir);
+    }
+    else
+    {
+      if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
+    }
   }
 
   //and try the runinfo file

@@ -177,7 +177,7 @@ int mattak::convert::convertPedestalDir(const char * dir, const char * outfile, 
 
 int mattak::convert::makeRunInfo(const char *auxdir, const char * outfile, int station_override, int run_override)
 {
-  TFile of(outfile,"RECREATE");
+  TFile of(outfile, "RECREATE");
   RunInfo * ri = new RunInfo(auxdir);
   if (station_override > 0)
   {
