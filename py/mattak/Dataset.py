@@ -2,6 +2,7 @@
 import os
 import glob
 import re
+import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
@@ -76,6 +77,26 @@ def set_log_level(level : int):
         ROOT.gErrorIgnoreLevel = ROOT.kError
     else:
         ROOT.gErrorIgnoreLevel = ROOT.kFatal
+
+
+class Digitizer(enum.IntEnum):
+    """ Pure python mirror of `mattak::Dataset::digitizer` (src/mattak/Dataset.h).
+
+    Values must stay in sync with the C++ enum by hand; the pyroot backend checks this at
+    import time (see `mattak.backends.pyroot.dataset`).
+    """
+    Unknown = 0
+    RADIANT = 1
+    DIDAQ = 2
+
+
+def digitizer_from_bytes_per_sample(bytes_per_sample : int) -> Digitizer:
+    """ Mirrors `mattak::Dataset::setDigitizer` (src/Dataset.cc). """
+    if bytes_per_sample == 1:
+        return Digitizer.DIDAQ
+    if bytes_per_sample in (0, 2):
+        return Digitizer.RADIANT
+    return Digitizer.Unknown
 
 
 @dataclass

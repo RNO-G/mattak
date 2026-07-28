@@ -36,6 +36,23 @@ def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
 
+def _check_digitizer_enum_in_sync():
+    """ Sanity check that `mattak.Dataset.Digitizer` (python) and `mattak::Dataset::digitizer`
+    (C++, src/mattak/Dataset.h) still declare the exact same members. A mismatch means the
+    installed libmattak and the mattak python package come from different versions. """
+    cpp_enum = ROOT.mattak.Dataset.digitizer
+    cpp_members = {name: int(getattr(cpp_enum, name)) for name in dir(cpp_enum) if name[0].isupper()}
+    py_members = {member.name: int(member.value) for member in mattak.Dataset.Digitizer}
+    if cpp_members != py_members:
+        raise RuntimeError(
+            f"mattak.Dataset.Digitizer (python, {py_members}) is out of sync with "
+            f"mattak::Dataset::digitizer (C++, {cpp_members}). Update mattak/Dataset.py to match "
+            "src/mattak/Dataset.h.")
+
+
+_check_digitizer_enum_in_sync()
+
+
 class Dataset(mattak.Dataset.AbstractDataset):
 
     def __init__(self, station : int, run : int, data_path : str,
@@ -97,6 +114,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.data_path = data_path
         self.full = self.ds.isFullDataset()
+        self.digitizer = mattak.Dataset.Digitizer(int(self.ds.getDigitizer()))
         self.setEntries(0)
 
         logger.debug("We think we found station %d run %d", self.station, self.run)
@@ -217,19 +235,21 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if isNully(wf):
             return None
 
-        if wf.bytes_per_sample:
+        if self.digitizer == mattak.Dataset.Digitizer.DIDAQ:
             wfs = numpy.frombuffer(cast_uint8_t(wf.didaq_data), dtype="uint8",
-                            count=self.NUM_CHANNELS * 4096).reshape(self.NUM_CHANNELS, 4096)
-            wfs = wfs[:, :767]
+                count=self.NUM_CHANNELS * wf.buffer_length).reshape(
+                    self.NUM_CHANNELS, wf.buffer_length)
         else:
 
             if calibrated:
                 wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
-                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+                    count=self.NUM_CHANNELS * wf.buffer_length).reshape(
+                        self.NUM_CHANNELS, wf.buffer_length)
             else:
                 # FS: I think a np.copy is not necessary here because we do it in wfs()
                 wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
-                                count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+                    count=self.NUM_CHANNELS * wf.buffer_length).reshape(
+                        self.NUM_CHANNELS, wf.buffer_length)
         return wfs
 
 
@@ -245,15 +265,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
+        out = None
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
+                if out is None:
+                    out = numpy.zeros((self.last - self.first, *this_wfs.shape), dtype=this_wfs.dtype)
                 out[entry-self.first][:][:] = this_wfs
 
-        out = numpy.asarray(out, dtype=float)
-
-        return out
+        return numpy.asarray(out, dtype=float)
 
 
     def _iterate(
