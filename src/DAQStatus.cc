@@ -88,6 +88,34 @@ mattak::DAQStatus::DAQStatus(const rno_g_daqstatus_t * status)
   this->calinfo.output =(mattak::CalpulserOutput)  status->cal.out;
   this->calinfo.attenuation = status->cal.atten_times_2/2.;
 
+  // DIDAQ, when present, is a drop-in replacement for RADIANT+FLOWER
+  for (int i = 0; i < mattak::k::num_radiant_channels; i++)
+  {
+    this->didaq_coin_thresholds[i] = status->didaq_coin_thresholds[i];
+    this->didaq_scalers.coinc_singles_1Hz[i] = status->didaq_scalers.coinc_singles_1Hz[i];
+    this->didaq_scalers.coinc_singles_1Hz_gated[i] = status->didaq_scalers.coinc_singles_1Hz_gated[i];
+  }
+
+  for (int i = 0; i < mattak::k::num_didaq_coinc; i++)
+  {
+    this->didaq_scalers.coinc_trig_100mHz[i] = status->didaq_scalers.coinc_trig_100mHz[i];
+    this->didaq_scalers.coinc_trig_100mHz_gated[i] = status->didaq_scalers.coinc_trig_100mHz_gated[i];
+  }
+
+  for (int i = 0; i < mattak::k::num_didaq_beams; i++)
+  {
+    this->didaq_phased_trigger_thresholds[i] = status->didaq_phased_trigger_thresholds[i];
+    this->didaq_phased_servo_thresholds[i] = status->didaq_phased_servo_thresholds[i];
+    this->didaq_scalers.beam_trig_100mHz[i] = status->didaq_scalers.beam_trig_100mHz[i];
+    this->didaq_scalers.beam_trig_100mHz_gated[i] = status->didaq_scalers.beam_trig_100mHz_gated[i];
+    this->didaq_scalers.beam_servo_1Hz[i] = status->didaq_scalers.beam_servo_1Hz[i];
+  }
+
+  this->didaq_scalers.total_beam_100mHz = status->didaq_scalers.total_beam_100mHz;
+  this->didaq_scalers.total_beam_100mHz_gated = status->didaq_scalers.total_beam_100mHz_gated;
+  this->didaq_scalers.total_beam_1Hz = status->didaq_scalers.total_beam_1Hz;
+  this->didaq_scalers.num_pps = status->didaq_scalers.num_pps;
+  this->didaq_scalers.clk_rate = status->didaq_scalers.clk_rate;
 
 #endif
 

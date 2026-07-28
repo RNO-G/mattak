@@ -35,6 +35,11 @@ cast_int16_t  = cppyy.gbl.cast_int16_t
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
 
+def _read(obj):
+    try:
+        return numpy.array(obj)
+    except AttributeError:
+        return None
 
 def _check_digitizer_enum_in_sync():
     """ Sanity check that `mattak.Dataset.Digitizer` (python) and `mattak::Dataset::digitizer`
@@ -160,17 +165,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
         radiantThrs = None
         lowTrigThrs = None
         lowphasedTrigThrs = None
+        didaqCoinThrs = None
+        didaqPhasedTrigThrs = None
         if self.__read_daq_status:
             daq_status = self.ds.status()
-            radiantThrs = numpy.array(daq_status.radiant_thresholds)
-            try:
-                lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
-            except AttributeError:
-                lowTrigThrs = numpy.array(daq_status.lt_coinc_trigger_thresholds)
-            try:
-                lowphasedTrigThrs = numpy.array(daq_status.lt_phased_trigger_thresholds)
-            except AttributeError:
-                lowphasedTrigThrs = None
+
+            radiantThrs = _read(daq_status.radiant_thresholds)
+
+            lowTrigThrs = _read(daq_status.lt_trigger_thresholds)
+            if lowTrigThrs is None:
+                lowTrigThrs = _read(daq_status.lt_coinc_trigger_thresholds)
+
+            lowphasedTrigThrs = _read(daq_status.lt_phased_trigger_thresholds)
+
+            didaqCoinThrs = _read(daq_status.didaq_coin_thresholds)
+            didaqPhasedTrigThrs = _read(daq_status.didaq_phased_trigger_thresholds)
+
 
         # now use Dataset's faster sample rate getter
         sampleRate = self.ds.radiantSampleRate() / 1000
@@ -220,7 +230,10 @@ class Dataset(mattak.Dataset.AbstractDataset):
             lowTrigThrs=lowTrigThrs,
             lowphasedTrigThrs=lowphasedTrigThrs,
             hasWaveforms=self.ds.rawAvailable(),
-            readoutDelay=readout_delay)
+            readoutDelay=readout_delay,
+            didaqCoinThrs=didaqCoinThrs,
+            didaqPhasedTrigThrs=didaqPhasedTrigThrs,
+        )
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:

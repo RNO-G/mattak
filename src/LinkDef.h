@@ -38,6 +38,7 @@
 #pragma link C++ class mattak::GNSS::Sat+;
 #pragma link C++ class mattak::DAQStatus+;
 #pragma link C++ class mattak::LTScalerGroup+;
+#pragma link C++ class mattak::DidaqScalers+;
 #pragma link C++ class mattak::CalpulserInfo+;
 #pragma link C++ class mattak::RadiantVoltages+;
 #pragma link C++ enum mattak::CalpulserOutput;

@@ -113,11 +113,13 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: Optional[float]  # Sample rate, in GSa/s
-    radiantThrs: Optional[numpy.ndarray]
-    lowTrigThrs: Optional[numpy.ndarray]
-    lowphasedTrigThrs: Optional[numpy.ndarray]
+    radiantThrs: Optional[numpy.ndarray] = None
+    lowTrigThrs: Optional[numpy.ndarray] = None
+    lowphasedTrigThrs: Optional[numpy.ndarray] = None
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
+    didaqCoinThrs: Optional[numpy.ndarray] = None
+    didaqPhasedTrigThrs: Optional[numpy.ndarray] = None
 
 def _runinfo_seconds(value):
     """ Normalize a run-info timestamp to float seconds, or None if missing/zero.
