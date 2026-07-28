@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 ROOT_DATA_DIR="/data"
 INGRESS="${ROOT_DATA_DIR}/ingress/"
 ARCHIVED="${ROOT_DATA_DIR}/archived/"

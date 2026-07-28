@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 # don't expand globs to themselves if no match
 shopt -s nullglob
@@ -65,7 +65,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   fi
 
   # Check if we are DiDAQ
-  grep -iq didaq ~/station25/run26064/aux/runinfo.txt
+  grep -iq didaq "${INDIR}/aux/runinfo.txt"
   ON_DIDAQ=$(( !$? ))
 
   echo "Making rootified list" \
