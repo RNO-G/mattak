@@ -56,7 +56,7 @@ _DAQ_STATUS_THRESHOLD_FIELDS = {
 }
 
 
-def _read_daq_status_thresholds(daq_status) -> dict:
+def _read_daq_status_thresholds(daq_status, digitizer) -> dict:
     """
     Read the per-channel/per-beam threshold arrays off a `mattak::DAQStatus` object.
 
@@ -79,6 +79,15 @@ def _read_daq_status_thresholds(daq_status) -> dict:
     values = {}
     for field_name, candidate_attrs in _DAQ_STATUS_THRESHOLD_FIELDS.items():
         value = None
+
+        # this also keeps "unused" thresholds None
+        if digitizer == mattak.Dataset.Digitizer.DIDAQ:
+            if not field_name.startswith('didaq'):
+                continue
+        else:
+            if field_name.startswith('didaq'):
+                continue
+
         for attr in candidate_attrs:
             if hasattr(daq_status, attr):
                 value = _read(getattr(daq_status, attr))
@@ -278,7 +287,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         daq_thresholds = {field_name: None for field_name in _DAQ_STATUS_THRESHOLD_FIELDS}
         if self.__read_daq_status:
-            daq_thresholds = _read_daq_status_thresholds(self.ds.status())
+            daq_thresholds = _read_daq_status_thresholds(self.ds.status(), self.digitizer)
 
         # now use Dataset's faster sample rate getter
         sampleRate = self.ds.sampleRate() / 1000
