@@ -118,7 +118,7 @@ namespace mattak
 
       // these methods are useful if you want to read waveform metadata without reading the waveforms
       // if you are reading the waveforms, they are less efficient than getting what you want from raw
-      float radiantSampleRate(bool force_reload = false);
+      float sampleRate(bool force_reload = false);
       const float * radiantReadoutDelays(bool force_reload = false);  //size is mattak::k::num_radiant_channels, returning a float* since cppyyy doesn't seem to be able to deal with std::array properly
 
 

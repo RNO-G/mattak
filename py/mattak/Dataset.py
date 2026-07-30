@@ -120,6 +120,9 @@ class EventInfo:
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
     didaqCoinThrs: Optional[numpy.ndarray] = None
     didaqPhasedTrigThrs: Optional[numpy.ndarray] = None
+    didaqStartOffsets: Optional[numpy.ndarray] = None  # mattak::DidaqTriggerInfo::start_offsets
+    didaqChannelMask: Optional[int] = None  # mattak::DidaqTriggerInfo::channel_mask
+    didaqBeamMask: Optional[int] = None  # mattak::DidaqTriggerInfo::beam_mask
 
 def _runinfo_seconds(value):
     """ Normalize a run-info timestamp to float seconds, or None if missing/zero.

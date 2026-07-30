@@ -589,8 +589,9 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 }
 
 
-float mattak::Dataset::radiantSampleRate(bool force)
+float mattak::Dataset::sampleRate(bool force)
 {
+  // While this function returns "radiant_sample_rate" it is not radiant specific (check header doc-string)
   if (wf_meta.ptr == nullptr) {
     return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
   }

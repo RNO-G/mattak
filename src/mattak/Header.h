@@ -43,22 +43,22 @@ namespace mattak
       double readout_time = 0;
 
       /* The number of PPS (pulse per second) received since the start of the run by the RADIANT. WARNING: this can slip */
-      uint32_t pps_num= 0;
+      uint32_t pps_num = 0;
 
       /* The number of cycles in the nominally 100 MHz clock for the current event. Note that this wraps every 53 seconds or so.
        * WARNING: this can slip.
        * */
-      uint32_t sysclk= 0;
+      uint32_t sysclk = 0;
 
       /** The number of cycles in the nominally 100 MHz clock at the time of the last PPS
        * WARNING: this can slip.
        * */
-      uint32_t sysclk_last_pps= 0;
+      uint32_t sysclk_last_pps = 0;
 
       /** The number of cycles in the nominally 100 MHz clock at the time of the  PPS previous to last
        * WARNING: this can slip.
        * */
-      uint32_t sysclk_last_last_pps= 0;
+      uint32_t sysclk_last_last_pps = 0;
 
       /* The trigger time, as a UTC double. Note that this does not have as much precision as is possible,
        * which should be fixed in the future (though you can rederive from sysclk).
