@@ -354,20 +354,21 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
 
         if self.digitizer == mattak.Dataset.Digitizer.DIDAQ:
+            # this could be smarter
             wfs = numpy.frombuffer(cast_uint8_t(wf.didaq_data), dtype="uint8",
-                count=self.NUM_CHANNELS * wf.buffer_length).reshape(
-                    self.NUM_CHANNELS, wf.buffer_length)
+                count=self.NUM_CHANNELS * self.NUM_WF_DIDAQ_SAMPLES).reshape(
+                    self.NUM_CHANNELS, self.NUM_WF_DIDAQ_SAMPLES)[:, :wf.buffer_length]
         else:
 
             if calibrated:
                 wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
-                    count=self.NUM_CHANNELS * wf.buffer_length).reshape(
-                        self.NUM_CHANNELS, wf.buffer_length)
+                    count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(
+                        self.NUM_CHANNELS, self.NUM_WF_SAMPLES)[:, :wf.buffer_length]
             else:
                 # FS: I think a np.copy is not necessary here because we do it in wfs()
                 wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
-                    count=self.NUM_CHANNELS * wf.buffer_length).reshape(
-                        self.NUM_CHANNELS, wf.buffer_length)
+                    count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(
+                        self.NUM_CHANNELS, self.NUM_WF_SAMPLES)[:, :wf.buffer_length]
         return wfs
 
 

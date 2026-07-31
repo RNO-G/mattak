@@ -214,8 +214,9 @@ class AbstractDataset(ABC):
     """
 
     # Define some contants
-    NUM_DIGI_SAMPLES = 4096
-    NUM_WF_SAMPLES = 2048
+    NUM_DIGI_SAMPLES = 4096  # For RADIANT
+    NUM_WF_SAMPLES = 2048  # For RADIANT
+    NUM_WF_DIDAQ_SAMPLES = 4096
     NUM_CHANNELS = 24
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):
