@@ -34,7 +34,7 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
     if(wf->digitizer_readout_delay[i]!=0) this->digitizer_readout_delay_ns[i]=float(wf->digitizer_readout_delay[i])*128./float(wf->sampling_rate)*1000;
 
     if (this->bytes_per_sample == 1)
-      memcpy(this->didaq_data[i], wf->didaq_waveforms[i], sizeof(uint8_t) * mattak::k::num_didaq_samples);
+      memcpy(this->didaq_data[i], wf->didaq_waveforms[i], sizeof(uint8_t) * wf->nsamples);
     else
       memcpy(this->radiant_data[i], wf->radiant_waveforms[i], sizeof(int16_t) * mattak::k::num_radiant_samples);
   }
