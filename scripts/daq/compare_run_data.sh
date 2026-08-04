@@ -42,6 +42,8 @@
 # Workflow:
 #   1. Lists directories in the source dir (skipping those smaller than size limit),
 #      connecting to the remote host first if the source is remote
+#   2. Asks the station (s<station_id>) for the run currently being taken and excludes it
+#      (default and --summit mode; best effort, a station that is offline is not an error)
 #   3. Compares each source directory with its counterpart in the copy using rsync
 #   4. Categorizes directories as IDENTICAL or DIFFERENT or MISSING IN COPY
 #   5. Displays summary with counts and total sizes
@@ -114,7 +116,6 @@ fi
 # against. In --summit mode both live on this host, hence SOURCE_IS_REMOTE.
 # LOCAL_LABEL identifies the host holding the copy (used for the dry-run filename).
 SOURCE_IS_REMOTE=true
-HOST=""
 if [[ "$CHICAGO_MODE" == true ]]; then
     LOCAL_DIR="/data/full/raw/station${STATION_ID}"
     SOURCE_DIR="/data/archived/station${STATION_ID}"
@@ -124,6 +125,7 @@ if [[ "$CHICAGO_MODE" == true ]]; then
 elif [[ "$SUMMIT_MODE" == true ]]; then
     LOCAL_DIR="/data/archived/station${STATION_ID}"
     SOURCE_DIR="/data/ingress/station${STATION_ID}"
+    HOST="s${STATION_ID}"  # the data is local, the host is only used to query the current run
     LOCAL_LABEL="summit_archived"
     SOURCE_IS_REMOTE=false
 else
@@ -137,7 +139,6 @@ fi
 # mode means the source dir is read over ssh from that host instead of locally.
 if [[ -n "$HOST_OVERRIDE" ]]; then
     HOST="$HOST_OVERRIDE"
-    SOURCE_IS_REMOTE=true
 fi
 
 if [[ "$SOURCE_IS_REMOTE" == true ]]; then
@@ -176,10 +177,13 @@ if [[ ! -d "$LOCAL_DIR" ]]; then
 fi
 
 skip_run=""
-if [[ "$CHICAGO_MODE" == false && "$SUMMIT_MODE" == false ]]; then
-    # Query the current run from the station and subtract 1 to get the run to skip
+if [[ "$CHICAGO_MODE" == false ]]; then
+    # Query the next (/rno-g/var/runfile) run from the station and subtract 1 to get the run to skip.
+    # The query is best effort: a station that is currently unreachable must not abort the
+    # comparison (in --summit mode we have not talked to it before), hence BatchMode/ConnectTimeout
+    # so we neither hang on a password prompt nor on a dead link.
     echo "Querying current run from $HOST..."
-    next_run=$(ssh -q "$HOST" "cat /rno-g/var/runfile" 2>/dev/null | tr -d '[:space:]')
+    next_run=$(ssh -q -o BatchMode=yes -o ConnectTimeout=30 "$HOST" "cat /rno-g/var/runfile" 2>/dev/null | tr -d '[:space:]')
     if [[ -z "$next_run" ]]; then
         echo "Warning: Could not read /rno-g/var/runfile from $HOST"
     else
