@@ -28,6 +28,11 @@ ROOT files). These are the production scripts used by the DAQ at the summit serv
   can be remade without reconverting everything.
 - `rno-g-check-daqstatus` — find runs missing `daqstatus.root` and convert just
   the daqstatus for them.
+- `rno-g-cleanup-rootified` — daily purge of old runs' bulk data (`*.root`,
+  `cfg/`, logs) under `rootified/` to reclaim disk space, run by the systemd
+  timer in [`services/`](services). Keeps the small files
+  `rno-g-convert-run` uses to detect an up-to-date run, so purged runs are
+  not reconverted. Runs marked with a `.keep` file are skipped.
 
 ## `metadata/`
 
@@ -75,5 +80,8 @@ systemd units and helpers for running the DAQ converter as a service.
 - `rno-g-autoconverter@.service`, `rno-g-autoconverter.target` — per-station
   service template and target. Installed with `make install-systemd` (see the
   top-level [`Makefile`](../Makefile)).
+- `rno-g-cleanup-rootified.service`, `rno-g-cleanup-rootified.timer` — daily
+  timer running `rno-g-cleanup-rootified`. Installed with
+  `make install-systemd-cleanup`.
 - `tmux_follow_services.sh` — open a tmux session tailing each station's journal.
 - `README.md` — service start/stop/log commands.

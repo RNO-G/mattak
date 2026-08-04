@@ -1,0 +1,109 @@
+#! /bin/bash
+
+# Purges the bulk data (*.root files, cfg/, logs, ...) of run directories
+# under ROOTIFIED whose most recently modified file is older than
+# MAX_AGE_DAYS. rootified-list.txt and aux/acq-file-list.txt are
+# deliberately kept: they are exactly what rno-g-convert-run checks to
+# decide whether a run is already up to date (see NEED_TO_UPDATE there), so
+# keeping them means the autoconverter will NOT reconvert a purged run from
+# scratch on its next pass. aux/comment.txt and aux/runinfo.txt are kept too
+# since they're tiny and hold useful run metadata; everything else in aux/
+# (e.g. flower_end.json.gz, which can be large) is purged like the rest.
+# Runs that were already purged are skipped without touching anything, so
+# their (necessarily old) remaining timestamps don't cause them to be
+# reprocessed every day.
+#
+# To exempt a run from being purged, create a marker file inside its run
+# directory:
+#   touch /data/rootified/station23/run1144/.keep
+#
+# Usage: rno-g-cleanup-rootified [max_age_days] [rootified_dir] [dry_run]
+
+shopt -s nullglob
+
+ROOT_DATA_DIR="${ROOT_DATA_DIR:-/data}"
+MAX_AGE_DAYS="${1:-30}"
+ROOTIFIED="${2:-${ROOT_DATA_DIR}/rootified}"
+DRY_RUN="${3:-0}"
+KEEP_MARKER=".keep"
+# Top-level entries a purged run keeps around. aux/ itself is kept (as a
+# directory) so its whitelisted contents (below) can survive inside it.
+TOP_KEEP=("$KEEP_MARKER" "rootified-list.txt" "aux" "monitoring.log")
+# Entries inside aux/ that survive the purge; everything else in aux/ is removed.
+AUX_KEEP=("acq-file-list.txt" "comment.txt" "runinfo.txt")
+
+log_info()  { echo "INFO:  $*"; }
+log_error() { echo "ERROR: $*" >&2; }
+
+if [ ! -d "$ROOTIFIED" ]; then
+  log_error "Rootified directory not found: $ROOTIFIED"
+  exit 1
+fi
+
+now=$(date +%s)
+cutoff=$(( MAX_AGE_DAYS * 86400 ))
+
+log_info "Purging runs older than ${MAX_AGE_DAYS}d under ${ROOTIFIED} (dry_run=${DRY_RUN})"
+
+n_purged=0
+n_already_purged=0
+n_kept_whitelist=0
+n_kept_age=0
+
+for rundir in "${ROOTIFIED}"/station*/run*; do
+  [ -d "$rundir" ] || continue
+
+  if [ -e "${rundir}/${KEEP_MARKER}" ]; then
+    n_kept_whitelist=$((n_kept_whitelist + 1))
+    continue
+  fi
+
+  top_prune_args=()
+  for name in "${TOP_KEEP[@]}"; do
+    top_prune_args+=(! -name "$name")
+  done
+  aux_prune_args=()
+  for name in "${AUX_KEEP[@]}"; do
+    aux_prune_args+=(! -name "$name")
+  done
+
+  top_candidates=$(find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}")
+  aux_candidates=""
+  [ -d "${rundir}/aux" ] && aux_candidates=$(find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}")
+
+  if [ -z "$top_candidates" ] && [ -z "$aux_candidates" ]; then
+    n_already_purged=$((n_already_purged + 1))
+    continue
+  fi
+
+  newest=$(find "$rundir" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -n1)
+  newest=${newest%.*}
+  [ -z "$newest" ] && newest=$(stat -c '%Y' "$rundir")
+
+  age=$(( now - newest ))
+  if [ "$age" -le "$cutoff" ]; then
+    n_kept_age=$((n_kept_age + 1))
+    continue
+  fi
+
+  age_days=$(( age / 86400 ))
+  if [ "$DRY_RUN" = "1" ]; then
+    log_info "[dry-run] would purge ${rundir} (last modified ${age_days}d ago), keeping ${TOP_KEEP[*]} (aux/: ${AUX_KEEP[*]})"
+    find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}"
+    find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}"
+  else
+    log_info "Purging ${rundir} (last modified ${age_days}d ago), keeping ${TOP_KEEP[*]} (aux/: ${AUX_KEEP[*]})"
+    ok=1
+    find "$rundir" -mindepth 1 -maxdepth 1 "${top_prune_args[@]}" -exec rm -r -- {} + || ok=0
+    if [ -d "${rundir}/aux" ]; then
+      find "${rundir}/aux" -mindepth 1 -maxdepth 1 "${aux_prune_args[@]}" -exec rm -r -- {} + || ok=0
+    fi
+    if [ "$ok" -eq 1 ]; then
+      n_purged=$((n_purged + 1))
+    else
+      log_error "Failed to fully purge ${rundir}"
+    fi
+  fi
+done
+
+log_info "Done. purged=${n_purged} already_purged=${n_already_purged} kept_whitelisted=${n_kept_whitelist} kept_recent=${n_kept_age}"
