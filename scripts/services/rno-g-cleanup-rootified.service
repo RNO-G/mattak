@@ -5,4 +5,4 @@ Description=Clean up old rootified runs
 Type=oneshot
 User=rno-g
 WorkingDirectory=/home/rno-g/soft/mattak
-ExecStart=/home/rno-g/soft/mattak/scripts/install/bin/rno-g-cleanup-rootified 30
+ExecStart=/home/rno-g/soft/mattak/install/bin/rno-g-cleanup-rootified 30
