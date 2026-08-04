@@ -9,6 +9,7 @@
 #   Can optionally remove identical directories from the source after confirmation.
 #   Skips empty directories (on the source), i.e., directories smaller than a
 #   specified size limit (default: 24 KB).
+#   Only directories named "run*" are ever compared and hence ever removed.
 #
 #   Three modes:
 #     default (station -> summit): remote s<station_id>:/data/daq
@@ -36,12 +37,14 @@
 #   --host <host>        Host holding the source data, overriding the per-mode default
 #                        (s<station_id>, or "greenland" with --chicago-to-summit).
 #                        With --summit the source is local unless --host is given.
-#   --run-pattern <glob> Only consider source directories matching this glob (default: *)
+#   --run-pattern <glob> Only consider source directories matching this glob (default: *).
+#                        Entries not named "run*" are ignored regardless of the pattern.
 #   --verbose            Print the raw rsync output (for debugging)
 #
 # Workflow:
-#   1. Lists directories in the source dir (skipping those smaller than size limit),
-#      connecting to the remote host first if the source is remote
+#   1. Lists the run directories in the source dir (skipping non-"run*" entries and
+#      those smaller than size limit), connecting to the remote host first if the
+#      source is remote
 #   2. Asks the station (s<station_id>) for the run currently being taken and excludes it
 #      (default and --summit mode; best effort, a station that is offline is not an error)
 #   3. Compares each source directory with its counterpart in the copy using rsync
@@ -67,7 +70,7 @@ usage() {
     echo "  --chicago-to-summit: Compare greenland:/data/archived/station<id> with local /data/full/raw/station<id> (implies --no-remove)"
     echo "  --summit: Compare local /data/ingress/station<id> with local /data/archived/station<id> (no ssh)"
     echo "  --host: Host holding the source data (default: s<station_id>, or 'greenland' with --chicago-to-summit)"
-    echo "  --run-pattern: Only consider source directories matching this glob (default: *)"
+    echo "  --run-pattern: Only consider source directories matching this glob (default: *, non-'run*' entries are always ignored)"
     echo "  --verbose: Print the raw rsync output (for debugging)"
 }
 
@@ -147,6 +150,12 @@ else
     SOURCE_DESC="$SOURCE_DIR"
 fi
 
+# True for plain "run*" directory names. Used as a safe guard on both ends of the
+# script: nothing else is compared, and nothing else can be handed to rm -rf.
+is_run_dir() {
+    [[ "$1" == run* && "$1" != */* ]]
+}
+
 # Run a shell command on the side holding the source data: over ssh if that side
 # is a remote host, in a local subshell otherwise (--summit).
 source_exec() {
@@ -197,6 +206,15 @@ echo "Analyzing $SOURCE_DESC..."
 declare -A SOURCE_DIR_SIZES
 declare -a SOURCE_DIRS  # to have sorted list of directories with size > limit
 while IFS=$'\t' read -r size dir; do
+    # Safe guard: only run directories are ever compared (and hence ever removed).
+    # This drops stray files/directories in the source (e.g. logs, tarballs) that
+    # --run-pattern would otherwise let through. is_run_dir also rejects names
+    # containing a "/" so nothing outside SOURCE_DIR can end up in the rm command.
+    if ! is_run_dir "$dir"; then
+        [[ "$VERBOSE" == true ]] && echo "Skipping non-run entry: $dir"
+        continue
+    fi
+
     if (( size > SIZE_LIMIT_KB )); then
         SOURCE_DIR_SIZES["$dir"]=$size
         SOURCE_DIRS+=("$dir")
@@ -331,6 +349,15 @@ echo "=========================================="
 
 # Handle removal of identical directories if requested
 if [[ "$REMOVE_FLAG" == true && ${#identical_dirs[@]} -gt 0 ]]; then
+    # Safe guard (second line of defence, the listing is filtered already): never
+    # build an rm command from anything that is not a plain run directory
+    for dir in "${identical_dirs[@]}"; do
+        if ! is_run_dir "$dir"; then
+            echo "Error: refusing to remove '$dir': not a run directory. Aborting."
+            exit 1
+        fi
+    done
+
     rm_cmd="rm -rf $(printf "${SOURCE_DIR}/%s " "${identical_dirs[@]}")"
     echo ""
     echo "The following command will be executed to remove directories from $SOURCE_DESC:"
