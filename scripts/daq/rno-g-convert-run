@@ -135,11 +135,19 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   # Check if we are DiDAQ
   grep -iq didaq "${INDIR}/aux/runinfo.txt"
   ON_DIDAQ=$(( !$? ))
+  # Waveforms and headers carry the run's event number, so rno-g-convert can
+  # extend the existing ROOT files with whatever arrived since the last pass
+  # rather than converting the whole run again. A forced run has to rebuild them
+  # from scratch, which is the whole point of forcing it.
+  # (daqstatus and pedestals have no event number and are small, so they keep
+  # being converted in full.)
+  UPDATE=--update
+  [ ${FORCE} -ne 0 ] && UPDATE=
 
   echo "Converting waveforms"  \
-    && rno-g-convert wf "${OUTDIR}/waveforms.root" "${INDIR}"/waveforms/* \
+    && rno-g-convert ${UPDATE} wf "${OUTDIR}/waveforms.root" "${INDIR}"/waveforms/* \
     && echo "Converting headers"  \
-    && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
+    && rno-g-convert ${UPDATE} hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
     && echo "Converting daqstatus" \
     && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}"/daqstatus/* \
     && { [ $ON_DIDAQ -eq 0 ] && echo "Converting pedestals" \
