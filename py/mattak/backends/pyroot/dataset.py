@@ -170,6 +170,8 @@ def _get_trigger_type(hdr) -> str:
             triggerType = "DIDAQ_COINC0"
         elif t & _DIDAQ_COINC1:
             triggerType = "DIDAQ_COINC1"
+        else:
+            raise ValueError("Unknown DIDAQ trigger type! Please figure out what is going on. Abort!")
     elif ti.force_trigger:
         triggerType = "FORCE"
     elif ti.pps_trigger:
