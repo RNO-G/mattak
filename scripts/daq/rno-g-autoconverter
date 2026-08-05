@@ -74,7 +74,11 @@ for st in ${STATIONS} ; do
       run_cmd cp -p $rootdir/runinfo.root $stagedir
       run_cmd cp -p $rootdir/monitoring.root $stagedir
       # copy exactly one calibration file if available
-      calibration_file=("${rootdir}"/volCalConsts*)
+      # only match the name written by the DAQ, e.g. volCalConsts_pol9_s11_1692323997-1692325464.root
+      # (in particular not the already renamed volCalConsts_pol9_s<st>_<run>.root)
+      ts10='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+      # shellcheck disable=SC2086  # ${ts10} must stay unquoted, it is part of the glob
+      calibration_file=("${rootdir}"/volCalConsts_pol9_s[0-9][0-9]_${ts10}-${ts10}.root)
       if [ ${#calibration_file[@]} -eq 1 ]; then
         # Rename the calibration file to a new standard name (including run number rather than time stamps)
         # With an update of the daq software this will become obsolete, as the calibration file will be named
