@@ -33,7 +33,6 @@ int isdir(const char * f)
 }
 
 
-
 int main (int nargs, char ** args)
 {
 
@@ -46,7 +45,6 @@ int main (int nargs, char ** args)
     std::cerr << "Outfile should end with .root" << std::endl;
     return 1;
   }
-
 
   const char * firstinput = args[3];
   int first_input_dir = isdir(firstinput);
