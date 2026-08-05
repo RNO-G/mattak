@@ -52,8 +52,7 @@ for st in ${STATIONS} ; do
       log_error "Station $st $brun: rno-g-convert-run failed (exit $updated); see log/$st/$brun/convert.log"
 
     if [ $updated -eq 1 ] ; then
-      log_info "Station $st: $brun"
-      log_info "RUN UPDATED! -- COPYING TO STAGING"
+      log_info "RUN UPDATED! Station $st: $brun  -- COPYING TO STAGING"
 
       outdir=${OUTBOX}/station${st}/$brun
       #if the outdir already exists, move out of the outbox, and delete it
@@ -74,8 +73,13 @@ for st in ${STATIONS} ; do
       run_cmd cp -p $rootdir/pedestal.root $stagedir
       run_cmd cp -p $rootdir/runinfo.root $stagedir
       run_cmd cp -p $rootdir/monitoring.root $stagedir
+
       # copy exactly one calibration file if available
-      calibration_file=("${rootdir}"/volCalConsts*)
+      # only match the name written by the DAQ, e.g. volCalConsts_pol9_s11_1692323997-1692325464.root
+      # (in particular not the already renamed volCalConsts_pol9_s<st>_<run>.root)
+      ts10='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+      # ${ts10} must stay unquoted, it is part of the glob
+      calibration_file=("${rootdir}"/volCalConsts_pol9_s${st}_${ts10}-${ts10}.root)
       if [ ${#calibration_file[@]} -eq 1 ]; then
         # Rename the calibration file to a new standard name (including run number rather than time stamps)
         # With an update of the daq software this will become obsolete, as the calibration file will be named

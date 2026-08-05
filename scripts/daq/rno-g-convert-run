@@ -4,7 +4,12 @@
 shopt -s nullglob
 
 INDIR=${1-.}
-OUTDIR=${2-$INDIR/root}
+# Work with absolute paths: the update check below prunes the output directory
+# from the scan of the input directory (they may be nested, which is the default)
+# and maps the absolute paths in aux/acq-file-list.txt onto the input directory.
+INDIR=$(cd "${INDIR}" 2>/dev/null && pwd) || { echo "input directory ${1-.} does not exist"; exit 1; }
+OUTDIR=${2-${INDIR}/root}
+[ -d "${OUTDIR}" ] && OUTDIR=$(cd "${OUTDIR}" && pwd)
 FORCE=${3-0}
 STATION_OVERRIDE=${4--1}
 RUN_OVERRIDE=${5--1}
@@ -15,17 +20,27 @@ if [[ -z "${RNO_G_INSTALL_DIR}" ]]; then
 fi
 SCRIPT_DIR="${RNO_G_INSTALL_DIR}/bin"
 
+# rootified-list.txt records which files were present in the input directory when
+# the conversion ran, as "<path relative to INDIR><TAB><modification time>", e.g.
+#
+#   # rootified-list-version 2
+#   waveforms/000000.wf.dat.gz	1682353436.0000000000
+#
+# The paths are relative so that the list survives the run being moved (e.g.
+# ingress -> archived).
+ROOTIFIED_LIST="${OUTDIR}/rootified-list.txt"
+ROOTIFIED_LIST_HEADER="# rootified-list-version 2"
+
 if [ "${INDIR}" = "${OUTDIR}" ];
 then
   echo "Cannot put ROOT files into input directory"
   exit 1
 fi
 
-echo "input directory is ${INDIR}"
-echo "output directory is ${OUTDIR}"
+echo "Attempt converting ${INDIR} -> ${OUTDIR}"
 
 # Only check if (any) waveform file(s) are already copied as the later conversion
-# (with no-g-convert wf) fails if no waveform file is present (regardless of whether
+# (with rno-g-convert wf) fails if no waveform file is present (regardless of whether
 # a e.g. header file is already copied).
 wf_files=("${INDIR}"/waveforms/*)
 if [ ${#wf_files[@]} -eq 0 ]; then
@@ -33,27 +48,79 @@ if [ ${#wf_files[@]} -eq 0 ]; then
   exit 0
 fi
 
+# Lists "<path relative to INDIR><TAB><modification time>" for every regular file
+# below INDIR, in the format of rootified-list.txt. Files below OUTDIR are left
+# out: with the default OUTDIR=$INDIR/root the output directory sits inside the
+# input directory.
+snapshot_input_dir() {
+  find "${INDIR}" -type f -not -path "${OUTDIR}/*" -printf '%P\t%T@\n' | sort
+}
+
+# Walks the current snapshot ($2) and stops at the first file which is not in the
+# recorded list ($1) or which has a different modification time than when it was
+# converted. The latter covers aux/ and cfg/, whose files are rewritten in place,
+# e.g. runinfo.txt gaining the run stop time after the run ended. Only the current
+# snapshot is walked, so files which were deleted from ingress are ignored.
+# acq-file-list.txt is skipped: it is bookkeeping rather than input, and it is
+# transferred by a different (much faster) rsync loop than the data it announces,
+# so it changes long before there is anything new to convert.
+input_dir_unchanged() {
+  local -A converted
+  local path mtime
+
+  # The version header of both files ends up as a key with an empty value and
+  # therefore compares equal, no need to skip it explicitly.
+  while IFS=$'\t' read -r path mtime; do
+    converted["${path}"]=${mtime}
+  done < "$1"
+
+  while IFS=$'\t' read -r path mtime; do
+    [ "${path}" = "aux/acq-file-list.txt" ] && continue
+    [ "${converted[${path}]-}" != "${mtime}" ] && return 1
+  done < "$2"
+
+  return 0
+}
+
+# Create a temporary file and clean up at EXIT. The snapshot of the input
+# directory is taken before the conversion (so that files arriving while it runs
+# are picked up by the next call) and becomes the new rootified-list.txt.
+current_list=$(mktemp)
+trap 'rm -f "${current_list}"' EXIT
+
+{ echo "${ROOTIFIED_LIST_HEADER}"; snapshot_input_dir; } > "${current_list}"
+
+# The waveform check above already established that there are files, so an empty
+# snapshot means find could not produce one (-printf needs GNU find). Bail out
+# rather than silently concluding that there is nothing left to convert.
+if [ "$(wc -l < "${current_list}")" -le 1 ]; then
+  echo "Could not list the content of ${INDIR} (GNU find is required), giving up"
+  exit 2
+fi
+
 NEED_TO_UPDATE=1
 
 # This checks whether an existing, and maybe only partially converted run, needs to be updated
-if [ ${FORCE} -eq 0 ]
+if [ ${FORCE} -eq 0 ] && [ -f "${ROOTIFIED_LIST}" ]
 then
-  if  [ -f "${OUTDIR}/rootified-list.txt" ] && [ -f "${OUTDIR}/aux/acq-file-list.txt" ]  ;
+  read -r list_header < "${ROOTIFIED_LIST}"
+  if [ "${list_header}" != "${ROOTIFIED_LIST_HEADER}" ]
   then
-    diff "${INDIR}/aux/acq-file-list.txt" "${OUTDIR}/aux/acq-file-list.txt"  && \
-      diff  "${OUTDIR}/rootified-list.txt" <( find "${INDIR}" | sort )
-    NEED_TO_UPDATE=$?
-    echo "output directory found, need to update = $NEED_TO_UPDATE"
-  fi;
+    echo "output directory found, but rootified-list.txt is not in the expected format, reconverting"
+  else
+    # Only a clean "nothing changed" skips the conversion. If in doubt convert:
+    # a missed update means the run never ships south, a needless one costs CPU.
+    if input_dir_unchanged "${ROOTIFIED_LIST}" "${current_list}"
+    then
+      NEED_TO_UPDATE=0
+    fi
+    echo "  ---> Output directory found; Need to update = $NEED_TO_UPDATE"
+  fi
 fi
 
 mkdir -p "${OUTDIR}"
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
-
-  # Create a temporary file and clean up at EXIT
-  tmpfile=$(mktemp)
-  trap 'rm -f "$tmpfile"' EXIT
 
   # Look for the voltage calibration file already
   # existing in the output directory
@@ -68,9 +135,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
   grep -iq didaq "${INDIR}/aux/runinfo.txt"
   ON_DIDAQ=$(( !$? ))
 
-  echo "Making rootified list" \
-    && find "${INDIR}" | sort -o "$tmpfile" \
-    && echo "Converting waveforms"  \
+  echo "Converting waveforms"  \
     && rno-g-convert wf "${OUTDIR}/waveforms.root" "${INDIR}"/waveforms/* \
     && echo "Converting headers"  \
     && rno-g-convert hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
@@ -84,7 +149,8 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && echo "Copying aux and cfg"  \
     && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
-    && install -m 0644 "$tmpfile" "${OUTDIR}/rootified-list.txt" \
+    && echo "Writing rootified list" \
+    && install -m 0644 "${current_list}" "${ROOTIFIED_LIST}" \
     && { [ $ON_DIDAQ -eq 0 ] && [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
     && echo "Doing Voltage calibration" \
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \

@@ -91,6 +91,7 @@ if (NOT DEFINED ROOTLESS)
       scripts/daq/rno-g-convert-run
       scripts/daq/rno-g-convert-station
       scripts/daq/rno-g-make-eventlists
+      scripts/daq/rno-g-cleanup-rootified
       scripts/voltage_calibration/convert_bias_scan_to_calibration.py
       scripts/monitoring/mon_write.py
     )
