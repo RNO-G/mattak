@@ -33,7 +33,7 @@ then
   exit 1
 fi
 
-echo "Converting ${INDIR} -> ${OUTDIR}"
+echo "Attempt converting ${INDIR} -> ${OUTDIR}"
 
 # Only check if (any) waveform file(s) are already copied as the later conversion
 # (with rno-g-convert wf) fails if no waveform file is present (regardless of whether
@@ -110,7 +110,7 @@ then
     then
       NEED_TO_UPDATE=0
     fi
-    echo "output directory found, need to update = $NEED_TO_UPDATE"
+    echo "  ---> Output directory found; Need to update = $NEED_TO_UPDATE"
   fi
 fi
 
