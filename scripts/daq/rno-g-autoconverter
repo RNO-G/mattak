@@ -52,8 +52,7 @@ for st in ${STATIONS} ; do
       log_error "Station $st $brun: rno-g-convert-run failed (exit $updated); see log/$st/$brun/convert.log"
 
     if [ $updated -eq 1 ] ; then
-      log_info "Station $st: $brun"
-      log_info "RUN UPDATED! -- COPYING TO STAGING"
+      log_info "RUN UPDATED! Station $st: $brun  -- COPYING TO STAGING"
 
       outdir=${OUTBOX}/station${st}/$brun
       #if the outdir already exists, move out of the outbox, and delete it
