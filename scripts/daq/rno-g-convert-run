@@ -106,7 +106,7 @@ then
   read -r list_header < "${ROOTIFIED_LIST}"
   if [ "${list_header}" != "${ROOTIFIED_LIST_HEADER}" ]
   then
-    echo "output directory found, but rootified-list.txt is not in the expected format, reconverting"
+    echo "Output directory found, but rootified-list.txt is not in the expected format, reconverting"
   else
     # Only a clean "nothing changed" skips the conversion. If in doubt convert:
     # a missed update means the run never ships south, a needless one costs CPU.
@@ -121,6 +121,7 @@ fi
 mkdir -p "${OUTDIR}"
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
+  echo "Converting ${INDIR}"
 
   # Look for the voltage calibration file already
   # existing in the output directory
@@ -158,7 +159,8 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
     || true; } \
     && echo "Create Monitoring data" \
-    && python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
+    && { python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
+       || echo "... failed."; false ; } \
     && echo "Conversion complete!"
 
   exit 1
