@@ -78,25 +78,23 @@ static long long lastConvertedEvent(const char * outfile, const char * treename)
   if (t && t->GetEntries() > 0)
   {
     Troot * b = 0;
+    long long first = -1;
     t->SetBranchAddress(treename, &b);
+
+    if (t->GetEntry(0) > 0) first = eventNumberOf<Troot>(b);
     if (t->GetEntry(t->GetEntries() - 1) > 0) last = eventNumberOf<Troot>(b);
 
-    // Event numbers are sequential within a run and start at 0, so a complete
-    // tree holds exactly last+1 entries. If any are missing -- a raw file which
+    // Event numbers are sequential, so a complete tree holds every one of them
+    // between its first and its last. If any are missing -- a raw file which
     // could not be read on an earlier pass, one which turned up only after later
     // events had been converted, or one which was truncated -- then they all sit
     // below `last`, where appending would never reach them again, and only
     // converting from scratch brings them back.
-    //
-    // Counting from 0 assumes the whole run is converted at once, which is what
-    // rno-g-convert-run does (it hands over the entire waveforms/ glob).
-    // Converting only a later subset of a run would look like a gap here and be
-    // rebuilt on every pass: still correct, just not incremental.
-    if (last >= 0 && t->GetEntries() != last + 1)
+    if ((first >= 0 && last >= 0 && t->GetEntries() != last - first + 1) || first > 10)
     {
       ::Error("mattak::convert",
-              "%s holds %lld entries but its last event is %lld, so some are missing; converting from scratch",
-              outfile, (long long) t->GetEntries(), last);
+              "%s holds %lld entries but spans events %lld..%lld, so some are missing; converting from scratch",
+              outfile, (long long) t->GetEntries(), first, last);
       last = -1;
     }
   }
