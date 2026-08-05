@@ -33,8 +33,7 @@ then
   exit 1
 fi
 
-echo "Input directory is ${INDIR}"
-echo "Output directory is ${OUTDIR}"
+echo "Converting ${INDIR} -> ${OUTDIR}"
 
 # Only check if (any) waveform file(s) are already copied as the later conversion
 # (with rno-g-convert wf) fails if no waveform file is present (regardless of whether
@@ -132,7 +131,7 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && echo "Converting pedestals" \
     && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}"/pedestals.dat* \
     && echo "Converting runinfo" \
-    && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux ${STATION_OVERRIDE} ${RUN_OVERRIDE}" \
+    && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux" "${STATION_OVERRIDE}" "${RUN_OVERRIDE}" \
     && echo "Copying aux and cfg"  \
     && cp -p -r "${INDIR}/aux"  "${OUTDIR}"/ \
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
