@@ -143,8 +143,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.combined_tree = None
 
+        self.headers_only = False
+
         if self.data_path_is_file:
-            self.combined_tree = uproot.open(f"{data_path}:combined")
+            try:
+                self.combined_tree = uproot.open(f"{data_path}:combined")
+            except uproot.exceptions.KeyInFileError:
+                # not a combined file: maybe it is a headers-only file (e.g. headers.root)
+                self.hd_file = uproot.open(data_path)
+                found = read_tree(self.hd_file, header_tree_names)
+                if found is None:
+                    raise
+                logger.warning(f"Could not find a 'combined' tree in {data_path}, loading headers "
+                               "only (forcing skip_incomplete=False)")
+                self.hd_tree, self.hd_branch = found
+                self._hds = self.hd_tree[self.hd_branch]
+                self.headers_only = True
         elif preferred_file not in [None, ""]:
             if preferred_file.endswith(".root"):
                 preferred_file = preferred_file[:-5]  # strip ".root"
@@ -156,7 +170,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                                 "Revert to default behaviour ...")
 
         # if we didn't load the combined_tree already, try to load full tree
-        if self.combined_tree is None:
+        if self.combined_tree is None and not self.headers_only:
             try:
                 self.wf_file = uproot.open("%s/waveforms.root" % (self.rundir))
                 logger.debug("Open waveforms.root (Found full run folder) ...")
@@ -172,21 +186,62 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
                 self._hds = self.hd_tree[self.hd_branch]
 
+                # a missing daqstatus must not abort the full run (it would end up in the
+                # headers-only fallback below and throw away the waveforms we just found)
                 if self.__read_daq_status:
-                    self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
-                    self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
-                    self._dss = self.ds_tree[self.ds_branch]
+                    try:
+                        self.ds_file = uproot.open("%s/daqstatus.root" % (self.rundir))
+                        self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
+                        self._dss = self.ds_tree[self.ds_branch]
+                    except FileNotFoundError:
+                        logger.warning(f"Could not find daqstatus.root in {self.rundir} "
+                                       "(this is ok if you don't use them)")
+                        self.__read_daq_status = False
             except Exception:
                 self.full = False
         else:
             self.full = False  # because combined_tree is not None
 
         # we haven't already loaded the full tree
-        if not self.full:
+        if not self.full and not self.headers_only:
             if self.combined_tree is None: # we didn't already load our preference
-                self.combined_tree = uproot.open(f"{self.rundir}/combined.root:combined")
-                logger.debug("Found combined file")
+                try:
+                    self.combined_tree = uproot.open(f"{self.rundir}/combined.root:combined")
+                    logger.debug("Found combined file")
+                except (FileNotFoundError, uproot.exceptions.KeyInFileError):
+                    # No waveforms anywhere: fall back to a headers-only dataset (see
+                    # mattak::Dataset::loadDir). headers.root is then the only hard requirement.
+                    logger.warning(
+                        f"Could not find waveforms.root or combined.root in {self.rundir}, "
+                        "loading headers only (forcing skip_incomplete=False)")
+                    self.headers_only = True
 
+        if self.headers_only:
+            # A headers-only dataset is exactly skip_incomplete == False: index every event,
+            # the waveforms are unavailable for all of them.
+            self.skip_incomplete = False  # already announced by the warnings above
+
+            self._wfs = None
+            self.events_with_waveforms = {}
+
+            if self.data_path_is_file:
+                self.__read_daq_status = False  # _hds is set above, and a single file has no daqstatus
+            else:
+                self.hd_file = uproot.open(f"{self.rundir}/headers.root")
+                self.hd_tree, self.hd_branch = read_tree(self.hd_file, header_tree_names)
+                self._hds = self.hd_tree[self.hd_branch]
+
+                if self.__read_daq_status:
+                    try:
+                        self.ds_file = uproot.open(f"{self.rundir}/daqstatus.root")
+                        self.ds_tree, self.ds_branch = read_tree(self.ds_file, daqstatus_tree_names)
+                        self._dss = self.ds_tree[self.ds_branch]
+                    except FileNotFoundError:
+                        logger.warning(f"Could not find daqstatus.root in {self.rundir} "
+                                       "(this is ok if you don't use them)")
+                        self.__read_daq_status = False
+
+        elif not self.full:
             self._wfs, self.wf_branch = read_tree(self.combined_tree, waveform_tree_names)
 
             # build an index of the waveforms we do have
@@ -198,8 +253,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 self.full_head_tree,_ = read_tree(self.full_head_file, header_tree_names)
 
                 if self.__read_daq_status:
-                    self.full_daq_file = uproot.open(f"{self.rundir}/daqstatus.root")
-                    self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
+                    try:
+                        self.full_daq_file = uproot.open(f"{self.rundir}/daqstatus.root")
+                        self.full_daq_tree, _ = read_tree(self.full_daq_file, daqstatus_tree_names)
+                    except FileNotFoundError:
+                        logger.warning(f"Could not find daqstatus.root in {self.rundir} "
+                                       "(this is ok if you don't use them)")
+                        self.__read_daq_status = False
 
 
             # Get header and daq information from combined file or from full run
@@ -209,6 +269,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if self.__read_daq_status:
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names)
+
+        self.has_waveforms = self._wfs is not None
 
         if station == 0 and run == 0 or self.data_path_is_file:
             self.station = int(self._hds['station_number'].array(entry_start=0, entry_stop=1)[0])
@@ -336,6 +398,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
             sampleRate = [sampleRate] * (self.last - self.first)
 
         try:
+            if self._wfs is None:
+                raise uproot.exceptions.KeyInFileError("")  # HACK: let the except block handle it
+
             readout_delay = self._wfs[f"mattak::IWaveforms/digitizer_readout_delay_ns[{self.NUM_CHANNELS}]"].array(**kw)
         except uproot.exceptions.KeyInFileError:
             readout_delay = numpy.zeros((self.last - self.first, self.NUM_CHANNELS))
@@ -514,7 +579,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                     starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
 
-        if channels is not None:
+        if channels is not None and w is not None:
             if isinstance(channels, int):
                 channels = [channels]
 
@@ -576,7 +641,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             # can happen if we skip incomplete events
             if wfs is None:
-                continue
+                if self.has_waveforms:
+                    continue
+                wfs = [None] * len(es)  # headers-only dataset: still yield the event infos
 
             for e, w in zip(es, wfs):
                 if selectors is not None:

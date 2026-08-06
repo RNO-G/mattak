@@ -58,6 +58,8 @@ void mattak::Dataset::setupRadiantMeta()
   // HACK: separately make the sample rate from the waveform file
   clear(&wf_meta);
 
+  if (!wf.file || !wf.tree) return;  // headers-only dataset: no waveform metadata to read
+
   //copy the file/tree so we don't double count branches
   wf_meta.file = TFile::Open(wf.file->GetName());
   if (!wf_meta.file)
@@ -317,22 +319,31 @@ int mattak::Dataset::loadCombinedFile(const char * f)
   current_entry = 0;
   full_dataset = false;
 
-  if (!opt.partial_skip_incomplete)
+  if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Opening %s", f);
+  if (setup(&hd, f, header_tree_names, 0, opt.verbose))
+  {
+    ::Error("mattak::Dataset::loadCombinedFile", "Could not load headers from %s", f);
+    return -1;
+  }
+
+  if (setup(&wf, f, waveform_tree_names, 0, opt.verbose))
+  {
+    // headers-only file: same deal as in loadDir, index all events and let the waveform
+    // accessors return nullptr.
+    ::Warning("mattak::Dataset::loadCombinedFile",
+              "Could not load waveforms from %s, loading headers only "
+              "(forcing partial_skip_incomplete=false)", f);
+    opt.partial_skip_incomplete = false;
+  }
+  else if (!opt.partial_skip_incomplete)
   {
     ::Warning("mattak::Dataset::loadCombinedFile", "partial_skip_incomplete=false is incompatible with loadCombinedFile, forcing to true");
     opt.partial_skip_incomplete  = true;
   }
 
-  if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Opening %s", f);
-  if (setup(&wf, f, waveform_tree_names, 0, opt.verbose) || setup(&hd, f, header_tree_names, 0, opt.verbose))
-  {
-    ::Error("mattak::Dataset::loadCombinedFile", "Could not load waveforms and headers from %s", f);
-    return -1;
-  }
-
   setupRadiantMeta();
 
-  if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found waveforms and headers in %s", f);
+  if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found headers in %s", f);
 
   // Try some optionalish things
   if (setup(&ds, f, daqstatus_tree_names, 0, opt.verbose))
@@ -342,6 +353,12 @@ int mattak::Dataset::loadCombinedFile(const char * f)
   else
   {
     if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found daqstatus in %s", f);
+  }
+
+  // without waveforms the daqstatus is looked up by readout time (see status()), so it needs an index
+  if (!wf.tree && ds.tree)
+  {
+    ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
   }
 
   // we probably don't have pedetals, but we could try I guess?
@@ -395,12 +412,19 @@ int mattak::Dataset::loadDir(const char * dir)
       //let's load from combined file instead
       if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names, nullptr, opt.verbose))
       {
-        //uh oh, we didn't find it there either :(
-        ::Error("mattak::Dataset::loadDir", "Failed to find waveforms.root or combined.root in %s", dir);
-        return -1;
+        // No waveforms anywhere. Fall back to a headers-only dataset: headers.root (loaded
+        // below) is then the only hard requirement and all waveform accessors return nullptr.
+        // That is precisely partial_skip_incomplete=false (index all events, waveforms may be
+        // missing), which also makes the file name selections below pick the standalone files.
+        ::Warning("mattak::Dataset::loadDir",
+                  "Failed to find waveforms.root or combined.root in %s, loading headers only "
+                  "(forcing partial_skip_incomplete=false)", dir);
+        opt.partial_skip_incomplete = false;
       }
-
-      partial_file = "combined";
+      else
+      {
+        partial_file = "combined";
+      }
     }
     else
     {
@@ -421,7 +445,7 @@ int mattak::Dataset::loadDir(const char * dir)
   }
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
 
-  if (!full_dataset && !opt.partial_skip_incomplete)
+  if (wf.tree && !full_dataset && !opt.partial_skip_incomplete)
   {
     //set up an index on event number the events
     wf.tree->BuildIndex("event_number");
@@ -432,12 +456,16 @@ int mattak::Dataset::loadDir(const char * dir)
   const char * ds_file = (full_dataset || !opt.partial_skip_incomplete) ? "daqstatus" : partial_file;
   if (setup(&ds, Form("%s/%s.root", dir, ds_file), daqstatus_tree_names, nullptr, opt.verbose))
   {
-    ::Error("mattak::Dataset::loadDir", "Failed to load %s.root in %s", ds_file, dir);
-    return -1;
+    ::Warning("mattak::Dataset::loadDir", "Failed to load %s.root in %s (this is ok if you don't use them)", ds_file, dir);
   }
-  if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
+  else if (opt.verbose)
+  {
+    ::Info("mattak::Dataset::loadDir", " ... success");
+  }
 
-  if (full_dataset)
+  // In a headers-only run the daqstatus is a standalone, asynchronously written file just
+  // like in a full run, so it must be looked up by readout time (see status()).
+  if ((full_dataset || !wf.tree) && ds.tree)
   {
     ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
   }
@@ -455,7 +483,7 @@ int mattak::Dataset::loadDir(const char * dir)
 
   //and try the runinfo file
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load runinfo");
-  if (full_dataset)
+  if (full_dataset || !wf.tree)
   {
     if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose) == 0)
     {
@@ -605,7 +633,7 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   if (!ds.tree) return nullptr;
   if (force || ds.loaded_entry != current_entry)
   {
-    if (full_dataset)
+    if (full_dataset || !wf.tree)
     {
       double readout_time = header(force)->readout_time;
       int ds_entry = ds.tree->GetEntryNumberWithBestIndex(readout_time, 1e9 * (readout_time - int(readout_time)));

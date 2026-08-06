@@ -125,6 +125,12 @@ namespace mattak
       TTree * wfTree() { return wf.tree; }
 
       bool isFullDataset() const { return full_dataset; }
+
+      /** False for a headers-only dataset (no waveforms.root/combined.root), where raw() and
+       * calibrated() always return nullptr. Note that isFullDataset() is false for those too,
+       * as it is for an ordinary partial (telemetered) run. */
+      bool hasWaveforms() const { return wf.tree != nullptr; }
+
       void setCalibration(const VoltageCalibration * calib);
       const VoltageCalibration * getCalibration() const { return opt.calib; }
 

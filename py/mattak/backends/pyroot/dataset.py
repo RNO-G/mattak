@@ -97,6 +97,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.data_path = data_path
         self.full = self.ds.isFullDataset()
+        self.has_waveforms = self.ds.hasWaveforms()
+        # C++ may have overridden what we asked for (headers-only dataset, combined file)
+        self.skip_incomplete = self.ds.getOpt().partial_skip_incomplete
         self.setEntries(0)
 
         logger.debug("We think we found station %d run %d", self.station, self.run)
@@ -142,8 +145,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         radiantThrs = None
         lowTrigThrs = None
         lowphasedTrigThrs = None
-        if self.__read_daq_status:
-            daq_status = self.ds.status()
+        # status() is a nullptr if there is no daqstatus at all (e.g. a headers-only dataset)
+        daq_status = self.ds.status() if self.__read_daq_status else None
+        if not isNully(daq_status):
             radiantThrs = numpy.array(daq_status.radiant_thresholds)
             try:
                 lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
@@ -233,17 +237,25 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         # the simple case first
         if not self.multiple:
+            this_wfs = self._wfs(self.entry, calibrated)
+            if this_wfs is None:
+                return None
             # here a copy is needed to avoid overwriting the waveform in memory
-            return numpy.copy(self._wfs(self.entry, calibrated))
+            return numpy.copy(this_wfs)
 
         if self.last - self.first < 0:
             return None
 
+        found_any = False
         out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
+                found_any = True
                 out[entry-self.first][:][:] = this_wfs
+
+        if not found_any:  # no event in the range has waveforms (e.g. a headers-only dataset)
+            return None
 
         out = numpy.asarray(out, dtype=float)
 
