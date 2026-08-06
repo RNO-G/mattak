@@ -36,7 +36,7 @@ namespace mattak
     uint16_t start_offsets[mattak::k::num_radiant_channels] = {};
 
     uint16_t type = 0;
-    uint16_t channel_mask = 0;
+    uint32_t channel_mask = 0;
     uint16_t beam_mask = 0;
 
     ClassDef(DidaqTriggerInfo, 1);
