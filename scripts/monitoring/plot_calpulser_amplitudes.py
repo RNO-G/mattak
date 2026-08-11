@@ -8,7 +8,9 @@ For every (monitoring.root, run-directory) pair:
      of the last PPS, i.e. (t_trigger - t_pps) < threshold, where the time since
      the last PPS is derived from the sysclk counter:
          dt = ((sysclk - sysclk_last_pps) mod 2**32) / f ,
-     with f (ticks/s) taken from the two most recent PPS sysclks (~100 MHz).
+     with f (ticks/s) taken from the two most recent PPS sysclks, so no particular
+     clock rate is assumed (the sysclk rate is digitizer-dependent, e.g. ~100 MHz
+     for the RADIANT).
   4. Match cal-pulser events to the monitoring amplitudes by event number and
      histogram the max. abs. amplitude for the deep (in-ice) channels.
 
