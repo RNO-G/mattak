@@ -180,6 +180,40 @@ def _get_trigger_type(hdr) -> str:
     return triggerType
 
 
+def _recal_trig_time(sysclk, readout_time) -> float:
+    """
+    Recalculate the trigger time of a DiDAQ event from its system clock counter.
+
+    Only for DiDAQ events whose `sysclk_last_pps` and `sysclk_last_last_pps` are 0: `mattak::Header`
+    (Header.cc) can then neither reference `sysclk` to the last PPS nor derive the clock frequency
+    from the two PPS counters. Instead take `sysclk` as counting from the last PPS and assume the
+    nominal 250 MHz clock. The second is picked from the readout time as in Header.cc.
+
+    Parameters
+    ----------
+    sysclk : int
+        The DiDAQ's system clock counter at the trigger (cycles since the last PPS).
+    readout_time : float
+        The readout time as a UTC double.
+
+    Returns
+    -------
+    float
+        The trigger time as a UTC double.
+    """
+    # subsecond part
+    trigger_time = sysclk / 250e6
+
+    # readout time is always after trigger time, so figure out the second based on what's closest
+    readout_time_secs = int(readout_time)
+    if readout_time - readout_time_secs < trigger_time:
+        trigger_time += readout_time_secs - 1
+    else:
+        trigger_time += readout_time_secs
+
+    return trigger_time
+
+
 _check_digitizer_enum_in_sync()
 
 
@@ -302,6 +336,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
         didaqStartOffsets = None
         didaqChannelMask = None
         didaqBeamMask = None
+        trig_time = hdr.trigger_time
 
         if self.digitizer == mattak.Dataset.Digitizer.RADIANT:
             # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
@@ -322,12 +357,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
             didaqChannelMask = hdr.trigger_info.didaq_info.channel_mask
             didaqBeamMask = hdr.trigger_info.didaq_info.beam_mask
 
+            # If the DiDAQ left both PPS sysclk counters at 0, Header.cc can only get a nan
+            # trigger time (0 / 0). Recalculate it from `sysclk` alone.
+            if hdr.sysclk_last_last_pps == 0:
+                logger.warning("Found `sysclk_last_last_pps` to be 0 for event %d (run %s). Recalculate the "
+                               "trigger time assuming the nominal 250 MHz clock ...", hdr.event_number, self.run)
+                trig_time = _recal_trig_time(hdr.sysclk, hdr.readout_time)
+
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
             station=self.station,
             run=self.run,
             readoutTime=hdr.readout_time,
-            triggerTime=hdr.trigger_time,
+            triggerTime=trig_time,
             triggerType=triggerType,
             sysclk=hdr.sysclk,
             sysclkLastPPS=(hdr.sysclk_last_pps, hdr.sysclk_last_last_pps),
@@ -356,10 +398,14 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return None
 
         if self.digitizer == mattak.Dataset.Digitizer.DIDAQ:
+
+            # TMP code
+            buffer_length = wf.buffer_length - wf.buffer_length % 4
+
             # this could be smarter
             wfs = numpy.frombuffer(cast_uint8_t(wf.didaq_data), dtype="uint8",
                 count=self.NUM_CHANNELS * self.NUM_WF_DIDAQ_SAMPLES).reshape(
-                    self.NUM_CHANNELS, self.NUM_WF_DIDAQ_SAMPLES)[:, :wf.buffer_length]
+                    self.NUM_CHANNELS, self.NUM_WF_DIDAQ_SAMPLES)[:, :buffer_length]
         else:
 
             if calibrated:
