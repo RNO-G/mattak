@@ -6,6 +6,7 @@ import numpy
 import os.path
 import warnings
 import logging
+import weakref
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ _DAQ_STATUS_THRESHOLD_FIELDS = {
     "didaqCoinThrs": ("didaq_coin_thresholds",),
     "didaqPhasedTrigThrs": ("didaq_phased_trigger_thresholds",),
 }
+
+NOM_DIDAQ_CLOCK = 250e6  # 250 MHz
 
 
 def _read_daq_status_thresholds(daq_status, digitizer) -> dict:
@@ -230,6 +233,9 @@ class Dataset(mattak.Dataset.AbstractDataset):
         `mattak.Dataset.Dataset`.
         """
 
+        self._warner = mattak.Dataset.DeferredWarner(logging.getLogger(__name__))
+        weakref.finalize(self, self._warner.flush)
+
         self.backend = "pyroot"
         self.__read_daq_status = read_daq_status
         self.__read_run_info = read_run_info
@@ -360,9 +366,19 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # If the DiDAQ left both PPS sysclk counters at 0, Header.cc can only get a nan
             # trigger time (0 / 0). Recalculate it from `sysclk` alone.
             if hdr.sysclk_last_last_pps == 0:
-                logger.warning("Found `sysclk_last_last_pps` to be 0 for event %d (run %s). Recalculate the "
-                               "trigger time assuming the nominal 250 MHz clock ...", hdr.event_number, self.run)
+                self._warner.warn("sysclk_last_last_pps=0",
+                    "Found `sysclk_last_last_pps` to be 0 for event %d (run %s). Recalculate the "
+                    "trigger time assuming the nominal 250 MHz clock ...", hdr.event_number, self.run)
+
                 trig_time = _recal_trig_time(hdr.sysclk, hdr.readout_time)
+            else:
+                rate = (hdr.sysclk_last_pps - hdr.sysclk_last_last_pps) % 2 ** 32
+                if abs(rate / NOM_DIDAQ_CLOCK - 1) > 1e-6:
+                    self._warner.warn("sysclk_last_last_pps!=250",
+                        "Found sysclk rate to diviate by more than 1ppm for event %d (run %s). Recalculate the "
+                        "trigger time assuming the nominal 250 MHz clock ...", hdr.event_number, self.run)
+
+                    trig_time = _recal_trig_time(hdr.sysclk, hdr.readout_time)
 
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
