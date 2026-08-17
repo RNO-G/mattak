@@ -79,38 +79,6 @@ def set_log_level(level : int):
         ROOT.gErrorIgnoreLevel = ROOT.kFatal
 
 
-class DeferredWarner:
-    """Log a warning once, count the rest, summarize on flush."""
-
-    def __init__(self, logger):
-        self.logger = logger
-        self.counts = Counter()
-        self.messages = {}
-        self.args = defaultdict(list)
-
-    def warn(self, key, msg, *args):
-        if self.counts[key] == 0:
-            self.logger.warning(msg, *args)
-            self.messages[key] = msg
-        else:
-            self.args[key].append(args)
-
-        self.counts[key] += 1
-
-    def flush(self):
-        for key, n in self.counts.items():
-            if n > 1:
-                self.logger.warning(
-                    "\nThe warning:\n\t\"%s\"\nwas suppressed %d time(s); for a full list of the arguments of the "
-                    "suppressed warnings enable debug logging.",
-                    self.messages[key] % self.args[key][0], n - 1,
-                )
-                self.logger.debug("%s", self.args[key])
-        self.counts.clear()
-        self.messages.clear()
-        self.args.clear()
-
-
 class Digitizer(enum.IntEnum):
     """ Pure python mirror of `mattak::Dataset::digitizer` (src/mattak/Dataset.h).
 
