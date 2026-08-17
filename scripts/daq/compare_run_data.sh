@@ -22,13 +22,15 @@
 #                                  (run this on the summit server, no ssh involved)
 #
 # Usage:
-#   compare_run_data.sh <station_id> [--size-limit <KB>] [--no-remove] [--chicago-to-summit] [--summit] [--host <host>] [--run-pattern <glob>]
+#   compare_run_data.sh <station_id> [--size-limit <KB>] [--no-remove] [--auto-approve-remove] [--chicago-to-summit] [--summit] [--host <host>] [--run-pattern <glob>]
 #
 # Arguments:
 #   <station_id>         The station ID
 #   -h, --help           Show usage and exit
 #   --size-limit <KB>    Minimum directory size to include in comparison (default: 24 KB)
 #   --no-remove          Skip automatic removal of identical directories (default: will remove after confirmation)
+#   --auto-approve-remove  Remove identical directories without asking for confirmation.
+#                        Mutually exclusive with --no-remove (and hence --chicago-to-summit).
 #   --chicago-to-summit  Compare summit archive (greenland:/data/archived/station<id>)
 #                        against local uchicago copy (/data/full/raw/station<id>).
 #                        Always a dry run: implies --no-remove.
@@ -51,22 +53,25 @@
 #   4. Categorizes directories as IDENTICAL or DIFFERENT or MISSING IN COPY
 #   5. Displays summary with counts and total sizes
 #   6. If --no-remove is not set, prompts user to remove identical directories from the source
+#      (no prompt with --auto-approve-remove)
 #   7. In the dry-run case (--no-remove / --chicago-to-summit), writes the identical runs
 #      (station<id>/run<id>, one per line) to a text file for later manual removal
 #
 # Example:
 #   ./compare_run_data.sh 13
 #   ./compare_run_data.sh 13 --size-limit 5120 --no-remove
+#   ./compare_run_data.sh 13 --auto-approve-remove
 #   ./compare_run_data.sh 13 --chicago-to-summit --run-pattern 'run*'
 #   ./compare_run_data.sh 13 --summit
 #   ./compare_run_data.sh 13 --host s13-lte
 #
 
 usage() {
-    echo "Usage: $0 <station_id> [--size-limit <KB>] [--no-remove] [--chicago-to-summit] [--summit] [--host <host>] [--run-pattern <glob>]"
+    echo "Usage: $0 <station_id> [--size-limit <KB>] [--no-remove] [--auto-approve-remove] [--chicago-to-summit] [--summit] [--host <host>] [--run-pattern <glob>]"
     echo "  -h, --help: Show this help message and exit"
     echo "  --size-limit: Size limit in KB (default: 24)"
     echo "  --no-remove: Skip removal of identical directories in the source (needs confirmation anyway...)"
+    echo "  --auto-approve-remove: Remove identical directories without confirmation (mutually exclusive with --no-remove)"
     echo "  --chicago-to-summit: Compare greenland:/data/archived/station<id> with local /data/full/raw/station<id> (implies --no-remove)"
     echo "  --summit: Compare local /data/ingress/station<id> with local /data/archived/station<id> (no ssh)"
     echo "  --host: Host holding the source data (default: s<station_id>, or 'greenland' with --chicago-to-summit)"
@@ -87,6 +92,7 @@ fi
 
 SIZE_LIMIT_KB=24  # Default size limit in KB
 REMOVE_FLAG=true
+AUTO_APPROVE_REMOVE=false
 CHICAGO_MODE=false
 SUMMIT_MODE=false
 RUN_PATTERN="*"
@@ -99,6 +105,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --size-limit) SIZE_LIMIT_KB="$2"; shift ;;
         --no-remove) REMOVE_FLAG=false ;;
+        --auto-approve-remove) AUTO_APPROVE_REMOVE=true ;;
         --chicago-to-summit) CHICAGO_MODE=true ;;
         --summit) SUMMIT_MODE=true ;;
         --host) HOST_OVERRIDE="$2"; shift ;;
@@ -113,6 +120,20 @@ done
 if [[ "$CHICAGO_MODE" == true && "$SUMMIT_MODE" == true ]]; then
     echo "Error: --chicago-to-summit and --summit are mutually exclusive"
     exit 1
+fi
+
+# --chicago-to-summit implies --no-remove, so it conflicts with --auto-approve-remove as well
+if [[ "$AUTO_APPROVE_REMOVE" == true && ( "$REMOVE_FLAG" == false || "$CHICAGO_MODE" == true ) ]]; then
+    echo "Error: --auto-approve-remove and --no-remove (implied by --chicago-to-summit) are mutually exclusive"
+    exit 1
+fi
+
+if [[ "$AUTO_APPROVE_REMOVE" == true ]]; then
+    echo "################################################################################"
+    echo "#                                  WARNING                                     #"
+    echo "#  --auto-approve-remove is set: identical run directories will be REMOVED     #"
+    echo "#  from the source WITHOUT asking for confirmation. Press Ctrl-C to abort.     #"
+    echo "################################################################################"
 fi
 
 # SOURCE_DIR/LOCAL_DIR denote the source of the data and the copy we compare it
@@ -366,7 +387,12 @@ if [[ "$REMOVE_FLAG" == true && ${#identical_dirs[@]} -gt 0 ]]; then
     else
         echo "Command: $rm_cmd"
     fi
-    read -p "Are you sure you want to remove these directories? (yes/no): " confirm
+    if [[ "$AUTO_APPROVE_REMOVE" == true ]]; then
+        echo "--auto-approve-remove is set: removing without confirmation!"
+        confirm="yes"
+    else
+        read -p "Are you sure you want to remove these directories? (yes/no): " confirm
+    fi
 
     if [[ "$confirm" == "yes" ]]; then
         echo "Removing identical directories from $SOURCE_DESC..."
