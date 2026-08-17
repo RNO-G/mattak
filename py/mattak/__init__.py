@@ -32,8 +32,9 @@ class DeduplicatingStreamHandler(logging.StreamHandler):
     per run) and reports the value range of the remaining fields per group. Fields do not
     have to appear in the message; the dict may carry extra context purely for the summary.
 
-    The arguments of all suppressed records are stored, but the summary only reports their
-    range. Enable `logging.DEBUG` on the respective logger to list them individually.
+    The arguments of all suppressed records are stored, but the summary only reports the
+    `max_groups` most affected groups and collapses field values to their range. Enable
+    `logging.DEBUG` on the respective logger to list every group and value individually.
 
     Parameters
     ----------
@@ -45,12 +46,17 @@ class DeduplicatingStreamHandler(logging.StreamHandler):
     group_keys : sequence of str, default=("station", "run")
         Fields of dict-style arguments by which the summary sub-groups the suppressed
         records. Missing fields are ignored.
+    max_groups : int, default=5
+        Maximum number of such sub-groups reported individually (the most affected ones).
+        The remaining ones are collapsed into a single count.
     """
 
-    def __init__(self, stream=None, dedup_level=logging.WARNING, group_keys=("station", "run")):
+    def __init__(self, stream=None, dedup_level=logging.WARNING, group_keys=("station", "run"),
+                 max_groups=5):
         super().__init__(stream)
         self.dedup_level = dedup_level
         self.group_keys = group_keys
+        self.max_groups = max_groups
         self._counts = Counter()
         self._samples = defaultdict(list)
         self._summarized = False
@@ -115,8 +121,8 @@ class DeduplicatingStreamHandler(logging.StreamHandler):
         """
         Render the stored arguments of one message group as indented summary lines.
 
-        Dict-style arguments are sub-grouped by `group_keys` and reported per group;
-        positional arguments are listed as they are.
+        Dict-style arguments are sub-grouped by `group_keys` and reported for the
+        `max_groups` most affected groups; positional arguments are listed as they are.
 
         Parameters
         ----------
@@ -144,13 +150,24 @@ class DeduplicatingStreamHandler(logging.StreamHandler):
         for sample in samples:
             groups[tuple((k, sample[k]) for k in self.group_keys if k in sample)].append(sample)
 
+        # Most affected groups first. The sort is stable, so groups with an equal number of
+        # occurrences stay in the order they were encountered (i.e. usually run order).
+        ranked = sorted(groups.items(), key=lambda kv: -len(kv[1]))
+        shown = ranked if verbose else ranked[:self.max_groups]
+
         detail = ""
-        for group, entries in groups.items():
+        for group, entries in shown:
             fields = {k: [e[k] for e in entries if k in e]
                       for k in dict.fromkeys(k for e in entries for k in e) if k not in dict(group)}
             label = " | ".join(f"{k}={v}" for k, v in group)
             stats = " | ".join(f"{k}: {self._format_values(v, verbose)}" for k, v in fields.items())
             detail += f"\n\t  {label + ' ' if label else ''}({len(entries)}x){' ' + stats if stats else ''}"
+
+        dropped = ranked[len(shown):]
+        if dropped:
+            keys = "/".join(k for k, _ in dropped[0][0]) or "group"
+            detail += (f"\n\t  ... and {len(dropped)} further {keys} "
+                       f"({sum(len(entries) for _, entries in dropped)}x in total)")
 
         return detail
 
