@@ -24,11 +24,13 @@ namespace mattak
       // Per-channel information
       std::vector<float> rms; // root mean square per channel
       std::vector<uint16_t> max_abs_amplitude;
+      // largest peak-to-peak amplitude found in a sliding 10 ns window (see mon_write.py)
+      std::vector<uint16_t> max_peak_to_peak_amplitude;
       std::vector<float> glitching_test_statitic;
       // we decided to only store the max. abs. block offset per waveform/channel to save space
       std::vector<uint16_t> block_offset;
 
-      ClassDef(EventSummary, 1);
+      ClassDef(EventSummary, 2);
   };
 
 

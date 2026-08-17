@@ -26,12 +26,14 @@ import os
 
 from NuRadioReco.modules.RNO_G.channelBlockOffsetFitter import fit_block_offsets
 from NuRadioReco.modules.RNO_G.channelGlitchDetector import diff_sq, unscramble
+from NuRadioReco.utilities.trace_utilities import peak_to_peak_amplitudes
 
 from NuRadioReco.utilities import logging as nu_logging
 nu_logging.set_general_log_level(nu_logging.ERROR)  # suppress warnings from NuRadio
 
 NR_CHANNELS = 24
 OFFSET_BLOCK_SIZE = 128
+P2P_WINDOW = 10 * units.ns  # sliding window for the peak-to-peak amplitude
 
 # Per-trigger-type run summary fields:
 #   (triggerType as returned by mattak.Dataset, RunSummary spectrum field, RunSummary counter field)
@@ -94,8 +96,9 @@ def get_run_summary(dataset):
 def write_event_summary(event_summary, event_info, wfs, is_didaq=0):
     """Populate one ``EventSummary`` from header metadata and waveform data.
 
-    For each channel, this computes RMS, max absolute amplitude, a glitch score,
-    and a scalar block-offset summary, then writes these into the ROOT object.
+    For each channel, this computes RMS, max absolute amplitude, max peak-to-peak
+    amplitude, a glitch score, and a scalar block-offset summary, then writes these
+    into the ROOT object.
     """
     event_summary.event_number = event_info.eventNumber
     event_summary.block_offset.clear()
@@ -105,6 +108,12 @@ def write_event_summary(event_summary, event_info, wfs, is_didaq=0):
 
     amax = np.max(np.abs(wfs), axis=1).astype(np.uint16)
     assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
+
+    # `peak_to_peak_amplitudes` returns the local peak-to-peak amplitude for every sample
+    # (window centered on it), of which we keep the largest per channel.
+    n_samples_window = int(round(P2P_WINDOW * event_info.sampleRate))
+    p2p = np.max(peak_to_peak_amplitudes(wfs, n_samples_window), axis=1).astype(np.uint16)
+    assign_numpy_array_to_cpp_vector(event_summary.max_peak_to_peak_amplitude, p2p)
 
     if not is_didaq:
         glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
