@@ -33,6 +33,12 @@ set(UTIL_SHARE_DIR ${RNO_G_INSTALL_DIR}/share)
 set(LD_UTIL ${RNO_G_INSTALL_DIR}/lib)
 set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
+# CMake strips the build-tree RPATH on install, so an installed libmattak can no longer
+# locate its dependencies (librno-g). Bake the install lib dir plus the directories of any
+# out-of-tree linked libraries into the RPATH instead of relying on LD_LIBRARY_PATH.
+set(CMAKE_INSTALL_RPATH ${UTIL_LIB_DIR})
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 
