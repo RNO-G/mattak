@@ -9,7 +9,7 @@ use `tmux_follow_services.sh`to follow the logs of all stations together in a tm
 
 Usefull commands:
 
-Install 
+Install
 `sudo systemctl daemon-reload`
 
 Start everything
@@ -18,16 +18,16 @@ Start everything
 Watch a specific station (e.g 23)
 `journalctl -u rno-g-autoconverter@23 -f`
 
-Check status of all stations 
+Check status of all stations
 `systemctl status 'rno-g-autoconverter@*'`
 
-Stop everything  
+Stop everything
 `systemctl stop rno-g-autoconverter.target`
 
-Restart a single station 
-`sudo systemctl restart rno-g-autoconverter@23` 
+Restart a single station
+`sudo systemctl restart rno-g-autoconverter@23`
 
-See logs for all stations together 
+See logs for all stations together
 `journalctl -u 'rno-g-autoconverter@*' -f`
 
 ## Rootified cleanup

@@ -210,6 +210,8 @@ class Dataset(mattak.Dataset.AbstractDataset):
                 ds_tree = self.combined_tree if skip_incomplete else self.full_daq_tree
                 self._dss, self.ds_branch =  read_tree(ds_tree, daqstatus_tree_names)
 
+        self.digitizer = self._check_digitizer_support()
+
         if station == 0 and run == 0 or self.data_path_is_file:
             self.station = int(self._hds['station_number'].array(entry_start=0, entry_stop=1)[0])
             self.run = int(self._hds['run_number'].array(entry_start=0, entry_stop=1)[0])
@@ -241,6 +243,36 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.has_calib = True
         else:
             self.has_calib = False
+
+    def _check_digitizer_support(self) -> mattak.Dataset.Digitizer:
+        """ Peek at the first event's `bytes_per_sample` (no waveform samples are read) to figure
+        out which digitizer wrote this run, and fail fast if it's not RADIANT.
+
+        The uproot backend only knows how to interpret `radiant_data`; DiDAQ support
+        (`didaq_data`) was only added to the pyroot backend, since the uproot backend is being
+        phased out and kept around just for reading older, RADIANT-only data.
+        """
+        if self._wfs is None:
+            return mattak.Dataset.Digitizer.Unknown
+
+        try:
+            bytes_per_sample = self._wfs["mattak::IWaveforms/bytes_per_sample"].array(
+                entry_start=0, entry_stop=1, library="np")
+        except uproot.exceptions.KeyInFileError:
+            # branch predates the introduction of this field entirely -> old, RADIANT-only data
+            return mattak.Dataset.Digitizer.RADIANT
+
+        if not len(bytes_per_sample):
+            return mattak.Dataset.Digitizer.Unknown
+
+        digitizer = mattak.Dataset.digitizer_from_bytes_per_sample(int(bytes_per_sample[0]))
+        if digitizer == mattak.Dataset.Digitizer.DIDAQ:
+            raise NotImplementedError(
+                "This run was recorded with the DiDAQ digitizer, which the uproot backend does "
+                "not support. Use the pyroot backend instead "
+                "(`mattak.Dataset.Dataset(..., backend='pyroot')`).")
+
+        return digitizer
 
     def _read_run_info(self):
         # try to get the run info, if we're using combined tree, try looking in there

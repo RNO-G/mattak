@@ -14,7 +14,6 @@ typedef int rno_g_header_t;
 namespace mattak
 {
 
-
   class Header : public TObject
   {
 
@@ -37,37 +36,38 @@ namespace mattak
       /* The number of this station */
       uint16_t station_number = 0;
 
-      /* The number of samples in the waveforms */
-      uint16_t buffer_length = 0;
-
       /* In theory, the number of samples pretrigger, but not yet filled properly. */
       uint16_t pretrigger_samples = 0;
 
       /* The readout time, as a UTC double. This is the time the event made it to the SBC */
       double readout_time = 0;
 
-      /* The number of PPS (pulse per second) received since the start of the run by the RADIANT. WARNING: this can slip */
-      uint32_t pps_num= 0;
+      /* The number of PPS (pulse per second) received since the start of the run by the digitizer
+       * (RADIANT or DiDAQ). WARNING: this can slip */
+      uint32_t pps_num = 0;
 
-      /* The number of cycles in the nominally 100 MHz clock for the current event. Note that this wraps every 53 seconds or so.
+      /* The number of cycles in the digitizer's system clock for the current event. The nominal rate
+       * is digitizer-dependent (100 MHz for the RADIANT), so derive it from the two PPS counters below
+       * (sysclk_last_pps - sysclk_last_last_pps) rather than assuming a value. Note that this wraps
+       * after 2^32 cycles (~43 s at 100 MHz).
        * WARNING: this can slip.
        * */
-      uint32_t sysclk= 0;
+      uint32_t sysclk = 0;
 
-      /** The number of cycles in the nominally 100 MHz clock at the time of the last PPS
+      /** The number of cycles in the digitizer's system clock at the time of the last PPS
        * WARNING: this can slip.
        * */
-      uint32_t sysclk_last_pps= 0;
+      uint32_t sysclk_last_pps = 0;
 
-      /** The number of cycles in the nominally 100 MHz clock at the time of the  PPS previous to last
+      /** The number of cycles in the digitizer's system clock at the time of the  PPS previous to last
        * WARNING: this can slip.
        * */
-      uint32_t sysclk_last_last_pps= 0;
+      uint32_t sysclk_last_last_pps = 0;
 
       /* The trigger time, as a UTC double. Note that this does not have as much precision as is possible,
        * which should be fixed in the future (though you can rederive from sysclk).
        *
-       * This is  currently derived from readout_time, sysclk, sysclk_last_pps and sysclk_last_last_pps,
+       * This is currently derived from readout_time, sysclk, sysclk_last_pps and sysclk_last_last_pps,
        * though we found that this may be unreliable sometimes.
        * */
       double trigger_time;
@@ -76,12 +76,9 @@ namespace mattak
       TriggerInfo trigger_info;
 
 
-    ClassDef(Header,2);
+    ClassDef(Header, 3);
   };
 
-
-
 }
-
 
 #endif

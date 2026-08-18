@@ -12,6 +12,11 @@
 
 #include "mattak/Constants.h"
 
+#ifdef LIBRNO_G_SUPPORT
+static_assert(mattak::k::num_didaq_coinc == RNO_G_NUM_DIDAQ_COINC, "mattak::k::num_didaq_coinc out of sync with librno-g");
+static_assert(mattak::k::num_didaq_beams == RNO_G_NUM_DIDAQ_BEAMS, "mattak::k::num_didaq_beams out of sync with librno-g");
+#endif
+
 
 namespace mattak
 {
@@ -29,6 +34,22 @@ namespace mattak
     uint16_t trig_per_beam[mattak::k::num_lt_beams] = {0};
     uint16_t servo_phased = 0;
     uint16_t servo_per_beam[mattak::k::num_lt_beams] = {0};
+  };
+
+  struct DidaqScalers
+  {
+    uint16_t coinc_singles_1Hz[mattak::k::num_radiant_channels] = {0};
+    uint16_t coinc_singles_1Hz_gated[mattak::k::num_radiant_channels] = {0};
+    uint16_t coinc_trig_100mHz[mattak::k::num_didaq_coinc] = {0};
+    uint16_t coinc_trig_100mHz_gated[mattak::k::num_didaq_coinc] = {0};
+    uint16_t beam_trig_100mHz[mattak::k::num_didaq_beams] = {0};
+    uint16_t beam_trig_100mHz_gated[mattak::k::num_didaq_beams] = {0};
+    uint16_t beam_servo_1Hz[mattak::k::num_didaq_beams] = {0};
+    uint16_t total_beam_100mHz = 0;
+    uint16_t total_beam_100mHz_gated = 0;
+    uint16_t total_beam_1Hz = 0;
+    uint16_t num_pps = 0;
+    uint32_t clk_rate = 0;
   };
 
   struct RadiantVoltages
@@ -73,6 +94,7 @@ namespace mattak
 
       double readout_time_radiant = 0;
       double readout_time_lt = 0;
+      double readout_time_didaq = 0;
 
       uint32_t radiant_thresholds[mattak::k::num_radiant_channels] = {0};
       uint32_t radiant_scalers[mattak::k::num_radiant_channels] = {0};
@@ -96,7 +118,13 @@ namespace mattak
       RadiantVoltages radiant_voltages;
       CalpulserInfo calinfo;
 
-    ClassDef(DAQStatus, 6);
+      // DIDAQ, when present, is a drop-in replacement for RADIANT+FLOWER; see rno_g_daqstatus_t in rno-g.h
+      uint8_t didaq_coin_thresholds[mattak::k::num_radiant_channels] = {0};
+      uint16_t didaq_phased_trigger_thresholds[mattak::k::num_didaq_beams] = {0};
+      uint16_t didaq_phased_servo_thresholds[mattak::k::num_didaq_beams] = {0};
+      DidaqScalers didaq_scalers;
+
+    ClassDef(DAQStatus, 7);
   };
 
 }

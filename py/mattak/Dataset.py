@@ -2,6 +2,7 @@
 import os
 import glob
 import re
+import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
@@ -10,7 +11,7 @@ import logging
 import warnings
 import libconf
 from functools import lru_cache
-
+from collections import Counter, defaultdict
 
 logger = logging.getLogger("mattak")
 
@@ -78,6 +79,26 @@ def set_log_level(level : int):
         ROOT.gErrorIgnoreLevel = ROOT.kFatal
 
 
+class Digitizer(enum.IntEnum):
+    """ Pure python mirror of `mattak::Dataset::digitizer` (src/mattak/Dataset.h).
+
+    Values must stay in sync with the C++ enum by hand; the pyroot backend checks this at
+    import time (see `mattak.backends.pyroot.dataset`).
+    """
+    Unknown = 0
+    RADIANT = 1
+    DIDAQ = 2
+
+
+def digitizer_from_bytes_per_sample(bytes_per_sample : int) -> Digitizer:
+    """ Mirrors `mattak::Dataset::setDigitizer` (src/Dataset.cc). """
+    if bytes_per_sample == 1:
+        return Digitizer.DIDAQ
+    if bytes_per_sample in (0, 2):
+        return Digitizer.RADIANT
+    return Digitizer.Unknown
+
+
 @dataclass
 class EventInfo:
     """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
@@ -92,11 +113,16 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: Optional[float]  # Sample rate, in GSa/s
-    radiantThrs: Optional[numpy.ndarray]
-    lowTrigThrs: Optional[numpy.ndarray]
-    lowphasedTrigThrs: Optional[numpy.ndarray]
+    radiantThrs: Optional[numpy.ndarray] = None
+    lowTrigThrs: Optional[numpy.ndarray] = None
+    lowphasedTrigThrs: Optional[numpy.ndarray] = None
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
+    didaqCoinThrs: Optional[numpy.ndarray] = None
+    didaqPhasedTrigThrs: Optional[numpy.ndarray] = None
+    didaqStartOffsets: Optional[numpy.ndarray] = None  # mattak::DidaqTriggerInfo::start_offsets
+    didaqChannelMask: Optional[int] = None  # mattak::DidaqTriggerInfo::channel_mask
+    didaqBeamMask: Optional[int] = None  # mattak::DidaqTriggerInfo::beam_mask
 
 def _runinfo_seconds(value):
     """ Normalize a run-info timestamp to float seconds, or None if missing/zero.
@@ -188,8 +214,9 @@ class AbstractDataset(ABC):
     """
 
     # Define some contants
-    NUM_DIGI_SAMPLES = 4096
-    NUM_WF_SAMPLES = 2048
+    NUM_DIGI_SAMPLES = 4096  # For RADIANT
+    NUM_WF_SAMPLES = 2048  # For RADIANT
+    NUM_WF_DIDAQ_SAMPLES = 4096
     NUM_CHANNELS = 24
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):

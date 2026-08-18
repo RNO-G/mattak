@@ -50,8 +50,6 @@ int main()
   wf->run_number= run;
   wf->station_number = station;
 
-
-  hd->buffer_length = 2048;
   wf->buffer_length = 2048;
   hd->pretrigger_samples = 100;
   hd->trigger_info.rf_trigger = true;

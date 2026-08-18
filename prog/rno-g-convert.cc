@@ -37,7 +37,6 @@ int isdir(const char * f)
 }
 
 
-
 int main (int nargs, char ** args)
 {
   bool update = false;

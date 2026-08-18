@@ -18,6 +18,7 @@
 #pragma link C++ class mattak::TriggerInfo+;
 #pragma link C++ class mattak::RadiantTriggerInfo+;
 #pragma link C++ class mattak::LTTriggerInfo+;
+#pragma link C++ class mattak::DidaqTriggerInfo+;
 #pragma link C++ class mattak::Sensors+;
 #pragma link C++ class mattak::LTEStats+;
 #pragma link C++ class mattak::GNSS+;
@@ -38,6 +39,7 @@
 #pragma link C++ class mattak::GNSS::Sat+;
 #pragma link C++ class mattak::DAQStatus+;
 #pragma link C++ class mattak::LTScalerGroup+;
+#pragma link C++ class mattak::DidaqScalers+;
 #pragma link C++ class mattak::CalpulserInfo+;
 #pragma link C++ class mattak::RadiantVoltages+;
 #pragma link C++ enum mattak::CalpulserOutput;

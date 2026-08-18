@@ -1,7 +1,7 @@
-#include "mattak/TriggerInfo.h" 
+#include "mattak/TriggerInfo.h"
 
 
-ClassImp(mattak::TriggerInfo); 
-ClassImp(mattak::RadiantTriggerInfo); 
-ClassImp(mattak::LTTriggerInfo); 
-
+ClassImp(mattak::TriggerInfo);
+ClassImp(mattak::RadiantTriggerInfo);
+ClassImp(mattak::LTTriggerInfo);
+ClassImp(mattak::DidaqTriggerInfo);
