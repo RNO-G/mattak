@@ -8,3 +8,7 @@ Wants=rno-g-autoconverter@21.service
 Wants=rno-g-autoconverter@22.service
 Wants=rno-g-autoconverter@23.service
 Wants=rno-g-autoconverter@24.service
+Wants=rno-g-autoconverter@15.service
+Wants=rno-g-autoconverter@25.service
+Wants=rno-g-autoconverter@34.service
+Wants=rno-g-autoconverter@35.service

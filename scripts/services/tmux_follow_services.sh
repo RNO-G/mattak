@@ -18,7 +18,7 @@
 #
 # Usage: tmux_follow_services.sh [-p PANES_PER_WINDOW] [-h]
 
-STATIONS="11 12 13 14 21 22 23 24"
+STATIONS="11 12 13 14 21 22 23 24 15 25 34 35"
 SESSION="autoconverter"
 
 # usage: Print help text describing the script and its options.

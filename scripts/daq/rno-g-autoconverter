@@ -8,11 +8,13 @@ STAGING="${ROOT_DATA_DIR}/staging"
 TRASH="${ROOT_DATA_DIR}/staging/trash"
 EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
 FRAC=0.0125
-STATIONS="23 11 22 12 21 13 24 14"
+
+STATIONS="11 12 13 14 21 22 23 24 15 25 34 35"
 # Override STATIONS with command line arguments if provided
 if [ $# -gt 0 ]; then
   STATIONS="$*"
 fi
+
 # Source an environment
 if [ -f /rno-g/etc/autoconverter.env ]
 then
