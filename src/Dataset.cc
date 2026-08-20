@@ -6,6 +6,8 @@
 
 
 
+/** Delete the cached object and reset a field to its empty state
+ * (as if nothing had ever been loaded into it). */
 template <typename D>
 static void clear(mattak::Dataset::field<D> * field)
 {
@@ -19,6 +21,7 @@ static void clear(mattak::Dataset::field<D> * field)
 }
 
 
+/** Close the owning TFile (which invalidates tree/branch) and clear the field. */
 template <typename D>
 static void clear(mattak::Dataset::tree_field<D> * field)
 {
@@ -31,6 +34,7 @@ static void clear(mattak::Dataset::tree_field<D> * field)
   clear((mattak::Dataset::field<D>*) field);
 }
 
+/** Close the owning TFile and clear the field. */
 template <typename D>
 static void clear(mattak::Dataset::file_field<D> * field)
 {
@@ -52,6 +56,13 @@ static void clear(mattak::Dataset::file_field<D> * field)
 #define BITBUCKET "/dev/null"
 #endif
 
+/** Open a second, independent handle onto the already-opened waveform file/tree
+ * (wf), reading only the radiant_sampling_rate and digitizer_readout_delay_ns
+ * branches into wf_meta. This lets radiantSampleRate()/radiantReadoutDelays()
+ * be read cheaply, without pulling in the (much larger) waveform samples that
+ * a shared handle on wf itself would require. Called after every successful
+ * waveform load; failures here are non-fatal (just leaves wf_meta cleared,
+ * the getters then fall back to the runinfo/default sample rate). */
 void mattak::Dataset::setupRadiantMeta()
 {
 
@@ -99,22 +110,23 @@ static TFile * silentlyTryToOpen(const char * uri, const char * opt = "" )
 template <typename D>
 static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, const char ** tree_names, const char ** branch_names = 0, bool verbose = false)
 {
-  // Returns 0 on success (found a valid tree + branch pair).
-  // Returns -1 on failure (file couldn't open, or no matching tree/branch).
   clear(field);
   if (verbose) ::Info("mattak::Dataset::setup", "Trying to open %s", filename);
-  field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
+  field->file = !verbose ? silentlyTryToOpen(filename, "READ") : TFile::Open(filename, "READ");
   if (!field->file) return -1;
+
+  // a "combined" tree may hold the branch under any of the candidate names
+  TTree * combined_tree = (TTree*) field->file->Get("combined");
 
   int itry = 0;
   while(tree_names[itry])
   {
-    field->tree = (TTree*) field->file->Get(tree_names[itry]);
     if (verbose) ::Info("mattak::Dataset::setup", "Trying tree %s", tree_names[itry]);
+    field->tree = (TTree*) field->file->Get(tree_names[itry]);
     if (!field->tree)
     {
-      field->tree = (TTree*) field->file->Get("combined");
       if (verbose) ::Info("mattak::Dataset::setup", "Trying tree combined");
+      field->tree = combined_tree;
     }
 
     if (!field->tree)
@@ -156,8 +168,6 @@ static int setup(mattak::Dataset::tree_field<D> * field, const char * filename, 
 template <typename D>
 static int setup(mattak::Dataset::file_field<D> * field, const char * filename, const char * obj_name, bool verbose = false)
 {
-  // Returns 0 on success (object found).
-  // Returns -1 on failure (file couldn't open, or object not there).
   clear(field);
   field->file = !verbose ? silentlyTryToOpen(filename,"READ") : TFile::Open(filename,"READ");
   if (!field->file) return -1;
@@ -172,6 +182,9 @@ static int setup(mattak::Dataset::file_field<D> * field, const char * filename, 
 }
 
 
+/** Close every open file and reset every field to empty. Called at the start
+ * of every load and from the destructor, so a Dataset is always either fully
+ * loaded or fully empty, never a mix of the two. */
 void mattak::Dataset::unload()
 {
   clear(&wf);
@@ -195,43 +208,46 @@ mattak::Dataset::Dataset(const DatasetOptions & opt)
 }
 
 
+/** Resolve the default base data directory from the environment */
+static std::string defaultDataDir()
+{
+  const char * env = getenv("RNO_G_ROOT_DATA");
+  if (!env) env = getenv("RNO_G_DATA");
+  return env ? env : ".";
+}
+
 void mattak::Dataset::setOpt(const DatasetOptions & opt)
 {
-
   this->opt = opt;
-  if (opt.base_data_dir == "")
+  if (this->opt.base_data_dir == "")
   {
-    setDataDir(nullptr);
+    this->opt.base_data_dir = defaultDataDir();
   }
-
 }
 
+/* deprecated, forwards to the DatasetOptions interface */
 mattak::Dataset::Dataset(int station, int run, const VoltageCalibration * calib, const char * data_dir, bool partial_skip, bool v)
 {
-  setVerbose(v);  // should be first
-  setDataDir(data_dir);
-  setCalibration(calib);
-  loadRun(station, run, partial_skip);
+  DatasetOptions o;
+  o.verbose = v;
+  o.calib = calib;
+  o.partial_skip_incomplete = partial_skip;
+  if (data_dir)
+    o.base_data_dir = data_dir;
+
+  loadRun(station, run, o);
 }
 
+/* deprecated, forwards to the DatasetOptions interface */
 mattak::Dataset::Dataset(const char* data_dir)
 {
-  setDataDir(data_dir);
+  opt.base_data_dir = data_dir ? data_dir : defaultDataDir();
 }
 
-
+/* deprecated, forwards to the DatasetOptions interface */
 void mattak::Dataset::setDataDir(const char * dir)
 {
-  if (dir)
-  {
-    opt.base_data_dir = dir;
-  }
-  else
-  {
-    const char * env = getenv("RNO_G_ROOT_DATA");
-    if (!env) env = getenv("RNO_G_DATA");
-    opt.base_data_dir = env ? env : ".";
-  }
+  opt.base_data_dir = dir ? dir : defaultDataDir();
 }
 
 void mattak::Dataset::setCalibration(const VoltageCalibration * c)
@@ -270,15 +286,18 @@ const char ** mattak::Dataset::getPedestalTreeNames()
 int mattak::Dataset::loadRun(int station, int run, bool partial_skip)
 {
   opt.partial_skip_incomplete = partial_skip;
-  return loadRun(station,run);
+  return loadRun(station, run);
 }
 
 int mattak::Dataset::loadRun(int station, int run, const DatasetOptions & opt)
 {
   setOpt(opt);
-  return loadRun(station,run);
+  return loadRun(station, run);
 }
 
+/** Build the canonical run directory path (base_data_dir/station<S>/run<R>)
+ * and delegate to loadDir. This is the only place that path convention is
+ * encoded, so callers never need to construct it themselves. */
 int mattak::Dataset::loadRun(int station, int run)
 {
   TString dir;
@@ -309,6 +328,11 @@ int mattak::Dataset::loadDir(const char * dir, bool partial_skip)
   return loadDir(dir);
 }
 
+/** Load every field from a single combined-style file: waveforms and headers
+ * are mandatory (failure unloads and returns -1), daqstatus/pedestals/runinfo
+ * are optional (their getters just return nullptr if absent). Because only
+ * this one file is read, there is no way to distinguish complete from
+ * incomplete events, so partial_skip_incomplete is always forced to true. */
 int mattak::Dataset::loadCombinedFile(const char * f)
 {
   if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "loadCombinedFile(%s) called", f);
@@ -317,6 +341,7 @@ int mattak::Dataset::loadCombinedFile(const char * f)
   current_entry = 0;
   full_dataset = false;
 
+  // only information within this file is read, so we can never iterate over incomplete events
   if (!opt.partial_skip_incomplete)
   {
     ::Warning("mattak::Dataset::loadCombinedFile", "partial_skip_incomplete=false is incompatible with loadCombinedFile, forcing to true");
@@ -324,9 +349,11 @@ int mattak::Dataset::loadCombinedFile(const char * f)
   }
 
   if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Opening %s", f);
-  if (setup(&wf, f, waveform_tree_names, 0, opt.verbose) || setup(&hd, f, header_tree_names, 0, opt.verbose))
+  if (setup(&wf, f, waveform_tree_names, nullptr, opt.verbose) != 0
+   || setup(&hd, f, header_tree_names, nullptr, opt.verbose) != 0)
   {
     ::Error("mattak::Dataset::loadCombinedFile", "Could not load waveforms and headers from %s", f);
+    unload();
     return -1;
   }
 
@@ -334,130 +361,167 @@ int mattak::Dataset::loadCombinedFile(const char * f)
 
   if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found waveforms and headers in %s", f);
 
-  // Try some optionalish things
-  if (setup(&ds, f, daqstatus_tree_names, 0, opt.verbose))
-  {
-    ::Warning("mattak::Dataset::loadCombinedFile", "Could not load daqstatus from %s (this is ok if you don't use them)", f);
-  }
-  else
+  // daqstatus, pedestals and run info are optional: their getters return nullptr if missing
+  if (setup(&ds, f, daqstatus_tree_names, nullptr, opt.verbose) == 0)
   {
     if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found daqstatus in %s", f);
   }
+  else
+  {
+    ::Warning("mattak::Dataset::loadCombinedFile", "Could not load daqstatus from %s (this is ok if you don't use them)", f);
+  }
 
-  // we probably don't have pedetals, but we could try I guess?
-  if (!setup(&pd, f, pedestal_tree_names, 0, opt.verbose))
+  if (setup(&pd, f, pedestal_tree_names, nullptr, opt.verbose) == 0)
   {
     if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found pedestals in %s", f);
   }
 
-  if ( !setup(&runinfo, f, "info", opt.verbose) || !setup(&runinfo, f, "runinfo", opt.verbose) )
+  // the run info may be stored under either name, try both
+  bool found_runinfo = setup(&runinfo, f, "info", opt.verbose) == 0
+                    || setup(&runinfo, f, "runinfo", opt.verbose) == 0;
+  if (found_runinfo)
   {
     if (opt.verbose) ::Info("mattak::Dataset::loadCombinedFile", "Found runinfo in %s", f);
   }
-  else {
+  else
+  {
     ::Warning("mattak::Dataset::loadCombinedFile", "Could not load run info from %s", f);
   }
 
   return 0;
 }
 
+/** Load every field from a run directory. This is the workhorse behind
+ * loadRun/loadCombinedFile/the public loadDir overloads, and does three
+ * things in order:
+ *   1. Figure out where the waveforms live: opt.file_preference if set,
+ *      else waveforms.root (a "full dataset"), else combined.root (a
+ *      "partial dataset" containing only the events with waveforms).
+ *   2. Load headers and daqstatus. For a full dataset (or when the caller
+ *      wants incomplete events too, partial_skip_incomplete=false) these
+ *      come from their own standalone files; otherwise they are read out of
+ *      the same combined-style file as the waveforms, which limits
+ *      iteration to the complete events it contains.
+ *   3. Load the optional pedestal/runinfo fields, whose getters simply
+ *      return nullptr if unavailable.
+ * Waveforms/headers/daqstatus are mandatory: any failure to load them
+ * unloads the dataset and returns -1. */
 int mattak::Dataset::loadDir(const char * dir)
 {
 
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "loadDir(%s, skip_incomplete=%d) called", dir, opt.partial_skip_incomplete);
 
-  //first clear all
   unload();
   current_entry = 0;
+  full_dataset = false;
+
+  /* Waveforms. Preference order: opt.file_preference, then a full dataset
+   * (waveforms.root), then a partial one (combined.root). partial_file holds
+   * the name (without .root) of the combined-style file if we use one. */
+  const char * partial_file = nullptr;
 
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "Load waveforms ...");
 
-  const char * partial_file = NULL;
-  if (opt.file_preference != "" && !setup(&wf, Form("%s/%s.root",dir,opt.file_preference.c_str()), waveform_tree_names))
+  if (opt.file_preference != "")
   {
-    full_dataset = false;
-    partial_file = opt.file_preference.c_str();
-  }
-  else
-  {
-    if (opt.file_preference != "")
+    if (setup(&wf, Form("%s/%s.root", dir, opt.file_preference.c_str()), waveform_tree_names) == 0)
+    {
+      partial_file = opt.file_preference.c_str();
+    }
+    else
     {
       ::Warning("mattak::Dataset::loadDir", "Could not find preferred %s.root in %s. Reverting to default behavior", opt.file_preference.c_str(), dir);
     }
+  }
 
-    //we need to figure out if this is a full run or partial run, so check for existence of waveforms.root
-    if (setup(&wf, Form("%s/waveforms.root", dir), waveform_tree_names, 0))
+  if (!partial_file)
+  {
+    if (setup(&wf, Form("%s/waveforms.root", dir), waveform_tree_names) == 0)
     {
-      //no waveforms file!
-      full_dataset = false;
-      if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... full dataset not found");
-
-      //let's load from combined file instead
-      if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names, nullptr, opt.verbose))
-      {
-        //uh oh, we didn't find it there either :(
-        ::Error("mattak::Dataset::loadDir", "Failed to find waveforms.root or combined.root in %s", dir);
-        return -1;
-      }
-
+      if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... full dataset found");
+      full_dataset = true;
+    }
+    else if (setup(&wf, Form("%s/combined.root", dir), waveform_tree_names, nullptr, opt.verbose) == 0)
+    {
+      if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... full dataset not found, using combined.root");
       partial_file = "combined";
     }
     else
     {
-      if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... full dataset found");
-      full_dataset = true;
+      ::Error("mattak::Dataset::loadDir", "Failed to find waveforms.root or combined.root in %s", dir);
+      return -1;
     }
   }
 
   setupRadiantMeta();
 
-  //now load the header files
+  /* Headers. The standalone headers.root is needed for a full dataset and
+   * when the user wants to iterate over incomplete events too; otherwise the
+   * headers come from the combined-style file. */
+  bool want_full_headers = full_dataset || !opt.partial_skip_incomplete;
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load headers");
-  const char * hd_file = (full_dataset || !opt.partial_skip_incomplete) ? "headers" : partial_file;
-  if (setup(&hd, Form("%s/%s.root", dir, hd_file), header_tree_names, nullptr, opt.verbose))
+  if (setup(&hd, Form("%s/%s.root", dir, want_full_headers ? "headers" : partial_file), header_tree_names, nullptr, opt.verbose) != 0)
   {
-    ::Error("mattak::Dataset::loadDir", "Failed to load %s.root in %s", hd_file, dir);
-    return -1;
+    // next to a combined-style file, headers.root may legitimately be absent:
+    // fall back to the headers inside it, which limits us to complete events
+    bool fell_back = false;
+    if (!full_dataset && !opt.partial_skip_incomplete)
+    {
+      if (setup(&hd, Form("%s/%s.root", dir, partial_file), header_tree_names, nullptr, opt.verbose) == 0)
+      {
+        ::Warning("mattak::Dataset::loadDir", "Could not find headers.root in %s; using %s.root instead (only complete events)", dir, partial_file);
+        opt.partial_skip_incomplete = true;
+        fell_back = true;
+      }
+    }
+
+    if (!fell_back)
+    {
+      ::Error("mattak::Dataset::loadDir", "Failed to load headers from %s", dir);
+      unload();
+      return -1;
+    }
   }
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
 
   if (!full_dataset && !opt.partial_skip_incomplete)
   {
-    //set up an index on event number the events
+    // index the partial waveforms by event number so raw() can find them from the header entry
     wf.tree->BuildIndex("event_number");
   }
 
-  //and the status files
+  /* DAQ status: same source selection as the headers */
+  bool want_full_daqstatus = full_dataset || !opt.partial_skip_incomplete;
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load daqstatus");
-  const char * ds_file = (full_dataset || !opt.partial_skip_incomplete) ? "daqstatus" : partial_file;
-  if (setup(&ds, Form("%s/%s.root", dir, ds_file), daqstatus_tree_names, nullptr, opt.verbose))
+  if (setup(&ds, Form("%s/%s.root", dir, want_full_daqstatus ? "daqstatus" : partial_file), daqstatus_tree_names, nullptr, opt.verbose) != 0)
   {
-    ::Error("mattak::Dataset::loadDir", "Failed to load %s.root in %s", ds_file, dir);
+    ::Error("mattak::Dataset::loadDir", "Failed to load %s.root in %s", want_full_daqstatus ? "daqstatus" : partial_file, dir);
+    unload();
     return -1;
   }
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
 
   if (full_dataset)
   {
+    // index the daqstatus by readout time so status() can match it to the current event
     ds.tree->BuildIndex("int(readout_time_radiant)", "1e9*(readout_time_radiant-int(readout_time_radiant))");
   }
 
-  //and the pedestal files
+  /* Pedestals and run info are optional: their getters return nullptr if missing */
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load pedestal");
-  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names, nullptr, opt.verbose))
-  {
-    ::Warning("mattak::Dataset::loadDir", "Failed to find pedestal.root in %s (this is usually ok if you don't need them)", dir);
-  }
-  else
+  if (setup(&pd, Form("%s/pedestal.root", dir), pedestal_tree_names, nullptr, opt.verbose) == 0)
   {
     if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
   }
+  else
+  {
+    ::Warning("mattak::Dataset::loadDir", "Failed to find pedestal.root in %s (this is usually ok if you don't need them)", dir);
+  }
 
-  //and try the runinfo file
   if (opt.verbose) ::Info("mattak::Dataset::loadDir", "About to load runinfo");
   if (full_dataset)
   {
-    if (setup(&runinfo, Form("%s/runinfo.root", dir), "info",  opt.verbose) == 0)
+    if (setup(&runinfo, Form("%s/runinfo.root", dir), "info", opt.verbose) == 0)
     {
       if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
     }
@@ -468,11 +532,10 @@ int mattak::Dataset::loadDir(const char * dir)
   }
   else
   {
-    // For a partial/combined run the runinfo is stored as the "info"/"runinfo"
-    // object inside the combined file itself, so read it from there (same as
-    // loadCombinedFile).
-    const char * combined = Form("%s/%s.root", dir, partial_file);
-    if (setup(&runinfo, combined, "info") == 0 || setup(&runinfo, combined, "runinfo") == 0)
+    // for a partial/combined run the runinfo is stored as the "info"/"runinfo"
+    // object inside the combined-style file itself (same as loadCombinedFile)
+    TString combined = Form("%s/%s.root", dir, partial_file);
+    if (setup(&runinfo, combined.Data(), "info") == 0 || setup(&runinfo, combined.Data(), "runinfo") == 0)
     {
       if (opt.verbose) ::Info("mattak::Dataset::loadDir", " ... success");
     }
@@ -502,6 +565,10 @@ int mattak::Dataset::N() const
   return hd.tree->GetEntries();
 }
 
+/** Return the header for currentEntry, reading it from the tree only if it
+ * isn't already cached (or force is set). Headers are always present for
+ * every indexed entry, so this never needs the missing-entry handling that
+ * raw()/status() require. */
 mattak::Header* mattak::Dataset::header(bool force)
 {
   if (force || hd.loaded_entry != current_entry)
@@ -514,6 +581,14 @@ mattak::Header* mattak::Dataset::header(bool force)
   return hd.ptr;
 }
 
+/** Load the entry of `field` matching the dataset's currentEntry, caching by
+ * loaded_entry the same way header() does. The difference from a plain
+ * GetEntry(current) is that field may come from a partial dataset that only
+ * has some events indexed by event_number: if the dataset is full (or the
+ * caller asked to skip incomplete events, so field is guaranteed aligned
+ * with the headers), read straight by position; otherwise look up the entry
+ * via the tree's (or index_field's) event_number index and mark
+ * field->missing_entry if this event isn't present at all. */
 template <typename T>
 static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::Dataset * d, bool force = false, mattak::Dataset::tree_field<mattak::Waveforms> * index_field = nullptr)
 {
@@ -555,21 +630,28 @@ static void findIncompleteEntry(mattak::Dataset::tree_field<T> * field, mattak::
 }
 
 
+/** RADIANT sampling rate (MHz) for currentEntry, read cheaply from wf_meta
+ * (see setupRadiantMeta) without touching the full waveform. Falls back to
+ * the runinfo rate, then to a hardcoded default, if wf_meta isn't set up or
+ * this entry has no waveform metadata. */
 float mattak::Dataset::radiantSampleRate(bool force)
 {
   if (wf_meta.ptr == nullptr) {
-    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : k::default_radiant_sample_rate;
   }
   findIncompleteEntry(&wf_meta, this, force, &wf);
   if (wf_meta.missing_entry)
   {
-    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : 3200;
+    return (info() && info()->radiant_sample_rate) ? info()->radiant_sample_rate : k::default_radiant_sample_rate;
   }
   return wf_meta.ptr->radiant_sampling_rate;
 }
 
 static float zeros[mattak::k::num_radiant_channels];
 
+/** Per-channel RADIANT digitizer readout delay (ns) for currentEntry, read
+ * from wf_meta the same way as radiantSampleRate. Returns an all-zero array
+ * if unavailable (there is no runinfo fallback for this one). */
 const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 {
   if (wf_meta.ptr == nullptr)
@@ -583,6 +665,10 @@ const float *  mattak::Dataset::radiantReadoutDelays(bool force)
 }
 
 
+/** Raw (uncalibrated) waveforms for currentEntry, or nullptr if this event
+ * has none (partial dataset with an event not present in the waveform
+ * file) or the loaded waveform entry doesn't line up with the current
+ * header's event number (a sanity check against a misaligned index). */
 mattak::Waveforms* mattak::Dataset::raw(bool force)
 {
   if (wf.tree == nullptr)
@@ -600,6 +686,11 @@ mattak::Waveforms* mattak::Dataset::raw(bool force)
 }
 
 
+/** DAQ status for currentEntry, or nullptr if no daqstatus tree was loaded.
+ * For a full dataset, daqstatus is sampled independently in time (not one
+ * entry per event), so the closest entry by readout time is looked up via
+ * the tree's time index; for a combined-style file, daqstatus is stored one
+ * entry per event and can be read straight by position. */
 mattak::DAQStatus * mattak::Dataset::status(bool force)
 {
   if (!ds.tree) return nullptr;
@@ -607,6 +698,7 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   {
     if (full_dataset)
     {
+      // the standalone daqstatus is sampled in time, look up the entry closest to the event
       double readout_time = header(force)->readout_time;
       int ds_entry = ds.tree->GetEntryNumberWithBestIndex(readout_time, 1e9 * (readout_time - int(readout_time)));
       if (ds_entry < 0) ds_entry = 0;  // this should only happen if it's the first one?
@@ -616,6 +708,9 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
     }
     else
     {
+      // combined-style files store one daqstatus entry per event, aligned with the headers.
+      // NB: this assumes the daqstatus was NOT loaded from a standalone daqstatus.root
+      // (currently possible for partial datasets with partial_skip_incomplete=false)
       ds.branch->GetEntry(current_entry);
       ds.missing_entry = false;
     }
@@ -626,6 +721,12 @@ mattak::DAQStatus * mattak::Dataset::status(bool force)
   return ds.missing_entry ? nullptr: ds.ptr;
 }
 
+/** Voltage-calibrated waveforms for currentEntry, computed on demand from
+ * raw() and header() using opt.calib. Returns nullptr if no calibration was
+ * set, or if raw()/header() are unavailable for this entry. The result is
+ * cached (and reused via placement-new into the same buffer) until
+ * currentEntry changes or force is set, so repeated calls for the same
+ * entry don't recompute the calibration. */
 mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 {
   //no calibration? we can't calibrate.
@@ -662,6 +763,10 @@ mattak::CalibratedWaveforms * mattak::Dataset::calibrated(bool force)
 }
 
 
+/** Pedestals for a given pedestal-tree entry (not a dataset event: pedestal
+ * runs are recorded separately and indexed independently, hence the explicit
+ * `entry` argument rather than using currentEntry). Returns nullptr if no
+ * pedestal tree was loaded or entry is out of range. */
 mattak::Pedestals * mattak::Dataset::peds(bool force, int entry)
 {
   if (! pd.tree) return nullptr;

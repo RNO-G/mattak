@@ -297,8 +297,10 @@ void draw_rates()
 
 int set_run(int station, int run)
 {
-  d->loadRun(station,run); 
-  d2->loadRun(station,run,false); 
+  d->loadRun(station,run);
+  mattak::DatasetOptions opt2 = d2->getOpt();
+  opt2.partial_skip_incomplete = false;
+  d2->loadRun(station,run,opt2);
   draw_ds();
   draw_rates(); 
 
@@ -331,8 +333,10 @@ int previous()
 
 void init(int port, const char * data_dir) 
 {
-  d = new mattak::Dataset(data_dir); 
-  d2 = new mattak::Dataset(data_dir); 
+  mattak::DatasetOptions opt;
+  if (data_dir) opt.base_data_dir = data_dir;
+  d = new mattak::Dataset(opt);
+  d2 = new mattak::Dataset(opt);
   cthresh = new TCanvas("cthresh","cthresh", 2400,1600); 
   crates = new TCanvas("crates","crates", 2400,1600); 
   cweb = new TCanvas("cweb","cweb", 2400,1600); 
