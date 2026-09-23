@@ -121,6 +121,12 @@ namespace mattak
 
       //These are pedestal subtracted, so signed
       int16_t radiant_data[mattak::k::num_radiant_channels][mattak::k::num_radiant_samples] = {};
+
+      // New: block-offset helpers
+      std::vector<double> computeBlockOffsetsMedian(int chan, int block_size) const;
+      std::vector<double> correctBlockOffsetsMedian(int chan, int block_size) const;
+
+
       virtual TGraph * makeGraph(int chan, bool ns = true) const;
       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const;
 

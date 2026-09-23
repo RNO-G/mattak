@@ -6,7 +6,9 @@
 #include "TLatex.h"
 #include "TPaveText.h"
 #include <iostream>
-
+#include <algorithm>
+#include <stdexcept>
+#include <vector>
 
 ClassImp(mattak::Waveforms);
 ClassImp(mattak::IWaveforms);
@@ -36,6 +38,63 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
 #endif
 }
 
+static double medianValue(const std::vector<double>& v)
+{
+  std::vector<double> copy = v;
+  std::sort(copy.begin(), copy.end());
+
+  if (copy.empty()) return 0.0;
+  if (copy.size() % 2 == 0)
+    return 0.5 * (copy[copy.size() / 2 - 1] + copy[copy.size() / 2]);
+  return copy[copy.size() / 2];
+}
+
+std::vector<double> mattak::Waveforms::computeBlockOffsetsMedian(int chan, int block_size) const
+{
+  if (block_size <= 0)
+    throw std::invalid_argument("block_size must be positive");
+
+  if (chan < 0 || chan >= mattak::k::num_radiant_channels)
+    throw std::invalid_argument("channel index out of range");
+
+  const int n = mattak::k::num_radiant_samples;
+  const int n_blocks = n / block_size;
+
+  std::vector<double> offsets(n_blocks, 0.0);
+
+  for (int b = 0; b < n_blocks; ++b) {
+    std::vector<double> chunk;
+    chunk.reserve(block_size);
+
+    for (int i = 0; i < block_size; ++i) {
+      const int idx = b * block_size + i;
+      chunk.push_back(static_cast<double>(radiant_data[chan][idx]));
+    }
+
+    offsets[b] = medianValue(chunk);
+  }
+
+  return offsets;
+}
+
+std::vector<double> mattak::Waveforms::correctBlockOffsetsMedian(int chan, int block_size) const
+{
+  const auto offsets = computeBlockOffsetsMedian(chan, block_size);
+
+  const int n = mattak::k::num_radiant_samples;
+  const int n_blocks = n / block_size;
+
+  std::vector<double> corrected(n, 0.0);
+
+  for (int b = 0; b < n_blocks; ++b) {
+    for (int i = 0; i < block_size; ++i) {
+      const int idx = b * block_size + i;
+      corrected[idx] = static_cast<double>(radiant_data[chan][idx]) - offsets[b];
+    }
+  }
+
+  return corrected;
+}
 
 mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Header & hdr,  const VoltageCalibration & vc, bool isOldFirmware)
 {
