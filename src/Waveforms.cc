@@ -1,4 +1,5 @@
 #include "mattak/Waveforms.h"
+#include "mattak/fft_utils.h"
 #include "TStyle.h"
 #include "TPad.h"
 #include "TCanvas.h"
@@ -9,6 +10,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
+#include <cmath>
+#include <numeric>  
 
 ClassImp(mattak::Waveforms);
 ClassImp(mattak::IWaveforms);
@@ -80,6 +83,73 @@ std::vector<double> mattak::Waveforms::computeBlockOffsetsMedian(int chan, int b
 std::vector<double> mattak::Waveforms::correctBlockOffsetsMedian(int chan, int block_size) const
 {
   const auto offsets = computeBlockOffsetsMedian(chan, block_size);
+
+  const int n = mattak::k::num_radiant_samples;
+  const int n_blocks = n / block_size;
+
+  std::vector<double> corrected(n, 0.0);
+
+  for (int b = 0; b < n_blocks; ++b) {
+    for (int i = 0; i < block_size; ++i) {
+      const int idx = b * block_size + i;
+      corrected[idx] = static_cast<double>(radiant_data[chan][idx]) - offsets[b];
+    }
+  }
+
+  return corrected;
+}
+
+std::vector<double> mattak::Waveforms::computeBlockOffsetsApproximate(
+    int chan, int block_size, double sampling_rate, double max_frequency) const
+{
+  if (block_size <= 0)
+    throw std::invalid_argument("block_size must be positive");
+
+  if (chan < 0 || chan >= mattak::k::num_radiant_channels)
+    throw std::invalid_argument("channel index out of range");
+
+  const int n = mattak::k::num_radiant_samples;
+  const int n_blocks = n / block_size;
+  const double dt = 1.0 / sampling_rate;
+
+  // Build trace
+  std::vector<double> trace(n);
+  for (int i = 0; i < n; ++i)
+    trace[i] = static_cast<double>(radiant_data[chan][i]);
+
+  // Compute FFT
+  auto spectrum = rfft(trace);
+
+  // Zero out frequencies outside [0, max_frequency]
+  int n_freq = spectrum.size();
+  for (int k = 0; k < n_freq; ++k) {
+    double f = static_cast<double>(k) / (n * dt);
+    if (!(f > 0.0 && f < max_frequency))
+      spectrum[k] = {0.0, 0.0};
+  }
+
+  // Inverse FFT to get filtered trace
+  auto filtered_trace = irfft(spectrum, n);
+
+  // Compute global mean of raw trace
+  double global_mean = std::accumulate(trace.begin(), trace.end(), 0.0) / n;
+
+  // Compute per-block offsets from filtered trace
+  std::vector<double> offsets(n_blocks);
+  for (int b = 0; b < n_blocks; ++b) {
+    double sum = 0.0;
+    for (int i = 0; i < block_size; ++i)
+      sum += filtered_trace[b * block_size + i];
+    offsets[b] = sum / block_size + global_mean;
+  }
+
+  return offsets;
+}
+
+std::vector<double> mattak::Waveforms::correctBlockOffsetsApproximate(
+    int chan, int block_size, double sampling_rate, double max_frequency) const
+{
+  const auto offsets = computeBlockOffsetsApproximate(chan, block_size, sampling_rate, max_frequency);
 
   const int n = mattak::k::num_radiant_samples;
   const int n_blocks = n / block_size;

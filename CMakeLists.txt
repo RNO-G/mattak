@@ -66,6 +66,7 @@ if (NOT DEFINED ROOTLESS)
       mattak/VoltageCalibration.h
       mattak/Dataset.h
       mattak/Monitoring.h
+      mattak/fft_utils.h
     )
 
     configure_file("src/Version.cc.in" "Version.cc.in" COPYONLY)
@@ -85,6 +86,7 @@ if (NOT DEFINED ROOTLESS)
       src/Dataset.cc
       src/Monitoring.cc
       ${CMAKE_CURRENT_BINARY_DIR}/Version.cc
+      src/fft_utils.cc
       )
 
     set (INSTALL_SCRIPTS

@@ -125,7 +125,12 @@ namespace mattak
       // New: block-offset helpers
       std::vector<double> computeBlockOffsetsMedian(int chan, int block_size) const;
       std::vector<double> correctBlockOffsetsMedian(int chan, int block_size) const;
-
+      std::vector<double> computeBlockOffsetsApproximate(int chan, int block_size, 
+                                                          double sampling_rate, 
+                                                          double max_frequency) const;
+      std::vector<double> correctBlockOffsetsApproximate(int chan, int block_size, 
+                                                          double sampling_rate, 
+                                                          double max_frequency) const;
 
       virtual TGraph * makeGraph(int chan, bool ns = true) const;
       virtual TVirtualPad* drawWaveforms(const WaveformPlotOptions & opt = WaveformPlotOptions(), TVirtualPad * where = nullptr) const;
