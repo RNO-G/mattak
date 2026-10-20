@@ -288,7 +288,7 @@ def get_fancy_formatter():
 
 
     formatter = CustomFormatter(
-        format='\033[33m%(asctime)s - \033[32m%(name)s - \033[0m%(message)s',
+        format='\033[33m%(asctime)s - \033[35m%(name)s - \033[0m%(message)s',
         datefmt="%H:%M:%S"
     )
 

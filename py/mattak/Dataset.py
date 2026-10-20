@@ -167,13 +167,33 @@ class RunInfo:
         self.acq_start = _runinfo_seconds(acq_start)
         self.acq_stop = _runinfo_seconds(acq_stop)
 
-        if isinstance(run_config, str):
-            self.run_config = read_run_config(run_config)
-        else:
-            self.run_config = run_config
+        self.set_run_config(run_config)
 
-    def set_run_config(self, run_config):
-        self.run_config = run_config
+    def set_run_config(self, run_config : Union[str, dict]):
+        """ Set the run config, either as dictionary or as path to the config file.
+
+        A path is only parsed on first access of `run_config` (parsing with libconf is slow).
+        """
+        if isinstance(run_config, str):
+            if not os.path.exists(run_config):
+                raise FileNotFoundError(f"Could not find run config file {run_config}")
+            self._run_config_path = run_config
+            self._run_config = None
+        else:
+            self._run_config_path = None
+            self._run_config = run_config
+
+    @property
+    def run_config(self) -> Optional[dict]:
+        if self._run_config_path is not None:
+            self._run_config = read_run_config(self._run_config_path)
+            self._run_config_path = None
+
+        return self._run_config
+
+    @run_config.setter
+    def run_config(self, run_config : Union[str, dict]):
+        self.set_run_config(run_config)
 
     def get_config(self, *keys : str, default=None):
         """ Get any property from the (libconfig-read) run config.
