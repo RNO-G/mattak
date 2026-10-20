@@ -778,7 +778,7 @@ def read_run_config(path : str) -> dict:
 
     return conf
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=32)
 def _parse(data: bytes):
     return libconf.loads(data.decode("utf-8"))
 
