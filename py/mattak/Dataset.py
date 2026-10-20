@@ -773,10 +773,14 @@ def read_run_config(path : str) -> dict:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Could not find run config file {path}")
 
-    with open(path, "r") as f:
-        conf = libconf.load(f)
+    with open(path, "rb") as f:
+        conf = _parse(f.read())
 
     return conf
+
+@lru_cache(maxsize=128)
+def _parse(data: bytes):
+    return libconf.loads(data.decode("utf-8"))
 
 # store for one station
 @lru_cache(maxsize=64)
