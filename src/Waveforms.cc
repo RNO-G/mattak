@@ -7,6 +7,7 @@
 #include "TPaveText.h"
 #include "TError.h"
 
+#include <math.h>       /* ceil */
 
 ClassImp(mattak::Waveforms);
 ClassImp(mattak::IWaveforms);
@@ -23,14 +24,19 @@ mattak::Waveforms::Waveforms(const rno_g_waveform_t * wf )
 #else
   this->run_number = wf->run_number;
   this->event_number = wf->event_number;
-  this->buffer_length = wf->radiant_nsamples;
+  this->buffer_length = wf->nsamples;
   this->station_number = wf->station;
-  this->radiant_sampling_rate = wf->radiant_sampling_rate;
+  this->radiant_sampling_rate = wf->sampling_rate;
+  this->bytes_per_sample = wf->bytes_per_sample ? wf->bytes_per_sample : 2; // 0 means RADIANT (2 B/sample) for writers predating this field
 
   for (unsigned i = 0; i < mattak::k::num_radiant_channels; i++)
   {
-    if(wf->digitizer_readout_delay[i]!=0) this->digitizer_readout_delay_ns[i]=float(wf->digitizer_readout_delay[i])*128./float(wf->radiant_sampling_rate)*1000;
-    memcpy(this->radiant_data[i], wf->radiant_waveforms[i], sizeof(int16_t) * mattak::k::num_radiant_samples);
+    if(wf->digitizer_readout_delay[i]!=0) this->digitizer_readout_delay_ns[i]=float(wf->digitizer_readout_delay[i])*128./float(wf->sampling_rate)*1000;
+
+    if (this->bytes_per_sample == 1)
+      memcpy(this->didaq_data[i], wf->didaq_waveforms[i], sizeof(uint8_t) * wf->nsamples);
+    else
+      memcpy(this->radiant_data[i], wf->radiant_waveforms[i], sizeof(int16_t) * mattak::k::num_radiant_samples);
   }
 
 #endif
@@ -43,11 +49,19 @@ mattak::CalibratedWaveforms::CalibratedWaveforms(const Waveforms & wf, const Hea
   event_number = wf.event_number;
   station_number = wf.station_number;
   buffer_length = wf.buffer_length;
+  bytes_per_sample = wf.bytes_per_sample;
 
   if (hdr.run_number != wf.run_number && hdr.event_number != wf.run_number && hdr.station_number != wf.station_number)
   {
     ::Warning("mattak::CalibratedWaveforms::CalibratedWaveforms", "Possible event-header mismatch (waveform run %d event %d, header run %d event %d)",
               (int) wf.run_number, (int) wf.event_number, (int) hdr.run_number, (int) hdr.event_number);
+  }
+
+  if (wf.bytes_per_sample == 1)
+  {
+    ::Warning("mattak::CalibratedWaveforms::CalibratedWaveforms", "Voltage calibration of DIDAQ (8-bit) waveforms is not yet supported (station %d, run %d, event %d); calibrated data will be zero.",
+              (int) wf.station_number, (int) wf.run_number, (int) wf.event_number);
+    return;
   }
 
   for (int ch = 0; ch < mattak::k::num_radiant_channels; ch++)
@@ -65,6 +79,15 @@ const char * getYaxisLabel<mattak::Waveforms> () { return "amplitude [adu]"; }
 template<>
 const char * getYaxisLabel<mattak::CalibratedWaveforms> () { return "amplitude [V]"; }
 
+// mattak::Waveforms may hold either RADIANT (radiant_data) or DIDAQ (didaq_data) samples, picked by bytes_per_sample.
+template <typename T>
+static inline double getSample(const T & wf, int chan, int isamp) { return wf.radiant_data[chan][isamp]; }
+
+template <>
+inline double getSample<mattak::Waveforms>(const mattak::Waveforms & wf, int chan, int isamp)
+{
+  return wf.bytes_per_sample == 1 ? wf.didaq_data[chan][isamp] : wf.radiant_data[chan][isamp];
+}
 
 template <typename T>
 TGraph* graphImpl(const T & wf, int chan, bool ns)
@@ -78,7 +101,7 @@ TGraph* graphImpl(const T & wf, int chan, bool ns)
   {
     double x = ns ? isamp/rate : isamp;
     g->GetX()[isamp] = x;
-    g->GetY()[isamp] = wf.radiant_data[chan][isamp];
+    g->GetY()[isamp] = getSample(wf, chan, isamp);
   }
 
 
@@ -99,7 +122,7 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   int nplots = __builtin_popcount(opt.mask);
   if (!nplots) return nullptr;
 
-  bool use_same = opt.same && where; 
+  bool use_same = opt.same && where;
   if (!where )
   {
     where = new TCanvas(Form("c_s%d_r%d_ev%d", wf.station_number, wf.run_number, wf.event_number), Form("Station %d, Run %d, Event %d", wf.station_number, wf.run_number, wf.event_number), opt.width, opt.height);
@@ -118,13 +141,13 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
   {
 
     where->Clear();
-    nrows =opt.rows ?:
+    nrows = opt.rows ?:
                 nplots < 4 ? 1:
                 nplots < 9 ? 2:
                 nplots < 12? 3:
                 4;
 
-    ncols = ceil (nplots / (float(nrows)));
+    ncols = ceil(nplots / (float(nrows)));
 
     if (!opt.share_xaxis && !opt.share_yaxis)
     {
@@ -176,11 +199,9 @@ static TVirtualPad * drawImpl(const T & wf, const mattak::WaveformPlotOptions & 
       if ( (1 <<ichan) & ~opt.mask) continue;
       for (int isamp = 0; isamp < wf.buffer_length; isamp++)
       {
-        if (wf.radiant_data[ichan][isamp] > gmax)
-          gmax = wf.radiant_data[ichan][isamp];
-
-        if (wf.radiant_data[ichan][isamp] < gmin)
-          gmin = wf.radiant_data[ichan][isamp];
+        double sample = getSample(wf, ichan, isamp);
+        if (sample > gmax) gmax = sample;
+        if (sample < gmin) gmin = sample;
       }
     }
   }

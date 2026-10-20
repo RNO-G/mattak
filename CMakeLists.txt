@@ -33,6 +33,12 @@ set(UTIL_SHARE_DIR ${RNO_G_INSTALL_DIR}/share)
 set(LD_UTIL ${RNO_G_INSTALL_DIR}/lib)
 set(INC_UTIL ${RNO_G_INSTALL_DIR}/include)
 
+# CMake strips the build-tree RPATH on install, so an installed libmattak can no longer
+# locate its dependencies (librno-g). Bake the install lib dir plus the directories of any
+# out-of-tree linked libraries into the RPATH instead of relying on LD_LIBRARY_PATH.
+set(CMAKE_INSTALL_RPATH ${UTIL_LIB_DIR})
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 if (NOT DEFINED ROOTLESS)
   list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 
@@ -49,7 +55,7 @@ if (NOT DEFINED ROOTLESS)
 
     option(LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
 
-    set(LIBRNO_G_PATH  "../librno-g" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)")
+    set(LIBRNO_G_PATH  "${RNO_G_INSTALL_DIR}" CACHE STRING "Additional path to search for librno-g (only necessary if not in RNO_G_INSTALL_DIR/lib)")
 
     set(H_FILES
       mattak/Header.h
@@ -122,9 +128,9 @@ if (NOT DEFINED ROOTLESS)
     if (LIBRNO_G_SUPPORT)
       add_definitions(-DLIBRNO_G_SUPPORT)
       message(STATUS "librno-g path set to: ${LIBRNO_G_PATH}")
-      message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/install/lib/")
+      message(STATUS "Searching for librno-g.so in ${LIBRNO_G_PATH}/lib/")
 
-      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/install/lib/ ${LIBRNO_G_PATH}/build)
+      find_library(RNO_G_LIB rno-g HINTS ${LIBRNO_G_PATH}/lib/)
 
       message(STATUS "Found librno-g: ${RNO_G_LIB}")
 

@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 ROOT_DATA_DIR="/data"
 INGRESS="${ROOT_DATA_DIR}/ingress/"
 ARCHIVED="${ROOT_DATA_DIR}/archived/"
@@ -8,11 +8,13 @@ STAGING="${ROOT_DATA_DIR}/staging"
 TRASH="${ROOT_DATA_DIR}/staging/trash"
 EVENTLISTS="${ROOT_DATA_DIR}/eventlists"
 FRAC=0.0125
-STATIONS="23 11 22 12 21 13 24 14"
+
+STATIONS="11 12 13 14 21 22 23 24 15 25 34 35"
 # Override STATIONS with command line arguments if provided
 if [ $# -gt 0 ]; then
   STATIONS="$*"
 fi
+
 # Source an environment
 if [ -f /rno-g/etc/autoconverter.env ]
 then
@@ -55,6 +57,9 @@ for st in ${STATIONS} ; do
       log_info "RUN UPDATED! Station $st: $brun  -- COPYING TO STAGING"
 
       outdir=${OUTBOX}/station${st}/$brun
+      # the station dir may not exist yet (e.g. new station); create it world-writable
+      [ -d "${OUTBOX}/station${st}" ] || run_cmd mkdir -m 0777 -p "${OUTBOX}/station${st}"
+
       #if the outdir already exists, move out of the outbox, and delete it
       if [ -d $outdir ] ; then
         log_info "RUN EXISTS IN OUTBOX, TRASHING"
@@ -70,7 +75,8 @@ for st in ${STATIONS} ; do
       mkdir -p $stagedir
       run_cmd cp -p $rootdir/headers.root $stagedir
       run_cmd cp -p $rootdir/daqstatus.root $stagedir
-      run_cmd cp -p $rootdir/pedestal.root $stagedir
+      # pedestal.root is only produced for non-DiDAQ runs (see rno-g-convert-run)
+      grep -iq didaq "$run/aux/runinfo.txt" || run_cmd cp -p $rootdir/pedestal.root $stagedir
       run_cmd cp -p $rootdir/runinfo.root $stagedir
       run_cmd cp -p $rootdir/monitoring.root $stagedir
 

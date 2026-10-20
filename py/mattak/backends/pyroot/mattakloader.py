@@ -6,13 +6,8 @@ import logging
 logger = logging.getLogger(__name__)
 from mattak import __path__ as mattak_path
 
-# this is where pip puts the compiled files
-mattak_include_path = os.path.join(mattak_path[0], 'build/include/')
-mattak_path = os.path.join(mattak_path[0], 'build/lib/')
-
 loaded = False
 loaded_path = None
-libmattakName = None
 currentPlatform = platform.platform()
 
 def silent_load(what):
@@ -23,7 +18,6 @@ def silent_load(what):
     return ret
 
 if 'macOS' in currentPlatform:
-    # print('macOS detected...')
     libmattakName = 'libmattak.dylib'
 else:
     libmattakName = 'libmattak.so'
@@ -35,28 +29,42 @@ try:
 except:
     pass
 
-if not loaded:
-    if not silent_load(libmattakName):
-        loaded_path = "LD_LIBRARY_PATH"
-        logger.debug('Successfully found ' + libmattakName + ' in LD_LIBRARY_PATH')
-        loaded = True
-    elif not silent_load('build/'+libmattakName):
-        logger.debug('Successsfully found ' + libmattakName + ' in build')
-        loaded_path = "build"
-        loaded = True
-    else:
-        ROOT.gInterpreter.AddIncludePath(mattak_include_path)
-        if not silent_load(os.path.join(mattak_path, libmattakName)):
-            logger.debug('Successsfully found ' + libmattakName + ' in ' + mattak_path)
-            loaded_path = mattak_path
-            loaded = True
-        else:
-            for path in sys.path:
-                if not silent_load(path + '/mattak/backends/pyroot/'+libmattakName):
-                    logger.debug('Successsfully found ' + libmattakName + ' in ', path)
-                    loaded_path = path
-                    loaded = True
-                    break
+# Candidates to try, in order of decreasing specificity: (library path, matching
+# include dir or None). The include dir is only registered with cling for the
+# candidate we actually end up loading.
+candidates = []
+
+# Install prefix used by CMake (-DRNO_G_INSTALL_DIR / environment variable)
+install_dir = os.environ.get('RNO_G_INSTALL_DIR')
+if install_dir:
+    candidates.append((os.path.join(install_dir, 'lib', libmattakName),
+                       os.path.join(install_dir, 'include')))
+
+# Bare name: resolved via ROOT's dynamic path (LD_LIBRARY_PATH, DYLD_LIBRARY_PATH, ...)
+candidates.append((libmattakName, None))
+
+# A build directory relative to the current working directory
+candidates.append((os.path.join('build', libmattakName), None))
+
+# This is where pip puts the compiled files
+candidates.append((os.path.join(mattak_path[0], 'build/lib', libmattakName),
+                   os.path.join(mattak_path[0], 'build/include')))
+
+# Anywhere on sys.path
+candidates += [(os.path.join(p, 'mattak/backends/pyroot', libmattakName), None)
+               for p in sys.path]
 
 if not loaded:
-    raise Exception('Could not load '+ libmattakName)
+    for lib, include_dir in candidates:
+        # Load() returns 0 if it loaded the library, 1 if it was already loaded
+        if silent_load(lib) in (0, 1):
+            if include_dir is not None:
+                ROOT.gInterpreter.AddIncludePath(include_dir)
+            loaded_path = lib
+            loaded = True
+            logger.debug('Successfully loaded %s from %s', libmattakName, lib)
+            break
+
+if not loaded:
+    raise Exception('Could not load ' + libmattakName + ', tried: '
+                    + ', '.join(lib for lib, _ in candidates))

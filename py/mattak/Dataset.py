@@ -2,6 +2,7 @@
 import os
 import glob
 import re
+import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
@@ -10,7 +11,7 @@ import logging
 import warnings
 import libconf
 from functools import lru_cache
-
+from collections import Counter, defaultdict
 
 logger = logging.getLogger("mattak")
 
@@ -78,6 +79,26 @@ def set_log_level(level : int):
         ROOT.gErrorIgnoreLevel = ROOT.kFatal
 
 
+class Digitizer(enum.IntEnum):
+    """ Pure python mirror of `mattak::Dataset::digitizer` (src/mattak/Dataset.h).
+
+    Values must stay in sync with the C++ enum by hand; the pyroot backend checks this at
+    import time (see `mattak.backends.pyroot.dataset`).
+    """
+    Unknown = 0
+    RADIANT = 1
+    DIDAQ = 2
+
+
+def digitizer_from_bytes_per_sample(bytes_per_sample : int) -> Digitizer:
+    """ Mirrors `mattak::Dataset::setDigitizer` (src/Dataset.cc). """
+    if bytes_per_sample == 1:
+        return Digitizer.DIDAQ
+    if bytes_per_sample in (0, 2):
+        return Digitizer.RADIANT
+    return Digitizer.Unknown
+
+
 @dataclass
 class EventInfo:
     """ Pure python event information. In effect duplicating the most important bits of the ROOT header"""
@@ -92,11 +113,16 @@ class EventInfo:
     pps: int
     radiantStartWindows: numpy.ndarray
     sampleRate: Optional[float]  # Sample rate, in GSa/s
-    radiantThrs: Optional[numpy.ndarray]
-    lowTrigThrs: Optional[numpy.ndarray]
-    lowphasedTrigThrs: Optional[numpy.ndarray]
+    radiantThrs: Optional[numpy.ndarray] = None
+    lowTrigThrs: Optional[numpy.ndarray] = None
+    lowphasedTrigThrs: Optional[numpy.ndarray] = None
     hasWaveforms: bool = True
     readoutDelay: Optional[numpy.ndarray] = None  # Default value is 0 (set in the backends)
+    didaqCoinThrs: Optional[numpy.ndarray] = None
+    didaqPhasedTrigThrs: Optional[numpy.ndarray] = None
+    didaqStartOffsets: Optional[numpy.ndarray] = None  # mattak::DidaqTriggerInfo::start_offsets
+    didaqChannelMask: Optional[int] = None  # mattak::DidaqTriggerInfo::channel_mask
+    didaqBeamMask: Optional[int] = None  # mattak::DidaqTriggerInfo::beam_mask
 
 def _runinfo_seconds(value):
     """ Normalize a run-info timestamp to float seconds, or None if missing/zero.
@@ -141,13 +167,33 @@ class RunInfo:
         self.acq_start = _runinfo_seconds(acq_start)
         self.acq_stop = _runinfo_seconds(acq_stop)
 
-        if isinstance(run_config, str):
-            self.run_config = read_run_config(run_config)
-        else:
-            self.run_config = run_config
+        self.set_run_config(run_config)
 
-    def set_run_config(self, run_config):
-        self.run_config = run_config
+    def set_run_config(self, run_config : Union[str, dict]):
+        """ Set the run config, either as dictionary or as path to the config file.
+
+        A path is only parsed on first access of `run_config` (parsing with libconf is slow).
+        """
+        if isinstance(run_config, str):
+            if not os.path.exists(run_config):
+                raise FileNotFoundError(f"Could not find run config file {run_config}")
+            self._run_config_path = run_config
+            self._run_config = None
+        else:
+            self._run_config_path = None
+            self._run_config = run_config
+
+    @property
+    def run_config(self) -> Optional[dict]:
+        if self._run_config_path is not None:
+            self._run_config = read_run_config(self._run_config_path)
+            self._run_config_path = None
+
+        return self._run_config
+
+    @run_config.setter
+    def run_config(self, run_config : Union[str, dict]):
+        self.set_run_config(run_config)
 
     def get_config(self, *keys : str, default=None):
         """ Get any property from the (libconfig-read) run config.
@@ -188,8 +234,9 @@ class AbstractDataset(ABC):
     """
 
     # Define some contants
-    NUM_DIGI_SAMPLES = 4096
-    NUM_WF_SAMPLES = 2048
+    NUM_DIGI_SAMPLES = 4096  # For RADIANT
+    NUM_WF_SAMPLES = 2048  # For RADIANT
+    NUM_WF_DIDAQ_SAMPLES = 4096
     NUM_CHANNELS = 24
 
     def setEntries(self, i : Union[int, Tuple[int, int]]):
@@ -726,10 +773,14 @@ def read_run_config(path : str) -> dict:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Could not find run config file {path}")
 
-    with open(path, "r") as f:
-        conf = libconf.load(f)
+    with open(path, "rb") as f:
+        conf = _parse(f.read())
 
     return conf
+
+@lru_cache(maxsize=32)
+def _parse(data: bytes):
+    return libconf.loads(data.decode("utf-8"))
 
 # store for one station
 @lru_cache(maxsize=64)

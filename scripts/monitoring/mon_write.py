@@ -26,13 +26,31 @@ import os
 
 from NuRadioReco.modules.RNO_G.channelBlockOffsetFitter import fit_block_offsets
 from NuRadioReco.modules.RNO_G.channelGlitchDetector import diff_sq, unscramble
+from NuRadioReco.utilities.trace_utilities import peak_to_peak_amplitudes
 
 from NuRadioReco.utilities import logging as nu_logging
 nu_logging.set_general_log_level(nu_logging.ERROR)  # suppress warnings from NuRadio
 
 NR_CHANNELS = 24
-NR_SAMPESRATES = 2048
 OFFSET_BLOCK_SIZE = 128
+P2P_WINDOW = 10 * units.ns  # sliding window for the peak-to-peak amplitude
+
+# Per-trigger-type run summary fields:
+#   (triggerType as returned by mattak.Dataset, RunSummary spectrum field, RunSummary counter field)
+# The trigger types are the ones produced by `_get_trigger_type` in the pyroot backend. A run uses
+# a single digitizer, so either only the RADIANT/LT entries or only the DIDAQ entries ever fire
+# (FORCE is common to both); the unused ones are simply never filled.
+TRIGGER_SUMMARY_FIELDS = (
+    ("FORCE", "avg_spectrum_force", "n_forced_triggers"),
+    ("LT", "avg_spectrum_lt", "n_lt_triggers"),
+    ("RADIANT0", "avg_spectrum_rf0", "n_rf0_triggers"),
+    ("RADIANT1", "avg_spectrum_rf1", "n_rf1_triggers"),
+    ("DIDAQ_COINC0", "avg_spectrum_didaq_coinc0", "n_didaq_coinc0_triggers"),
+    ("DIDAQ_COINC1", "avg_spectrum_didaq_coinc1", "n_didaq_coinc1_triggers"),
+    ("DIDAQ_SURF_UP", "avg_spectrum_didaq_surf_up", "n_didaq_surf_up_triggers"),
+    ("DIDAQ_SURF_DOWN", "avg_spectrum_didaq_surf_down", "n_didaq_surf_down_triggers"),
+    ("DIDAQ_DEEP_PHASED", "avg_spectrum_didaq_deep_phased", "n_didaq_deep_phased_triggers"),
+)
 
 def calculate_glitch_test_statistic(wf):
     """Return the per-channel glitch test statistic for one waveform trace.
@@ -75,11 +93,12 @@ def get_run_summary(dataset):
     return run_summary
 
 
-def write_event_summary(event_summary, event_info, wfs):
+def write_event_summary(event_summary, event_info, wfs, is_didaq=0):
     """Populate one ``EventSummary`` from header metadata and waveform data.
 
-    For each channel, this computes RMS, max absolute amplitude, a glitch score,
-    and a scalar block-offset summary, then writes these into the ROOT object.
+    For each channel, this computes RMS, max absolute amplitude, max peak-to-peak
+    amplitude, a glitch score, and a scalar block-offset summary, then writes these
+    into the ROOT object.
     """
     event_summary.event_number = event_info.eventNumber
     event_summary.block_offset.clear()
@@ -90,20 +109,27 @@ def write_event_summary(event_summary, event_info, wfs):
     amax = np.max(np.abs(wfs), axis=1).astype(np.uint16)
     assign_numpy_array_to_cpp_vector(event_summary.max_abs_amplitude, amax)
 
-    glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
-    block_offsets = np.zeros(len(wfs), dtype=np.uint16)
+    # `peak_to_peak_amplitudes` returns the local peak-to-peak amplitude for every sample
+    # (window centered on it), of which we keep the largest per channel.
+    n_samples_window = int(round(P2P_WINDOW * event_info.sampleRate))
+    p2p = np.max(peak_to_peak_amplitudes(wfs, n_samples_window), axis=1).astype(np.uint16)
+    assign_numpy_array_to_cpp_vector(event_summary.max_peak_to_peak_amplitude, p2p)
 
-    for i, wf in enumerate(wfs):
+    if not is_didaq:
+        glitching_test_statitic = np.zeros(len(wfs), dtype=np.float32)
+        block_offsets = np.zeros(len(wfs), dtype=np.uint16)
 
-        glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
-        offsets = fit_block_offsets(
-            wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
-            max_frequency=50*units.MHz, mode='auto', return_trace=False,
-            maxiter=5, tol=1e-6)
-        block_offsets[i] = np.abs(offsets).max()  # take the max. abs. offset as a summary statistic for the event
+        for i, wf in enumerate(wfs):
 
-    assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
-    assign_numpy_array_to_cpp_vector(event_summary.block_offset, block_offsets)
+            glitching_test_statitic[i] = calculate_glitch_test_statistic(wf)
+            offsets = fit_block_offsets(
+                wf, block_size=OFFSET_BLOCK_SIZE, sampling_rate=event_info.sampleRate,
+                max_frequency=50*units.MHz, mode='auto', return_trace=False,
+                maxiter=5, tol=1e-6)
+            block_offsets[i] = np.abs(offsets).max()  # take the max. abs. offset as a summary statistic for the event
+
+        assign_numpy_array_to_cpp_vector(event_summary.glitching_test_statitic, glitching_test_statitic)
+        assign_numpy_array_to_cpp_vector(event_summary.block_offset, block_offsets)
 
 if __name__ == "__main__":
 
@@ -128,9 +154,9 @@ if __name__ == "__main__":
     monitoring_file_path = run_dir / "monitoring.root"
 
     dataset = mattak.Dataset.Dataset(data_path=sys.argv[1], backend='pyroot')
+    is_didaq = dataset.digitizer == mattak.Dataset.Digitizer.DIDAQ
 
     try:
-
         # We allow to update an existing monitoring file. This is needed
         # as the rno-g-autoconverter script may be run multiple times on the
         # same run directory as new data arrives, and we want to avoid losing
@@ -168,8 +194,9 @@ if __name__ == "__main__":
             update_file = False
 
         event_counts = defaultdict(int)
-        avg_spectra = defaultdict(lambda:
-            np.zeros((NR_CHANNELS, NR_SAMPESRATES // 2 + 1), dtype=np.float32))
+        # Shape (NR_CHANNELS, n_samples // 2 + 1) is only known once we see the first
+        # waveform, since n_samples depends on the digitizer (RADIANT vs. DIDAQ).
+        avg_spectra = defaultdict(lambda: np.zeros_like(specs))
 
         update_needed = False
         rms = []
@@ -184,7 +211,7 @@ if __name__ == "__main__":
 
             update_needed = True
 
-            write_event_summary(event_summary, ev, wfs)
+            write_event_summary(event_summary, ev, wfs, is_didaq)
             t.Fill()
 
             event_counts["total"] += 1
@@ -211,11 +238,24 @@ if __name__ == "__main__":
 
             When appending to an existing file, previously stored averages are combined
             with newly accumulated spectra using event-count weighted means.
+
+            Trigger types without any new event are left untouched: their accumulated spectrum is
+            all-zero, so writing it would either wipe what is already stored (update) or waste
+            space on a trigger type this run does not have at all (e.g. all the DIDAQ ones for a
+            RADIANT run).
             """
+            n_new_events = event_counts.get(trigger_type, 0)
+            if not n_new_events:
+                return
+
+            # Not the same as `update_file`: a trigger type that saw its first event only now has
+            # nothing stored yet even though we are updating an existing file.
+            has_stored_spectra = len(run_summary_obj) == NR_CHANNELS
+
             for i in range(NR_CHANNELS):
-                if update_file and event_counts.get(trigger_type, 0):
-                    w1 = prev_event_number / (prev_event_number + event_counts[trigger_type])
-                    w2 = event_counts[trigger_type] / (prev_event_number + event_counts[trigger_type])
+                if has_stored_spectra:
+                    w1 = prev_event_number / (prev_event_number + n_new_events)
+                    w2 = n_new_events / (prev_event_number + n_new_events)
 
                     avg_spectra[trigger_type][i] = (
                         avg_spectra[trigger_type][i] * w2 + np.array(run_summary_obj[i]) * w1)
@@ -223,23 +263,22 @@ if __name__ == "__main__":
                 vec = ROOT.std.vector("float")()
                 assign_numpy_array_to_cpp_vector(vec, avg_spectra[trigger_type][i])
 
-                if not update_file:
-                    run_summary_obj.push_back(vec)
-                else:
+                if has_stored_spectra:
                     run_summary_obj[i] = vec
+                else:
+                    run_summary_obj.push_back(vec)
 
         fill_spectra(run_summary.avg_spectrum, "total", run_summary.n_events)
-        fill_spectra(run_summary.avg_spectrum_force, "FORCE", run_summary.n_forced_triggers)
-        fill_spectra(run_summary.avg_spectrum_rf0, "RADIANT0", run_summary.n_rf0_triggers)
-        fill_spectra(run_summary.avg_spectrum_rf1, "RADIANT1", run_summary.n_rf1_triggers)
-        fill_spectra(run_summary.avg_spectrum_lt, "LT", run_summary.n_lt_triggers)
+        for trigger_type, spectrum_field, counter_field in TRIGGER_SUMMARY_FIELDS:
+            fill_spectra(getattr(run_summary, spectrum_field), trigger_type,
+                         getattr(run_summary, counter_field))
 
-        # Adding event counts to run summary
+        # Adding event counts to run summary. This has to happen after all `fill_spectra` calls,
+        # which weight the stored spectra with the event counts of the *previous* update.
         run_summary.n_events += event_counts.get("total", 0)
-        run_summary.n_forced_triggers += event_counts.get("FORCE", 0)
-        run_summary.n_rf0_triggers += event_counts.get("RADIANT0", 0)
-        run_summary.n_rf1_triggers += event_counts.get("RADIANT1", 0)
-        run_summary.n_lt_triggers += event_counts.get("LT", 0)
+        for trigger_type, _, counter_field in TRIGGER_SUMMARY_FIELDS:
+            setattr(run_summary, counter_field,
+                    getattr(run_summary, counter_field) + event_counts.get(trigger_type, 0))
 
         t.Write("", ROOT.TObject.kOverwrite)
         run_summary.Write("RunSummary", ROOT.TObject.kOverwrite)

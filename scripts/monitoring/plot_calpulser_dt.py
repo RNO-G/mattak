@@ -5,7 +5,8 @@ all events of all given runs, to help optimize the cal-pulser time threshold.
 dt is derived from the sysclk counter via the mattak.Dataset header interface
 (skip_incomplete=False), exactly as in plot_calpulser_amplitudes.py:
     dt = ((sysclk - sysclk_last_pps) mod 2**32) / f ,
-with f (ticks/s) from the two most recent PPS sysclks (~100 MHz).
+with f (ticks/s) from the two most recent PPS sysclks, so no particular clock rate is
+assumed (the sysclk rate is digitizer-dependent, e.g. ~100 MHz for the RADIANT).
 
 Cal-pulser events pile up at dt ~ 0 (locked to the PPS); random/RF triggers are
 uniform in [0, 1) s. The left panel zooms into small dt to expose the cal-pulser

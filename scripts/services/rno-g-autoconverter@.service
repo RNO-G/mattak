@@ -12,6 +12,7 @@ RestartSec=300
 Environment="PATH=/home/rno-g/soft/mattak/install/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="LD_LIBRARY_PATH=/home/rno-g/soft/mattak/install/lib:/home/rno-g/soft/librno-g/install/lib"
 Environment="PYTHONPATH=/home/rno-g/soft/mattak/py:/home/rno-g/soft/NuRadioMC"
+Environment="RNO_G_INSTALL_DIR=/home/rno-g/soft/mattak/install"
 
 [Install]
 WantedBy=rno-g-autoconverter.target

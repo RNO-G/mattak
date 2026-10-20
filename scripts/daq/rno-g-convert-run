@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/usr/bin/env bash
 
 # don't expand globs to themselves if no match
 shopt -s nullglob
@@ -14,7 +14,11 @@ FORCE=${3-0}
 STATION_OVERRIDE=${4--1}
 RUN_OVERRIDE=${5--1}
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${RNO_G_INSTALL_DIR}" ]]; then
+  echo "RNO_G_INSTALL_DIR is not set. Can not locate mon_write.py, please set. Exit.."
+  exit 1
+fi
+SCRIPT_DIR="${RNO_G_INSTALL_DIR}/bin"
 
 # rootified-list.txt records which files were present in the input directory when
 # the conversion ran, as "<path relative to INDIR><TAB><modification time>", e.g.
@@ -102,7 +106,7 @@ then
   read -r list_header < "${ROOTIFIED_LIST}"
   if [ "${list_header}" != "${ROOTIFIED_LIST_HEADER}" ]
   then
-    echo "output directory found, but rootified-list.txt is not in the expected format, reconverting"
+    echo "Output directory found, but rootified-list.txt is not in the expected format, reconverting"
   else
     # Only a clean "nothing changed" skips the conversion. If in doubt convert:
     # a missed update means the run never ships south, a needless one costs CPU.
@@ -117,11 +121,20 @@ fi
 mkdir -p "${OUTDIR}"
 
 if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
+  echo "Converting ${INDIR}"
 
   # Look for the voltage calibration file already
   # existing in the output directory
   calibration_file=("${OUTDIR}"/volCalConsts*)
 
+  if [ ! -f "${INDIR}/aux/runinfo.txt" ]; then
+    echo "Did not find runinfo.txt for input dir ${INDIR}. Exit..."
+    exit 1;
+  fi
+
+  # Check if we are DiDAQ
+  grep -iq didaq "${INDIR}/aux/runinfo.txt"
+  ON_DIDAQ=$(( !$? ))
   # Waveforms and headers carry the run's event number, so rno-g-convert can
   # extend the existing ROOT files with whatever arrived since the last pass
   # rather than converting the whole run again. A forced run has to rebuild them
@@ -137,8 +150,9 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && rno-g-convert ${UPDATE} hd "${OUTDIR}/headers.root" "${INDIR}"/header/* \
     && echo "Converting daqstatus" \
     && rno-g-convert ds "${OUTDIR}/daqstatus.root" "${INDIR}"/daqstatus/* \
-    && echo "Converting pedestals" \
+    && { [ $ON_DIDAQ -eq 0 ] && echo "Converting pedestals" \
     && rno-g-convert ped "${OUTDIR}/pedestal.root" "${INDIR}"/pedestals.dat* \
+    || true; } \
     && echo "Converting runinfo" \
     && rno-g-convert runinfo "${OUTDIR}/runinfo.root" "${INDIR}/aux" "${STATION_OVERRIDE}" "${RUN_OVERRIDE}" \
     && echo "Copying aux and cfg"  \
@@ -146,14 +160,15 @@ if [ ${NEED_TO_UPDATE} -eq 1 ] ; then
     && cp -p -r "${INDIR}/cfg"  "${OUTDIR}"/ \
     && echo "Writing rootified list" \
     && install -m 0644 "${current_list}" "${ROOTIFIED_LIST}" \
-    && { [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
+    && { [ $ON_DIDAQ -eq 0 ] && [ -f "${INDIR}/bias_scan.dat.gz" ] && [ ${#calibration_file[@]} -ne 1 ] \
     && echo "Doing Voltage calibration" \
     && python3 "${SCRIPT_DIR}/convert_bias_scan_to_calibration.py" \
             "${INDIR}/bias_scan.dat.gz" --pedestal_file "${OUTDIR}/pedestal.root" \
             --destination_folder "${OUTDIR}" &>> "${OUTDIR}/voltage_calibration.log" \
     || true; } \
     && echo "Create Monitoring data" \
-    && python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
+    && { python3 "${SCRIPT_DIR}/mon_write.py" "${OUTDIR}" &>> "${OUTDIR}/monitoring.log" \
+       || echo "... failed."; false ; } \
     && echo "Conversion complete!"
 
   exit 1

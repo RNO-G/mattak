@@ -32,8 +32,191 @@ cast_uint8_t  = cppyy.gbl.cast_uint8_t
 cppyy.cppdef(" int16_t* cast_int16_t(void * x) { return (int16_t*) x; }")
 cast_int16_t  = cppyy.gbl.cast_int16_t
 
+cppyy.cppdef(" uint16_t* cast_uint16_t(void * x) { return (uint16_t*) x; }")
+cast_uint16_t  = cppyy.gbl.cast_uint16_t
+
 def isNully(p):
     return p is None or ROOT.AddressOf(p) == 0 or cppyy.gbl.is_nully(p)
+
+def _read(obj):
+    try:
+        return numpy.array(obj)
+    except AttributeError:
+        return None
+
+# mattak.Dataset.EventInfo threshold field name -> candidate mattak::DAQStatus (C++) attribute
+# names, tried in order (first one present on `daq_status` wins). More than one name covers
+# fields that were renamed across DAQStatus ClassDef versions (see DAQStatus.h).
+_DAQ_STATUS_THRESHOLD_FIELDS = {
+    "radiantThrs": ("radiant_thresholds",),
+    "lowTrigThrs": ("lt_trigger_thresholds", "lt_coinc_trigger_thresholds"),
+    "lowphasedTrigThrs": ("lt_phased_trigger_thresholds",),
+    "didaqCoinThrs": ("didaq_coin_thresholds",),
+    "didaqPhasedTrigThrs": ("didaq_phased_trigger_thresholds",),
+}
+
+NOM_DIDAQ_CLOCK = 250e6  # 250 MHz
+
+
+def _read_daq_status_thresholds(daq_status, digitizer) -> dict:
+    """
+    Read the per-channel/per-beam threshold arrays off a `mattak::DAQStatus` object.
+
+    For each entry in `_DAQ_STATUS_THRESHOLD_FIELDS`, tries each candidate C++ attribute name in
+    order and reads the first one that exists on `daq_status` (via `hasattr`/`getattr`, so this
+    stays robust across DAQStatus schema versions that renamed a field). A field with no matching
+    attribute at all is left as `None`.
+
+    Parameters
+    ----------
+    daq_status : ROOT.mattak.DAQStatus
+
+    Returns
+    -------
+    dict
+        Maps each `mattak.Dataset.EventInfo` threshold field name (e.g. "radiantThrs") to a
+        `numpy.ndarray` (or `None` if not available). Keys match `EventInfo`'s constructor
+        keywords exactly, so the result can be passed straight through as `**kwargs`.
+    """
+    values = {}
+    for field_name, candidate_attrs in _DAQ_STATUS_THRESHOLD_FIELDS.items():
+        value = None
+
+        # this also keeps "unused" thresholds None
+        if digitizer == mattak.Dataset.Digitizer.DIDAQ:
+            if not field_name.startswith('didaq'):
+                continue
+        else:
+            if field_name.startswith('didaq'):
+                continue
+
+        for attr in candidate_attrs:
+            if hasattr(daq_status, attr):
+                value = _read(getattr(daq_status, attr))
+                break
+        values[field_name] = value
+    return values
+
+def _check_digitizer_enum_in_sync():
+    """ Sanity check that `mattak.Dataset.Digitizer` (python) and `mattak::Dataset::digitizer`
+    (C++, src/mattak/Dataset.h) still declare the exact same members. A mismatch means the
+    installed libmattak and the mattak python package come from different versions. """
+    cpp_enum = ROOT.mattak.Dataset.digitizer
+    cpp_members = {name: int(getattr(cpp_enum, name)) for name in dir(cpp_enum) if name[0].isupper()}
+    py_members = {member.name: int(member.value) for member in mattak.Dataset.Digitizer}
+    if cpp_members != py_members:
+        raise RuntimeError(
+            f"mattak.Dataset.Digitizer (python, {py_members}) is out of sync with "
+            f"mattak::Dataset::digitizer (C++, {cpp_members}). Update mattak/Dataset.py to match "
+            "src/mattak/Dataset.h.")
+
+
+# Bits within `hdr.trigger_info.didaq_info.type` identifying which DiDAQ RF trigger source fired.
+# Mirrors the RNO_G_TRIGGER_RF_DIDAQ_* constants of rno_g_trigger_type_t in librno-g's rno-g.h
+# (the DIDAQ bit itself is not needed here since `didaq_trigger` already confirms it's set).
+_DIDAQ_COINC0 = 1 << 2
+_DIDAQ_COINC1 = 1 << 6
+_DIDAQ_DEEP_PHASED = 1 << 3
+_DIDAQ_SURF_UP = 1 << 4
+_DIDAQ_SURF_DOWN = 1 << 5
+
+
+def _get_trigger_type(hdr) -> str:
+    """
+    Classify a header's trigger source into a short descriptive string.
+
+    Reads `hdr.trigger_info` (see `mattak::TriggerInfo` in TriggerInfo.h) and picks, in order,
+    whether the event was an RF trigger from RADIANT, the low-threshold (LT/FLOWER) board, or
+    DiDAQ, falling back to a forced or PPS trigger.
+
+    Parameters
+    ----------
+    hdr : ROOT.mattak.Header
+        The header of the event to classify.
+
+    Returns
+    -------
+    str
+        "RADIANT0"/"RADIANT1"/"RADIANTX" for a RADIANT RF trigger (X if which one is unknown),
+        "LT" for a low-threshold board RF trigger, one of "DIDAQ_COINC0"/"DIDAQ_COINC1"/
+        "DIDAQ_SURF_UP"/"DIDAQ_SURF_DOWN"/"DIDAQ_DEEP_PHASED" for a DiDAQ RF trigger (or
+        "DIDAQ_X" if `didaq_trigger` is set but none of the known source bits match), "FORCE"
+        for a software trigger, "PPS" for a PPS trigger, or "UNKNOWN" if nothing above matches.
+    """
+    ti = hdr.trigger_info
+
+    # RADIANT/LT and DiDAQ are different, mutually exclusive digitizers -- mattak::Header
+    # (Header.cc) should never set both for the same event. Catch it here rather than silently
+    # picking one, since it would indicate a bug in the header trigger-type decoding.
+    assert not (ti.didaq_trigger and (ti.radiant_trigger or ti.lt_trigger)), (
+        f"Header for event {hdr.event_number} decoded as both a DiDAQ trigger and a "
+        "RADIANT/LT trigger -- this should be impossible, check mattak::Header (Header.cc)")
+
+    triggerType = "UNKNOWN"
+    if ti.radiant_trigger:
+        which = ti.which_radiant_trigger
+        if which == -1:
+            which = "X"
+        triggerType = "RADIANT" + str(which)
+    elif ti.lt_trigger:
+        triggerType = "LT"
+    elif ti.didaq_trigger:
+        t = ti.didaq_info.type
+        if t & _DIDAQ_SURF_UP:
+            triggerType = "DIDAQ_SURF_UP"
+        elif t & _DIDAQ_SURF_DOWN:
+            triggerType = "DIDAQ_SURF_DOWN"
+        elif t & _DIDAQ_DEEP_PHASED:
+            triggerType = "DIDAQ_DEEP_PHASED"
+        elif t & _DIDAQ_COINC0:
+            triggerType = "DIDAQ_COINC0"
+        elif t & _DIDAQ_COINC1:
+            triggerType = "DIDAQ_COINC1"
+        else:
+            raise ValueError("Unknown DIDAQ trigger type! Please figure out what is going on. Abort!")
+    elif ti.force_trigger:
+        triggerType = "FORCE"
+    elif ti.pps_trigger:
+        triggerType = "PPS"
+
+    return triggerType
+
+
+def _recal_trig_time(sysclk, readout_time) -> float:
+    """
+    Recalculate the trigger time of a DiDAQ event from its system clock counter.
+
+    Only for DiDAQ events whose `sysclk_last_pps` and `sysclk_last_last_pps` are 0: `mattak::Header`
+    (Header.cc) can then neither reference `sysclk` to the last PPS nor derive the clock frequency
+    from the two PPS counters. Instead take `sysclk` as counting from the last PPS and assume the
+    nominal 250 MHz clock. The second is picked from the readout time as in Header.cc.
+
+    Parameters
+    ----------
+    sysclk : int
+        The DiDAQ's system clock counter at the trigger (cycles since the last PPS).
+    readout_time : float
+        The readout time as a UTC double.
+
+    Returns
+    -------
+    float
+        The trigger time as a UTC double.
+    """
+    # subsecond part
+    trigger_time = sysclk / 250e6
+
+    # readout time is always after trigger time, so figure out the second based on what's closest
+    readout_time_secs = int(readout_time)
+    if readout_time - readout_time_secs < trigger_time:
+        trigger_time += readout_time_secs - 1
+    else:
+        trigger_time += readout_time_secs
+
+    return trigger_time
+
+
+_check_digitizer_enum_in_sync()
 
 
 class Dataset(mattak.Dataset.AbstractDataset):
@@ -97,6 +280,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
         self.data_path = data_path
         self.full = self.ds.isFullDataset()
+        self.digitizer = mattak.Dataset.Digitizer(int(self.ds.getDigitizer()))
         self.setEntries(0)
 
         logger.debug("We think we found station %d run %d", self.station, self.run)
@@ -139,70 +323,83 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if not self.ds.setEntry(i):
             return None
 
-        radiantThrs = None
-        lowTrigThrs = None
-        lowphasedTrigThrs = None
+        daq_thresholds = {field_name: None for field_name in _DAQ_STATUS_THRESHOLD_FIELDS}
         if self.__read_daq_status:
-            daq_status = self.ds.status()
-            radiantThrs = numpy.array(daq_status.radiant_thresholds)
-            try:
-                lowTrigThrs = numpy.array(daq_status.lt_trigger_thresholds)
-            except AttributeError:
-                lowTrigThrs = numpy.array(daq_status.lt_coinc_trigger_thresholds)
-            try:
-                lowphasedTrigThrs = numpy.array(daq_status.lt_phased_trigger_thresholds)
-            except AttributeError:
-                lowphasedTrigThrs = None
+            daq_thresholds = _read_daq_status_thresholds(self.ds.status(), self.digitizer)
 
         # now use Dataset's faster sample rate getter
-        sampleRate = self.ds.radiantSampleRate() / 1000
+        sampleRate = self.ds.sampleRate() / 1000
 
         hdr = self.ds.header()
+        triggerType = _get_trigger_type(hdr)
 
-        assert(hdr.station_number == self.station)
-        assert(hdr.run_number == self.run)
+        radiantStartWindows = None
+        readout_delay = None
+        didaqStartOffsets = None
+        didaqChannelMask = None
+        didaqBeamMask = None
+        trig_time = hdr.trigger_time
 
-        triggerType = "UNKNOWN"
-        if hdr.trigger_info.radiant_trigger:
-            which = hdr.trigger_info.which_radiant_trigger
-            if which == -1:
-                which = "X"
-            triggerType = "RADIANT" + str(which)
-        elif hdr.trigger_info.lt_trigger:
-            triggerType = "LT"
-        elif hdr.trigger_info.force_trigger:
-            triggerType = "FORCE"
-        elif hdr.trigger_info.pps_trigger:
-            triggerType = "PPS"
-
-        # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
-        # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
-        radiantStartWindows = numpy.copy(numpy.frombuffer(
-                cast_uint8_t(hdr.trigger_info.radiant_info.start_windows),
-                dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
+        if self.digitizer == mattak.Dataset.Digitizer.RADIANT:
+            # The `numpy.copy(...)`` is strictly necessary. Otherwise group access via `dataset.eventInfo()`
+            # results in the same `radiantStartWindows` for each event (only for the last event it is correct)
+            radiantStartWindows = numpy.copy(numpy.frombuffer(
+                    cast_uint8_t(hdr.trigger_info.radiant_info.start_windows),
+                    dtype='uint8', count=self.NUM_CHANNELS * 2).reshape(self.NUM_CHANNELS, 2))
 
 
-        readout_delay = numpy.copy(numpy.around(numpy.frombuffer(
-            cppyy.ll.reinterpret_cast['float*'](self.ds.radiantReadoutDelays()),
-            dtype = numpy.float32, count=self.NUM_CHANNELS)))
+            readout_delay = numpy.copy(numpy.around(numpy.frombuffer(
+                cppyy.ll.reinterpret_cast['float*'](self.ds.radiantReadoutDelays()),
+                dtype = numpy.float32, count=self.NUM_CHANNELS)))
+        elif self.digitizer == mattak.Dataset.Digitizer.DIDAQ:
+            didaqStartOffsets = numpy.copy(numpy.frombuffer(
+                    cast_uint16_t(hdr.trigger_info.didaq_info.start_offsets),
+                    dtype='uint16', count=self.NUM_CHANNELS))
+
+            didaqChannelMask = hdr.trigger_info.didaq_info.channel_mask
+            didaqBeamMask = hdr.trigger_info.didaq_info.beam_mask
+
+            # If the DiDAQ left both PPS sysclk counters at 0, Header.cc can only get a nan
+            # trigger time (0 / 0). Recalculate it from `sysclk` alone.
+            if hdr.sysclk_last_last_pps == 0:
+                logger.warning(
+                    "Found `sysclk_last_last_pps` to be 0 for event %(event)d "
+                    "(station %(station)s, run %(run)s). Recalculate the trigger time "
+                    "assuming the nominal 250 MHz clock ...",
+                    {"station": self.station, "run": self.run, "event": hdr.event_number})
+
+                trig_time = _recal_trig_time(hdr.sysclk, hdr.readout_time)
+            else:
+                rate = (hdr.sysclk_last_pps - hdr.sysclk_last_last_pps) % 2 ** 32
+                if abs(rate / NOM_DIDAQ_CLOCK - 1) > 1e-6:
+                    logger.warning(
+                        "Found sysclk rate to deviate by more than 1ppm for event %(event)d "
+                        "(station %(station)s, run %(run)s). Recalculate the trigger time "
+                        "assuming the nominal 250 MHz clock ...",
+                        {"station": self.station, "run": self.run, "event": hdr.event_number,
+                         "rate": rate})
+
+                    trig_time = _recal_trig_time(hdr.sysclk, hdr.readout_time)
 
         return mattak.Dataset.EventInfo(
             eventNumber=hdr.event_number,
             station=self.station,
             run=self.run,
             readoutTime=hdr.readout_time,
-            triggerTime=hdr.trigger_time,
+            triggerTime=trig_time,
             triggerType=triggerType,
             sysclk=hdr.sysclk,
             sysclkLastPPS=(hdr.sysclk_last_pps, hdr.sysclk_last_last_pps),
             pps=hdr.pps_num,
             radiantStartWindows=radiantStartWindows,
             sampleRate=sampleRate,
-            radiantThrs=radiantThrs,
-            lowTrigThrs=lowTrigThrs,
-            lowphasedTrigThrs=lowphasedTrigThrs,
             hasWaveforms=self.ds.rawAvailable(),
-            readoutDelay=readout_delay)
+            readoutDelay=readout_delay,
+            didaqStartOffsets=didaqStartOffsets,
+            didaqChannelMask=didaqChannelMask,
+            didaqBeamMask=didaqBeamMask,
+            **daq_thresholds,
+        )
 
 
     def eventInfo(self) -> Union[Optional[mattak.Dataset.EventInfo],Sequence[Optional[mattak.Dataset.EventInfo]]]:
@@ -217,13 +414,26 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if isNully(wf):
             return None
 
-        if calibrated:
-            wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
-                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+        if self.digitizer == mattak.Dataset.Digitizer.DIDAQ:
+
+            # TMP code
+            buffer_length = wf.buffer_length - wf.buffer_length % 4
+
+            # this could be smarter
+            wfs = numpy.frombuffer(cast_uint8_t(wf.didaq_data), dtype="uint8",
+                count=self.NUM_CHANNELS * self.NUM_WF_DIDAQ_SAMPLES).reshape(
+                    self.NUM_CHANNELS, self.NUM_WF_DIDAQ_SAMPLES)[:, :buffer_length]
         else:
-            # FS: I think a np.copy is not necessary here because we do it in wfs()
-            wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
-                               count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(self.NUM_CHANNELS, self.NUM_WF_SAMPLES)
+
+            if calibrated:
+                wfs = numpy.frombuffer(cppyy.ll.cast['double*'](wf.radiant_data), dtype="float64",
+                    count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(
+                        self.NUM_CHANNELS, self.NUM_WF_SAMPLES)[:, :wf.buffer_length]
+            else:
+                # FS: I think a np.copy is not necessary here because we do it in wfs()
+                wfs = numpy.frombuffer(cast_int16_t(wf.radiant_data), dtype="int16",
+                    count=self.NUM_CHANNELS * self.NUM_WF_SAMPLES).reshape(
+                        self.NUM_CHANNELS, self.NUM_WF_SAMPLES)[:, :wf.buffer_length]
         return wfs
 
 
@@ -239,15 +449,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if self.last - self.first < 0:
             return None
 
-        out = numpy.zeros((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
+        out = None
         for entry in range(self.first, self.last):
             this_wfs = self._wfs(entry, calibrated)
             if this_wfs is not None:
+                if out is None:
+                    out = numpy.zeros((self.last - self.first, *this_wfs.shape), dtype=this_wfs.dtype)
                 out[entry-self.first][:][:] = this_wfs
 
-        out = numpy.asarray(out, dtype=float)
-
-        return out
+        return numpy.asarray(out, dtype=float)
 
 
     def _iterate(

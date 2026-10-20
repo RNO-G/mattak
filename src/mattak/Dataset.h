@@ -62,6 +62,13 @@ namespace mattak
   {
 
     public:
+      enum class digitizer
+      {
+        Unknown,
+        RADIANT,
+        DIDAQ
+      };
+
       Dataset(int station, int run, const DatasetOptions & opt = DatasetOptions());
       Dataset(const DatasetOptions & opt = DatasetOptions());
 
@@ -111,7 +118,7 @@ namespace mattak
 
       // these methods are useful if you want to read waveform metadata without reading the waveforms
       // if you are reading the waveforms, they are less efficient than getting what you want from raw
-      float radiantSampleRate(bool force_reload = false);
+      float sampleRate(bool force_reload = false);
       const float * radiantReadoutDelays(bool force_reload = false);  //size is mattak::k::num_radiant_channels, returning a float* since cppyyy doesn't seem to be able to deal with std::array properly
 
 
@@ -125,6 +132,7 @@ namespace mattak
       TTree * wfTree() { return wf.tree; }
 
       bool isFullDataset() const { return full_dataset; }
+      digitizer getDigitizer() const { return digitizer_type; }
       void setCalibration(const VoltageCalibration * calib);
       const VoltageCalibration * getCalibration() const { return opt.calib; }
 
@@ -164,7 +172,8 @@ namespace mattak
       tree_field<Pedestals> pd;
       file_field<RunInfo> runinfo;
 
-      void setupRadiantMeta();
+      void setupDigitizerMeta();
+      void setDigitizer(uint8_t bytes_per_sample);
 
       field<CalibratedWaveforms> calib_wf;
 
@@ -173,6 +182,7 @@ namespace mattak
 
 
       bool full_dataset = false;
+      digitizer digitizer_type = digitizer::Unknown;
       DatasetOptions opt;
 
   };

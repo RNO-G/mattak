@@ -15,8 +15,7 @@ fi
 echo "raw dir is ${RAWDIR}/station$STATION"
 echo "output dir is ${ROOTDIR}/station$STATION"
 
-runs=`ls $RAWDIR/station$STATION/ | grep run`
+runs=$(ls $RAWDIR/station$STATION/ | grep run)
 echo $runs
 
 parallel --jobs $NPROCS rno-g-convert-run $RAWDIR/station$STATION/{}  ${ROOTDIR}/station$STATION/{} $FORCE ::: $runs
-

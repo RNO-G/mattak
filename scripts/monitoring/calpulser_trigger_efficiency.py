@@ -12,7 +12,8 @@ pulser when it triggers within ``--threshold`` seconds of the last PPS, i.e.
 (t_trigger - t_pps) < threshold, where the time since the last PPS is derived from the
 sysclk counter:
     dt = ((sysclk - sysclk_last_pps) mod 2**32) / f ,
-with f (ticks/s) taken from the two most recent PPS sysclks (~100 MHz).
+with f (ticks/s) taken from the two most recent PPS sysclks, so no particular clock rate
+is assumed (the sysclk rate is digitizer-dependent, e.g. ~100 MHz for the RADIANT).
 
 Runs from several stations may be passed at once; results are grouped by station and a
 plot of trigger efficiency vs time is produced with one line per station.
