@@ -5,7 +5,7 @@ import re
 import enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
+from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar, List
 import numpy
 import logging
 import warnings
@@ -401,7 +401,7 @@ class AbstractDataset(ABC):
     def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
                  selectors: Optional[Union[Callable[[EventInfo], bool],
                                            Sequence[Callable[[EventInfo], bool]]]],
-                 copy : bool = True) \
+                 copy : bool = True, channels : Optional[List[int]] = None) \
                  -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Implementation-defined part of the iterator. See `iterate` for the meaning of the arguments. """
         pass
@@ -411,7 +411,8 @@ class AbstractDataset(ABC):
             calibrated: bool = False, max_entries_in_mem : int = 256,
             selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None,
-            copy : bool = True) \
+            copy : bool = True,
+            channels : Optional[Union[int, List[int]]] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """
         Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
@@ -449,7 +450,16 @@ class AbstractDataset(ABC):
             content will change while iterating. Only set this to False if you process
             each waveform immediately and care about the (small) performance gain.
             The uproot backend ignores this argument, it always yields independent arrays.
+
+        channels : int or list(int) (Default: None)
+            If not None, yield only the waveforms of these channels (in the given order).
+            The file is still read for all channels, but the other channels are not copied
+            (and not calibrated with the uproot backend). With a channel selection, the pyroot
+            backend always yields independent arrays (also for ``copy=False``).
         """
+        if isinstance(channels, int):
+            channels = [channels]
+
         if start < 0:
             start += self.N()
 
@@ -466,7 +476,8 @@ class AbstractDataset(ABC):
             return
 
         yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors,
-                                 override_skip_incomplete=override_skip_incomplete, copy=copy)
+                                 override_skip_incomplete=override_skip_incomplete, copy=copy,
+                                 channels=channels)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:

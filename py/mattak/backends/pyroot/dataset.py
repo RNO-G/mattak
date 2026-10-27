@@ -1,7 +1,7 @@
 import ROOT
 import mattak.backends.pyroot.mattakloader
 import mattak.Dataset
-from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar
+from typing import Sequence, Union, Tuple, Optional, Callable, Generator, TypeVar, List
 import numpy
 import os.path
 import warnings
@@ -464,7 +464,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self, start : int, stop : int, calibrated : bool , max_in_mem : int,
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool], Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None,
-            copy : bool = True) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
+            copy : bool = True, channels : Optional[List[int]] = None) -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
         """
         PyROOT implementation of the iterator. See `mattak.Dataset.AbstractDataset.iterate`
         for the meaning of the arguments.
@@ -479,9 +479,15 @@ class Dataset(mattak.Dataset.AbstractDataset):
         skip_incomplete = override_skip_incomplete or self.ds.getOpt().partial_skip_incomplete
 
         def copy_wfs(wfs):
+            if wfs is None:
+                return wfs
+            if channels is not None:
+                # fancy indexing copies (only the selected channels)
+                wfs = wfs[channels]
+                return numpy.asarray(wfs, dtype=float) if copy else wfs
             # numpy.array (unlike numpy.asarray) guarantees a copy also when
             # the dtype already matches (i.e., for calibrated waveforms)
-            if wfs is None or not copy:
+            if not copy:
                 return wfs
             return numpy.array(wfs, dtype=float)
 
@@ -491,11 +497,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
 
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
+                # evaluate the selectors first to not read the waveforms of rejected events
+                if evinfo is None or not numpy.all([selector(evinfo) for selector in selectors]):
+                    continue
                 wfs = self._wfs(i, calibrated)
                 if skip_incomplete and wfs is None:
                     continue
-                if evinfo is not None and numpy.all([selector(evinfo) for selector in selectors]):
-                    yield evinfo, copy_wfs(wfs)
+                yield evinfo, copy_wfs(wfs)
         else:
             for i in range(start, stop):
                 wfs = self._wfs(i, calibrated)
