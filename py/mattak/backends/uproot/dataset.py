@@ -572,7 +572,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             selectors: Optional[Union[Callable[[mattak.Dataset.EventInfo], bool],
             Sequence[Callable[[mattak.Dataset.EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None,
-            copy : bool = True) \
+            copy : bool = True, channels : Optional[List[int]] = None) \
             -> Generator[Tuple[Optional[mattak.Dataset.EventInfo], Optional[numpy.ndarray]], None, None]:
         """
         Uproot implementation of the iterator. See `mattak.Dataset.AbstractDataset.iterate`
@@ -599,7 +599,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             self.setEntries((batch_start, batch_stop))
 
             # load events from file
-            wfs = self.wfs(calibrated, override_skip_incomplete=override_skip_incomplete)
+            wfs = self.wfs(calibrated, channels=channels, override_skip_incomplete=override_skip_incomplete)
             es = self.eventInfo(override_skip_incomplete=override_skip_incomplete)
 
             # we modified the internal data pointers with the prev. call of self.setEntries(...)
