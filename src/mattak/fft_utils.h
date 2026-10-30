@@ -5,7 +5,6 @@
 using Cplx = std::complex<double>;
 
 // FFT primitives
-void fft_inplace(std::vector<Cplx>& a, bool inverse);
 std::vector<Cplx> rfft(const std::vector<double>& x);
 std::vector<double> irfft(const std::vector<Cplx>& spec, int n);
 

@@ -3,54 +3,47 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <fftw3.h>
 
-void fft_inplace(std::vector<Cplx>& a, bool inverse)
-{
-    int n = a.size();
-    for (int i = 1, j = 0; i < n; ++i) {
-        int bit = n >> 1;
-        for (; j & bit; bit >>= 1) j ^= bit;
-        j ^= bit;
-        if (i < j) std::swap(a[i], a[j]);
-    }
-    for (int len = 2; len <= n; len <<= 1) {
-        double ang = 2*M_PI/len * (inverse ? 1 : -1);
-        Cplx wlen(std::cos(ang), std::sin(ang));
-        for (int i = 0; i < n; i += len) {
-            Cplx w(1);
-            for (int j = 0; j < len/2; ++j, w *= wlen) {
-                Cplx u = a[i+j], v = w * a[i+j+len/2];
-                a[i+j]       = u + v;
-                a[i+j+len/2] = u - v;
-            }
-        }
-    }
-    if (inverse)
-        for (auto& x : a) x /= n;
-}
 
 std::vector<Cplx> rfft(const std::vector<double>& x)
 {
-    int n = x.size();
-    std::vector<Cplx> a(n);
-    for (int i = 0; i < n; ++i) a[i] = x[i];
-    fft_inplace(a, false);
-    
-    return std::vector<Cplx>(a.begin(), a.begin() + n/2 + 1);
+    const int n = static_cast<int>(x.size());
+    std::vector<double> in(n);
+    std::copy(x.begin(), x.end(), in.begin());
+
+    fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (n / 2 + 1));
+    fftw_plan p = fftw_plan_dft_r2c_1d(n, in.data(), out, FFTW_ESTIMATE);
+
+    fftw_execute(p);
+
+    std::vector<Cplx> spec(n / 2 + 1);
+    for (int k = 0; k < n / 2 + 1; ++k) {
+        spec[k] = { out[k][0], out[k][1] };
+    }
+
+    fftw_destroy_plan(p);
+    fftw_free(out);
+    return spec;
 }
 
 std::vector<double> irfft(const std::vector<Cplx>& spec, int n)
 {
-    std::vector<Cplx> a(n);
-    a[0]   = spec[0];
-    a[n/2] = spec[n/2];
-    for (int i = 1; i < n/2; ++i) {
-        a[i]   = spec[i];
-        a[n-i] = std::conj(spec[i]);
-    }
-    fft_inplace(a, true);
     std::vector<double> out(n);
-    for (int i = 0; i < n; ++i) out[i] = a[i].real();
+
+    fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (n / 2 + 1));
+    for (int k = 0; k < n / 2 + 1; ++k) {
+        in[k][0] = spec[k].real();
+        in[k][1] = spec[k].imag();
+    }
+
+    fftw_plan p = fftw_plan_dft_c2r_1d(n, in, out.data(), FFTW_ESTIMATE);
+    fftw_execute(p);
+
+    for (int i = 0; i < n; ++i) out[i] /= n;
+
+    fftw_destroy_plan(p);
+    fftw_free(in);
     return out;
 }
 

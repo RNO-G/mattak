@@ -39,13 +39,17 @@ if (NOT DEFINED ROOTLESS)
   # Locate the ROOT package and defines a number of variables (e.g. ROOT_INCLUDE_DIRS)
   find_package(ROOT COMPONENTS Matrix Minuit)
 
+  # FFTW3 is shipped in the cvmfs environment
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(FFTW REQUIRED fftw3)
+
   if(ROOT_FOUND)
     message(STATUS "Found ROOT from: ${ROOT_INCLUDE_DIRS}")
     set(libname mattak)
     set(DICTNAME G__${libname})
 
     include(${ROOT_USE_FILE})
-    include_directories(${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR})
+    include_directories(${ROOT_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/src ${UTIL_INC_DIR} ${FFTW_INCLUDE_DIRS})
 
     option(LIBRNO_G_SUPPORT "Support for reading / converting from raw files." OFF)
 
@@ -133,10 +137,10 @@ if (NOT DEFINED ROOTLESS)
       include_directories(${UTIL_INC_DIR})
       include_directories(${LIBRNO_G_PATH}/src)
       include_directories(${LIBNUPHASE_PATH})
-      target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES})
+      target_link_libraries(${libname} ${RNO_G_LIB} ${ZLIB_LIBRARIES} ${ROOT_LIBRARIES} ${FFTW_LIBRARIES})
 
     else()
-      target_link_libraries(${libname} ${ROOT_LIBRARIES})
+      target_link_libraries(${libname} ${ROOT_LIBRARIES} ${FFTW_LIBRARIES})
     endif()
 
     set(BINSRCDIR prog)
