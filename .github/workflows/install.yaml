@@ -44,6 +44,10 @@ jobs:
       with:
         path: tests/benchmark.json
         key: benchmark-data
+    - name: Install FFTW3
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfftw3-dev
     - name: Test installation (ROOTless)
       run: |
         pip install -v .
