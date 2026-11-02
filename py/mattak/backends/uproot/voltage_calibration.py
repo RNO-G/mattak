@@ -201,8 +201,7 @@ class VoltageCalibration(object):
 
             channels = range(self.NUM_CHANNELS) if channel is None else [channel]
             for idx, ch in enumerate(channels):
-                # first residual for ch 0 .. 11, second for 12 .. 23
-                adc_samples[idx] = adc_samples[idx] + residuals[idx]
+                adc_samples[idx] = adc_samples[idx] + residuals[ch]
 
         if self.__caching_mode == "lookup":
             full_lookup_tables = self.get_lookup_table_per_adc(adc_samples, voltage)
