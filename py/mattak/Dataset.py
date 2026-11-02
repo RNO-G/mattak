@@ -192,6 +192,20 @@ class AbstractDataset(ABC):
     NUM_WF_SAMPLES = 2048
     NUM_CHANNELS = 24
 
+    @classmethod
+    def _normalize_channels(cls, channels : Optional[Union[int, Sequence[int]]]) -> Optional[List[int]]:
+        """ Convert a channel selection (None, int or sequence of int) to None or a list of channel ids. """
+        if channels is None:
+            return None
+
+        arr = numpy.atleast_1d(channels)
+        if arr.ndim != 1 or not len(arr) or not numpy.issubdtype(arr.dtype, numpy.integer):
+            raise ValueError(f"channels must be an int or a non-empty sequence of int, got {channels!r}")
+        if numpy.any((arr < 0) | (arr >= cls.NUM_CHANNELS)):
+            raise ValueError(f"channel ids must be in [0, {cls.NUM_CHANNELS - 1}], got {channels!r}")
+
+        return arr.tolist()
+
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
         Select entries to read out with wfs or eventInfo. Can either be a
@@ -409,9 +423,9 @@ class AbstractDataset(ABC):
             The file is still read for all channels, but the other channels are not copied
             (and not calibrated with the uproot backend). With a channel selection, the pyroot
             backend always yields independent arrays (also for ``copy=False``).
+            Raises a ValueError for channel ids outside [0, 23].
         """
-        if isinstance(channels, int):
-            channels = [channels]
+        channels = self._normalize_channels(channels)
 
         if start < 0:
             start += self.N()

@@ -321,13 +321,15 @@ class VoltageCalibration(object):
         return waveform_volt
 
 
-    def __call__(self, waveform_array : numpy.ndarray, starting_window : Union[float, int]) -> numpy.ndarray:
+    def __call__(self, waveform_array : numpy.ndarray, starting_window : Union[float, int],
+                 channels : Optional[List[int]] = None) -> numpy.ndarray:
         if self.__caching:
-            return self.calibrate(waveform_array, starting_window)
+            return self.calibrate(waveform_array, starting_window, channels=channels)
         else:
             return calibrate(
                 waveform_array, self.__cal_param, self.__cal_residuals_v,
-                self.__cal_residuals_adc, starting_window, upsampling=False)  # already upsampled
+                self.__cal_residuals_adc, starting_window, upsampling=False,  # already upsampled
+                channels=channels)
 
     def plot_ch(self, ax1=None, xs=numpy.linspace(-1000, 1000, 100), ch=0):
 
@@ -524,7 +526,8 @@ def calibrate(
         upsampling : bool = True,
         fit_min : float = -1.3, fit_max : float = 0.7, accuracy : float = 0.005,
         num_wf_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_WF_SAMPLES,
-        num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES
+        num_phys_samples : Optional[int] = mattak.Dataset.AbstractDataset.NUM_DIGI_SAMPLES,
+        channels : Optional[List[int]] = None
         ) -> numpy.ndarray:
     """
     The calibration function that transforms waveforms from ADC to voltage. Uses no caching
@@ -547,6 +550,8 @@ def calibrate(
         upper bound of original fit used on the bias scan
     accuracy : float
         nr of voltage steps in table of the calibration function
+    channels : list(int) (Default: None -> range(len(waveform_array)))
+        Channel ids of the rows of waveform_array (selects the calibration constants)
 
     Return
     ------
@@ -569,10 +574,11 @@ def calibrate(
         vsamples = vres[0]  # assuming the same for all channels
 
     for c, wf_channel in enumerate(waveform_array):
+        ch = c if channels is None else channels[c]
         starting_window_channel = starting_window[c]
         # Reordering the parameters to match the correct starting window
         # (calibration is done per sample)
-        param_channel = param[num_phys_samples * c : num_phys_samples * (c + 1)]
+        param_channel = param[num_phys_samples * ch : num_phys_samples * (ch + 1)]
 
         samples_idx = (128 * starting_window_channel + numpy.arange(num_wf_samples)) % num_wf_samples
         if starting_window_channel >= 16:
@@ -581,7 +587,7 @@ def calibrate(
         param_channel = param_channel[samples_idx]
         for s, (adc, p) in enumerate(zip(wf_channel, param_channel)):
             # discrete inverse
-            adcsamples = numpy.polyval(p[::-1], vsamples) + res[c]
+            adcsamples = numpy.polyval(p[::-1], vsamples) + res[ch]
             volt = numpy.interp(adc, adcsamples, vsamples, left = fit_min, right = fit_max)
             waveform_volt[c, s] = volt
 

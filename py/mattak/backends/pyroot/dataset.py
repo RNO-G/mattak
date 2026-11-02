@@ -288,7 +288,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
                 # evaluate the selectors first to not read the waveforms of rejected events
-                if evinfo is None or not numpy.all([selector(evinfo) for selector in selectors]):
+                if evinfo is None or not all(selector(evinfo) for selector in selectors):
                     continue
                 wfs = self._wfs(i, calibrated)
                 if skip_incomplete and wfs is None:

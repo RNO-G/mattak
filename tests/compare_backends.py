@@ -92,4 +92,45 @@ if __name__ == "__main__":
     assert not numpy.allclose(wfs_up_ref[0], wfs_up_ref[1]), \
         "Waveforms returned by uproot backend are identical"
 
+    # test the `channels` argument of iterate: the selected channels match those of a full read
+    # (in particular, the uproot backend calibrates them with the constants of the right channel)
+    channels = [13, 5]
+    wfs_sel = {}
+    for name, dset in (("pyroot", dset_pyroot), ("uproot", dset_uproot)):
+        wfs_full = numpy.array([wf for _, wf in dset.iterate(stop=5, calibrated=calibrated)])
+        wfs_sel[name] = numpy.array([wf for _, wf in dset.iterate(stop=5, calibrated=calibrated, channels=channels)])
+        assert numpy.all(wfs_sel[name] == wfs_full[:, channels]), \
+            f"{name}: iterate(channels=...) differs from the same channels of a full read"
+
+        for chs in (5, numpy.int64(5), (5,)):
+            wfs_one = numpy.array([wf for _, wf in dset.iterate(stop=5, calibrated=calibrated, channels=chs)])
+            assert numpy.all(wfs_one == wfs_full[:, [5]]), f"{name}: iterate(channels={chs!r}) failed"
+
+        for chs in ([24], [-1], [], [0.5]):
+            try:
+                next(dset.iterate(stop=5, channels=chs))
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"{name}: iterate(channels={chs!r}) should raise a ValueError")
+
+        # the selectors are evaluated before reading the waveforms: same result as filtering by hand
+        def selector(ev):
+            return ev.eventNumber % 2 == 0
+
+        wfs_selected = [(ev.eventNumber, wf) for ev, wf in dset.iterate(
+            stop=10, calibrated=calibrated, channels=channels, selectors=selector)]
+        wfs_by_hand = [(ev.eventNumber, wf) for ev, wf in dset.iterate(
+            stop=10, calibrated=calibrated, channels=channels) if selector(ev)]
+        assert len(wfs_selected) and len(wfs_selected) == len(wfs_by_hand), f"{name}: selectors failed"
+        for (n1, wf1), (n2, wf2) in zip(wfs_selected, wfs_by_hand):
+            assert n1 == n2 and numpy.all(wf1 == wf2), f"{name}: selectors failed"
+
+    if calibrated:
+        assert numpy.allclose(wfs_sel["pyroot"], wfs_sel["uproot"], rtol=0.001, atol=0.0001), \
+            "Backends return different waveforms for iterate(channels=...)"
+    else:
+        assert numpy.all(wfs_sel["pyroot"] == wfs_sel["uproot"]), \
+            "Backends return different waveforms for iterate(channels=...)"
+
     print("Successful")
