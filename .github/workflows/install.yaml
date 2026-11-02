@@ -68,7 +68,7 @@ jobs:
   root:
     runs-on: ubuntu-latest
     # official ROOT image: OS, compiler, python and ROOT match each other
-    container: ghcr.io/root-project/root:latest
+    container: rootproject/root:latest
     defaults:
       run:
         shell: bash
