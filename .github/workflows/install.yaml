@@ -7,7 +7,7 @@ on:
     - cron: '0 0 * * SUN'
 
 jobs:
-  build:
+  rootless:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,13 +19,10 @@ jobs:
     - name: Cache pip
       uses: actions/cache@v4
       with:
-        # This path is specific to Ubuntu
         path: ~/.cache/pip
-        # Look to see if there is a cache hit for the corresponding requirements file
-        key: ${{ runner.os }}-pip-${{ hashFiles('mattak/pyproject.toml') }}
+        key: ${{ github.job }}-pip-${{ hashFiles('pyproject.toml') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
-          ${{ runner.os }}-
+          ${{ github.job }}-pip-
     - name: Cache sample file
       id: cache-sample-file
       uses: actions/cache@v4
@@ -43,59 +40,93 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: tests/benchmark.json
-        key: benchmark-data
-    - name: Test installation (ROOTless)
+        key: benchmark-data-${{ github.job }}
+        # history from before the job split
+        restore-keys: benchmark-data
+    - name: Test installation
       run: |
         pip install -v .
-    - name: Read a sample file (ROOTless)
+    - name: Read a sample file
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --benchmark ${{ github.sha }}
-    - name: Calibrate a sample file (ROOTless)
+    - name: Calibrate a sample file
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
-    - name: Read incomplete data from headers (ROOTless)
+    - name: Read incomplete data from headers
       run: |
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend uproot --no-skip-incomplete --benchmark ${{ github.sha }}
-    - name: Cache ROOT
-      id: cache-root
+    - name: Benchmark against previous results
+      run: |
+        python3 tests/evaluate_benchmarks.py --benchmark-file tests/benchmark.json ${{ github.sha }}
+    - name: Export benchmark results (only on main)
+      if: ${{ github.ref == 'refs/heads/main'}}
+      uses: actions/cache/save@v4
+      with:
+        key: benchmark-data-${{ github.job }}
+        path: tests/benchmark.json
+
+  root:
+    runs-on: ubuntu-latest
+    # official ROOT image: OS, compiler, python and ROOT match each other
+    container: rootproject/root:latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python venv
+      # the image has no pip
+      run: |
+        apt-get update
+        apt-get install -y python3-pip python3-venv
+        python3 -m venv /opt/venv
+        echo "/opt/venv/bin" >> "$GITHUB_PATH"
+    - name: Cache pip
       uses: actions/cache@v4
       with:
-        path: root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
-        key: ${{ runner.os }}
-    - name: Download ROOT
-      if: steps.cache-root.outputs.cache-hit != 'true'
+        path: ~/.cache/pip
+        key: ${{ github.job }}-pip-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ github.job }}-pip-
+    - name: Cache sample file
+      id: cache-sample-file
+      uses: actions/cache@v4
+      with:
+        path: tests/data
+        key: test-data
+    - name: Download sample file
+      if: steps.cache-sample-file.outputs.cache-hit != 'true'
       run: |
-        wget https://root.cern/download/root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
-    - name: Install ROOT
+        wget https://rnog-data.zeuthen.desy.de/rnog_share/mattak_ci/station23.tar.gz
+        mkdir -p tests/data
+        tar -xavf station23.tar.gz -C tests/data/
+        ls -l tests/data/station23/run1144
+    - name: Get previous benchmark results
+      uses: actions/cache/restore@v4
+      with:
+        path: tests/benchmark.json
+        key: benchmark-data-${{ github.job }}
+        # history from before the job split
+        restore-keys: benchmark-data
+    - name: Test installation
       run: |
-        sudo apt-get update  # necessary (at least temporarily) to avoid "404  Not Found IP"-Error
-        sudo apt-get install dpkg-dev cmake g++ gcc binutils libx11-dev libxpm-dev libxft-dev libxext-dev python3 libssl-dev libafterimage0
-        tar -xzf root_v6.30.04.Linux-ubuntu22.04-x86_64-gcc11.4.tar.gz
-        source root/bin/thisroot.sh
-    - name: Test installation (ROOT)
-      run: |
-        source root/bin/thisroot.sh
         pip install -v .
-    - name: Read a sample file (ROOT)
+    - name: Read a sample file
       run: |
-        source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --benchmark ${{ github.sha }}
     - name: Calibrate a sample file
       run: |
-        source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --calibrate -vc tests/data/station23/run1144/volCalConsts_pol9_s23_1682353436-1682354903.root --benchmark ${{ github.sha }}
     - name: Read incomplete data from headers
       run: |
-        source root/bin/thisroot.sh
         python3 tests/test_dataset.py --station=0 --run=0 --data_dir=./tests/data/station23/run1144 --backend pyroot --no-skip-incomplete --benchmark ${{ github.sha }}
     - name: Read a sample file (all)
       run: |
-        source root/bin/thisroot.sh
         export RNO_G_DATA="$PWD/tests/data/"
         python3 tests/test_dataset_all.py
     - name: Compare backends
       run: |
-        source root/bin/thisroot.sh
         python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root
         python3 tests/compare_backends.py --station=0 --run=0 --data_dir tests/data/station23/run1144/ -vc tests/data/station23/run1144//volCalConsts_pol9_s23_1682353436-1682354903.root --calibrate
     - name: Benchmark against previous results
@@ -105,5 +136,5 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main'}}
       uses: actions/cache/save@v4
       with:
-        key: benchmark-data
+        key: benchmark-data-${{ github.job }}
         path: tests/benchmark.json
