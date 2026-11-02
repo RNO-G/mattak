@@ -236,6 +236,7 @@ mattak::VoltageCalibration::~VoltageCalibration()
   delete graphs;
 
   for (auto h : hist_resid) delete h;
+  for (auto g : graph_residAve) delete g;
 
 }
 static TString formula[1+mattak::max_voltage_calibration_fit_order] = {"pol0","pol1","pol2","pol3","pol4","pol5","pol6","pol7","pol8","pol9"};
@@ -509,6 +510,7 @@ void mattak::VoltageCalibration::recalculateFits(int order, double min, double m
 
     // Calculate the average ADC(V) residuals and make a TGraph for each channel
     TString graphNameTitle = TString::Format("aveResid_s%d_c%d_%d_%d", station_number, ichan, start_time, end_time);
+    delete graph_residAve[ichan];
     graph_residAve[ichan] = new TGraphErrors();
     graph_residAve[ichan]->SetNameTitle(graphNameTitle);
     graph_residAve[ichan]->SetTitle(graphNameTitle);
@@ -1071,9 +1073,8 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
     ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "You are probably using an old calibration file, please use one with the newest version of voltage calibration instead!");
     return false;
   }
-  TGraphErrors *p_aveResidGraph;
+  TGraphErrors *p_aveResidGraph = nullptr;
   if (aveResidGraph_tree->SetBranchAddress("aveResidGraph", &p_aveResidGraph) < 0) return false;
-  aveResidGraph_tree->GetEntry(0);
 
   TTree *chisqValidation_tree = (TTree*)inputFile->Get("chisqValidation_tree");
   if (!chisqValidation_tree) return false;
@@ -1173,13 +1174,25 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
       isBadFit = true;
     }
 
-    // Average residuals for each channel
+    // Average residuals for each channel; reset so ROOT allocates a new graph per entry
+    p_aveResidGraph = nullptr;
+    if (aveResidGraph_tree->GetEntry(iChan) <= 0 || !p_aveResidGraph)
+    {
+      ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "Could not read the average residual graph of CH%d!", iChan);
+      return false;
+    }
+    delete graph_residAve[iChan];
     graph_residAve[iChan] = p_aveResidGraph;
 
     if (fit_isUsingResid)
     {
       // Interpolating the average residuals
       int npoints_residGraph = graph_residAve[iChan]->GetN();
+      if (npoints_residGraph < 2)  // e.g. channel masked in recalculateFits
+      {
+        ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "The average residual graph of CH%d has %d points (need >= 2)!", iChan, npoints_residGraph);
+        return false;
+      }
       graph_residAve[iChan]->SetBit(TGraph::kIsSortedX);  // We can do that because our data are sorted. Makes later Eval calls faster
       const double dV = graph_residAve[iChan]->GetPointX(1) - graph_residAve[iChan]->GetPointX(0);
       resid_volt[iChan].resize(npoints_residGraph * 2 - 1);
