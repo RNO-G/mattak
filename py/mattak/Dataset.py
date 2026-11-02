@@ -4,7 +4,7 @@ import glob
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar
+from typing import Sequence, Union, Tuple, Optional, Generator, Callable, TypeVar, List
 import numpy
 import logging
 import warnings
@@ -192,6 +192,20 @@ class AbstractDataset(ABC):
     NUM_WF_SAMPLES = 2048
     NUM_CHANNELS = 24
 
+    @classmethod
+    def _normalize_channels(cls, channels : Optional[Union[int, Sequence[int]]]) -> Optional[List[int]]:
+        """ Convert a channel selection (None, int or sequence of int) to None or a list of channel ids. """
+        if channels is None:
+            return None
+
+        arr = numpy.atleast_1d(channels)
+        if arr.ndim != 1 or not len(arr) or not numpy.issubdtype(arr.dtype, numpy.integer):
+            raise ValueError(f"channels must be an int or a non-empty sequence of int, got {channels!r}")
+        if numpy.any((arr < 0) | (arr >= cls.NUM_CHANNELS)):
+            raise ValueError(f"channel ids must be in [0, {cls.NUM_CHANNELS - 1}], got {channels!r}")
+
+        return arr.tolist()
+
     def setEntries(self, i : Union[int, Tuple[int, int]]):
         """
         Select entries to read out with wfs or eventInfo. Can either be a
@@ -354,7 +368,7 @@ class AbstractDataset(ABC):
     def _iterate(self, start: int , stop : int , calibrated: bool, max_entries_in_mem: int,
                  selectors: Optional[Union[Callable[[EventInfo], bool],
                                            Sequence[Callable[[EventInfo], bool]]]],
-                 copy : bool = True) \
+                 copy : bool = True, channels : Optional[List[int]] = None) \
                  -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """ Implementation-defined part of the iterator. See `iterate` for the meaning of the arguments. """
         pass
@@ -364,7 +378,8 @@ class AbstractDataset(ABC):
             calibrated: bool = False, max_entries_in_mem : int = 256,
             selectors: Optional[Union[Callable[[EventInfo], bool], Sequence[Callable[[EventInfo], bool]]]] = None,
             override_skip_incomplete : Optional[bool] = None,
-            copy : bool = True) \
+            copy : bool = True,
+            channels : Optional[Union[int, List[int]]] = None) \
                 -> Generator[Tuple[Optional[EventInfo], Optional[numpy.ndarray]], None, None]:
         """
         Iterate over events from start to stop, holding at most max_entries_in_mem in RAM.
@@ -402,7 +417,18 @@ class AbstractDataset(ABC):
             content will change while iterating. Only set this to False if you process
             each waveform immediately and care about the (small) performance gain.
             The uproot backend ignores this argument, it always yields independent arrays.
+
+        channels : int or list(int) (Default: None)
+            If not None, yield only the waveforms of these channels (in the given order).
+            The file is still read for all channels, but the other channels are not copied
+            (and not calibrated with the uproot backend). With a channel selection, the pyroot
+            backend always yields independent arrays (also for ``copy=False``).
+            Raises a ValueError for channel ids outside [0, 23].
         """
+        channels = self._normalize_channels(channels)
+        if callable(selectors):
+            selectors = [selectors]
+
         if start < 0:
             start += self.N()
 
@@ -419,7 +445,8 @@ class AbstractDataset(ABC):
             return
 
         yield from self._iterate(start, stop, calibrated, max_entries_in_mem, selectors,
-                                 override_skip_incomplete=override_skip_incomplete, copy=copy)
+                                 override_skip_incomplete=override_skip_incomplete, copy=copy,
+                                 channels=channels)
 
     @abstractmethod
     def eventInfo(self) -> Union[Optional[EventInfo], Sequence[Optional[EventInfo]]]:
