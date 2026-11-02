@@ -426,6 +426,8 @@ class AbstractDataset(ABC):
             Raises a ValueError for channel ids outside [0, 23].
         """
         channels = self._normalize_channels(channels)
+        if callable(selectors):
+            selectors = [selectors]
 
         if start < 0:
             start += self.N()

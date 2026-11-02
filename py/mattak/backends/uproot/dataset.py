@@ -473,23 +473,22 @@ class Dataset(mattak.Dataset.AbstractDataset):
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
         channels = self._normalize_channels(channels)
-        w, starting_window = self._read_wfs(calibrated, channels, override_skip_incomplete)
+        w, starting_window = self._read_wfs(channels, override_skip_incomplete)
         if w is None:
             return None
 
-        if calibrated:
-            w = self._calibrate(w, starting_window, channels)
-
-        w = numpy.asarray(w, dtype=float)
+        w = self._process_wfs(w, starting_window, calibrated, channels)
         return w if self.multiple else w[0]
 
-    def _calibrate(self, w : numpy.ndarray, starting_window : numpy.ndarray,
-                   channels : Optional[List[int]]) -> numpy.ndarray:
-        """ Calibrate waveforms of shape (n_events, n_channels, n_samples) (see `_read_wfs`). """
-        # this can run now both normal and raw calibration
-        return numpy.array([self.vc(ele, sw, channels=channels) for ele, sw in zip(w, starting_window)])
+    def _process_wfs(self, w : numpy.ndarray, starting_window : numpy.ndarray, calibrated : bool,
+                     channels : Optional[List[int]]) -> numpy.ndarray:
+        """ Calibrate (if requested) the output of `_read_wfs` and cast it to float. """
+        if calibrated:
+            # this can run now both normal and raw calibration
+            w = [self.vc(ele, sw, channels=channels) for ele, sw in zip(w, starting_window)]
+        return numpy.asarray(w, dtype=float)
 
-    def _read_wfs(self, calibrated : bool, channels : Optional[List[int]],
+    def _read_wfs(self, channels : Optional[List[int]],
                   override_skip_incomplete : Optional[bool]) -> Tuple[Optional[numpy.ndarray], Optional[numpy.ndarray]]:
         """
         Read the uncalibrated waveforms (n_events, n_channels, n_samples) and start windows
@@ -531,7 +530,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
                     w = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                     starting_window = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                 else:
-                    w = numpy.empty((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='float64' if calibrated else 'int16')
+                    w = numpy.empty((self.last - self.first, self.NUM_CHANNELS, self.NUM_WF_SAMPLES), dtype='int16')
                     starting_window = numpy.empty((self.last - self.first, self.NUM_CHANNELS, 2))
                     w[wf_idxs] = self._get_waveforms(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
                     starting_window[wf_idxs] = self._get_windows(dict(entry_start=wf_start, entry_stop=wf_end, library='np'))
@@ -571,9 +570,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
         if calibrated and not self.has_calib:
             raise ValueError("You requested a calibrated waveform but no calibration is available")
 
-        if not isinstance(selectors, (list, numpy.ndarray)) and selectors is not None:
-            selectors = [selectors]
-
         for i_batch in range(n_batches):
 
             # looping over the batches defining the start and stop index
@@ -584,13 +580,13 @@ class Dataset(mattak.Dataset.AbstractDataset):
             # load events from file; evaluate the selectors first to only read
             # (and calibrate) the waveforms of selected events
             es = self.eventInfo(override_skip_incomplete=override_skip_incomplete)
-            selected = None
             if selectors is not None:
-                selected = [all(selector(e) for selector in selectors) for e in es]
+                selected = numpy.array([all(selector(e) for selector in selectors) for e in es], dtype=bool)
+                es = [e for e, sel in zip(es, selected) if sel]
 
-            wfs = starting_windows = None
-            if selected is None or any(selected):
-                wfs, starting_windows = self._read_wfs(calibrated, channels, override_skip_incomplete)
+            wfs = None
+            if len(es):
+                wfs, starting_windows = self._read_wfs(channels, override_skip_incomplete)
 
             # we modified the internal data pointers with the prev. call of self.setEntries(...)
             # this is intransparent for the outside world and has to be reverted
@@ -600,9 +596,7 @@ class Dataset(mattak.Dataset.AbstractDataset):
             if wfs is None:
                 continue
 
-            for i, (e, w) in enumerate(zip(es, wfs)):
-                if selected is not None and not selected[i]:
-                    continue
-                if calibrated:
-                    w = self._calibrate(w[None], starting_windows[i][None], channels)[0]
-                yield e, numpy.asarray(w, dtype=float)
+            if selectors is not None:
+                wfs, starting_windows = wfs[selected], starting_windows[selected]
+
+            yield from zip(es, self._process_wfs(wfs, starting_windows, calibrated, channels))

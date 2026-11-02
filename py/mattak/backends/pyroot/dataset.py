@@ -282,9 +282,6 @@ class Dataset(mattak.Dataset.AbstractDataset):
             return numpy.array(wfs, dtype=float)
 
         if selectors is not None:
-            if not isinstance(selectors, (list, numpy.ndarray)):
-                selectors = [selectors]
-
             for i in range(start, stop):
                 evinfo = self._eventInfo(i)
                 # evaluate the selectors first to not read the waveforms of rejected events
