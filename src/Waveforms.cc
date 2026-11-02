@@ -1,4 +1,5 @@
 #include "mattak/Waveforms.h"
+#include <cmath>
 #include "TStyle.h"
 #include "TPad.h"
 #include "TCanvas.h"
