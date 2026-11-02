@@ -1071,7 +1071,7 @@ bool mattak::VoltageCalibration::readFitCoeffsFromFile(TFile * inputFile, bool c
     ::Error("mattak::VoltageCalibration::readFitCoeffsFromFile", "You are probably using an old calibration file, please use one with the newest version of voltage calibration instead!");
     return false;
   }
-  TGraphErrors *p_aveResidGraph;
+  TGraphErrors *p_aveResidGraph = nullptr;
   if (aveResidGraph_tree->SetBranchAddress("aveResidGraph", &p_aveResidGraph) < 0) return false;
   aveResidGraph_tree->GetEntry(0);
 
